@@ -1,0 +1,24 @@
+# Next.js
+project_canvas/.next/
+project_canvas/out/
+
+# 의존성
+project_canvas/node_modules/
+node_modules/
+
+# 환경변수 (API Key 포함)
+project_canvas/.env.local
+project_canvas/.env*.local
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
