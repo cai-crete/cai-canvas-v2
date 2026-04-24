@@ -1,6 +1,0 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "cd project_canvas && npm run build",
-  "installCommand": "cd project_canvas && npm install",
-  "outputDirectory": "project_canvas/.next"
-}
