@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
 
-const MODEL_ANALYSIS          = 'gemini-3.1-pro-preview';
-const MODEL_IMAGE_GEN         = 'gemini-3.1-flash-image-preview';
-const MODEL_ANALYSIS_FALLBACK  = 'gemini-2.5-pro-preview';
+const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
+const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
+const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
 const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
-const TIMEOUT_ANALYSIS  = 120000;
+const TIMEOUT_ANALYSIS = 120000;
 const TIMEOUT_IMAGE_GEN = 180000;
 
-const MAX_IMAGE_BYTES    = 10 * 1024 * 1024;
-const MAX_PROMPT_LENGTH  = 2000;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_PROMPT_LENGTH = 2000;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
 
   const {
     sketch_image,
-    mime_type   = 'image/png',
+    mime_type = 'image/png',
     user_prompt = '',
-    floor_type  = 'RESIDENTIAL',
+    floor_type = 'RESIDENTIAL',
     grid_module = 4000,
   } = body;
 
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
 
   let systemPrompt: string;
   try {
-    const protocol           = loadProtocolFile('protocol-sketch-to-plan-v3.8.txt');
-    const knowledgeWpGrid    = loadProtocolFile('knowledge-wp-grid-mapping.txt');
-    const knowledgeArchStd   = loadProtocolFile('knowledge-architectural-standards.txt');
+    const protocol = loadProtocolFile('protocol-sketch-to-plan-v3.8.txt');
+    const knowledgeWpGrid = loadProtocolFile('knowledge-wp-grid-mapping.txt');
+    const knowledgeArchStd = loadProtocolFile('knowledge-architectural-standards.txt');
     const knowledgeTemplateA = loadProtocolFile('knowledge-template-a.txt');
     systemPrompt = buildSystemPrompt(protocol, [knowledgeWpGrid, knowledgeArchStd, knowledgeTemplateA]);
   } catch (err) {
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     const rawJson = jsonFenced?.[1] ?? jsonInline?.[0];
     if (rawJson) {
       const jsonStart = rawJson.indexOf('{');
-      const jsonEnd   = rawJson.lastIndexOf('}');
+      const jsonEnd = rawJson.lastIndexOf('}');
       if (jsonStart !== -1 && jsonEnd !== -1) {
         try {
           analysisSpec = JSON.parse(rawJson.slice(jsonStart, jsonEnd + 1));
@@ -204,12 +204,12 @@ export async function POST(req: NextRequest) {
         TIMEOUT_IMAGE_GEN
       ).then(r => {
         const parts = r.response.candidates?.[0]?.content?.parts ?? [];
-        const imgPart  = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+        const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
         const textPart = parts.find(p => typeof p.text === 'string' && p.text.trim().length > 0);
         if (!imgPart?.inlineData?.data) throw new Error('No image in generation response');
         return {
           image: imgPart.inlineData.data,
-          text:  textPart?.text ?? '',
+          text: textPart?.text ?? '',
         };
       });
     };
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
     );
 
     generatedImageBase64 = result.image;
-    roomAnalysisText     = result.text;
+    roomAnalysisText = result.text;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Image generation failed:', msg);
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     generated_plan_image: generatedImageBase64,
-    room_analysis:        roomAnalysisText,
-    analysis_spec:        analysisSpec,
+    room_analysis: roomAnalysisText,
+    analysis_spec: analysisSpec,
   });
 }

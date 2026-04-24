@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 60; // Vercel Timeout 60초로 연장 (Pro plan 기준)
+export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
 
 const VALID_VIEWPOINTS = ['aerial', 'street', 'quarter', 'detail'] as const;
 type Viewpoint = (typeof VALID_VIEWPOINTS)[number];
 
-const MAX_IMAGE_BYTES   = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PROMPT_LENGTH = 2000;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const {
     image_base64,
-    mime_type   = 'image/png',
+    mime_type = 'image/png',
     viewpoint,
     user_prompt = '',
   } = body;
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
   }
 
   const imageBlob = new Blob([imageBuffer], { type: mimeTypeLower });
-  const formData  = new FormData();
-  formData.append('image',     imageBlob, 'image.png');
+  const formData = new FormData();
+  formData.append('image', imageBlob, 'image.png');
   formData.append('viewpoint', viewpoint);
   if (user_prompt) {
     formData.append('feedback', user_prompt);
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   try {
     upstreamRes = await fetch(`${apiUrl}/api/generate`, {
       method: 'POST',
-      body:   formData,
+      body: formData,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
   if (!upstreamRes.ok) {
     const text = await upstreamRes.text().catch(() => '');
     console.error(`Viewpoint backend error ${upstreamRes.status}:`, text);
-    
+
     // 업스트림에서 413이 발생한 경우 (v5 서버의 제한)
     if (upstreamRes.status === 413) {
       return NextResponse.json(
@@ -120,6 +120,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     generated_image: imageDataUrl,
-    analysis:        upstreamData.analysis ?? '',
+    analysis: upstreamData.analysis ?? '',
   });
 }

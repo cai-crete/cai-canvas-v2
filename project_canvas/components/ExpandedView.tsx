@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { CanvasNode, NodeType, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings } from '@/types/canvas';
+import { CanvasNode, NodeType, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings, PlannerMessage, SavedInsightData } from '@/types/canvas';
 import LeftToolbar from '@/components/LeftToolbar';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchToImageExpandedView from '@/sketch-to-image/ExpandedView';
 import SketchToPlanExpandedView from '@/sketch-to-plan/ExpandedView';
+import PlannersPanel from '@/planners/PlannersPanel';
+import { PlannersInsightPanel } from '@/components/panels/PlannersInsightPanel';
+import type { FetchLawsResult } from '@/planners/lib/lawApi';
 
 interface Props {
   node: CanvasNode;
@@ -30,6 +33,10 @@ interface Props {
   onGeneratePlanComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
+  onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
+  onInsightDataChange?: (data: FetchLawsResult | null) => void;
+  initialInsightData?: SavedInsightData | null;
+  onCadastralDataReceived?: (pnu: string | null, landCount: number) => void;
 }
 
 /* ── SketchInfiniteGrid (sketch/blank 아트보드용) ───────────────── */
@@ -130,11 +137,16 @@ export default function ExpandedView({
   onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomReset,
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
   isGenerating = false,
+  onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
   const isSketchImageMode = node.artboardType === 'sketch' && node.type === 'image';
   const isSketchPlanMode  = node.artboardType === 'sketch' && node.type === 'plan';
   const isSketchMode      = node.artboardType === 'sketch' || node.artboardType === 'blank';
+
+  const [insightData, setInsightData] = useState<FetchLawsResult | null>(
+    (initialInsightData as FetchLawsResult | null) ?? null
+  );
 
   /* ── sketch-to-image 전용 뷰 ────────────────────────────────────── */
   if (isSketchImageMode) {
@@ -163,6 +175,54 @@ export default function ExpandedView({
         onGeneratingChange={onGeneratingChange}
         isGenerating={isGenerating}
       />
+    );
+  }
+
+  /* ── planners 전용 뷰 ───────────────────────────────────────────── */
+  if (node.type === 'planners') {
+    return (
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
+        <div style={{ flex: 1, overflow: 'hidden', marginRight: 'calc(var(--sidebar-w) + 2rem)' }}>
+          <PlannersPanel
+            initialMessages={node.plannerMessages as never}
+            onMessagesChange={(msgs) => onPlannerMessagesChange?.(msgs as PlannerMessage[])}
+            onInsightDataUpdate={(data) => {
+              setInsightData(data);
+              onInsightDataChange?.(data);
+            }}
+            onCadastralDataReceived={onCadastralDataReceived}
+          />
+        </div>
+        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse}>
+          <PlannersInsightPanel apiInsightData={insightData} />
+        </ExpandedSidebar>
+      </div>
+    );
+  }
+
+  /* ── 지적도 전용 뷰 ─────────────────────────────────────────────── */
+  if (node.type === 'cadastral') {
+    const pnu = node.cadastralPnu ?? null;
+    const iframeSrc = pnu
+      ? `https://www.eum.go.kr/web/ar/lu/luLandUseIndex.jsp?pnu=${pnu}`
+      : null;
+    return (
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)' }}>
+        <div style={{ position: 'absolute', inset: 0, right: 'calc(var(--sidebar-w) + 2rem)' }}>
+          {iframeSrc ? (
+            <iframe
+              src={iframeSrc}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title="토지이음 지적도"
+            />
+          ) : (
+            <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="text-body-3" style={{ color: 'var(--color-gray-300)' }}>PNU 코드가 없습니다</span>
+            </div>
+          )}
+        </div>
+        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
+      </div>
     );
   }
 

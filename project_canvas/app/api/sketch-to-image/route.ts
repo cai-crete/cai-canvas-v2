@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
 
-const MODEL_ANALYSIS          = 'gemini-3.1-pro-preview';
-const MODEL_IMAGE_GEN         = 'gemini-3.1-flash-image-preview';
-const MODEL_ANALYSIS_FALLBACK  = 'gemini-2.5-pro-preview';
+const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
+const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
+const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
 const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
-const TIMEOUT_ANALYSIS  = 90000;
+const TIMEOUT_ANALYSIS = 90000;
 const TIMEOUT_IMAGE_GEN = 120000;
 
-const MAX_IMAGE_BYTES   = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PROMPT_LENGTH = 2000;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
@@ -69,11 +69,11 @@ export async function POST(req: NextRequest) {
 
   const {
     sketch_image,
-    mime_type    = 'image/png',
-    user_prompt  = '',
-    viz_mode     = 'CONCEPT',
-    style_mode   = 'NONE',
-    resolution   = 'NORMAL QUALITY',
+    mime_type = 'image/png',
+    user_prompt = '',
+    viz_mode = 'CONCEPT',
+    style_mode = 'NONE',
+    resolution = 'NORMAL QUALITY',
     aspect_ratio = '4:3',
   } = body;
 
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
     const rawJson = jsonFenced?.[1] ?? jsonInline?.[0];
     if (rawJson) {
       const jsonStart = rawJson.indexOf('{');
-      const jsonEnd   = rawJson.lastIndexOf('}');
+      const jsonEnd = rawJson.lastIndexOf('}');
       if (jsonStart !== -1 && jsonEnd !== -1) {
         analysisSpec = JSON.parse(rawJson.slice(jsonStart, jsonEnd + 1));
       }

@@ -74,7 +74,7 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 4;
 
 /* 아트보드 미선택 상태에서 탭 클릭 시 바로 expand 진입하는 노드 */
-const DIRECT_EXPAND_NODES: NodeType[] = ['image', 'plan'];
+const DIRECT_EXPAND_NODES: NodeType[] = ['image', 'plan', 'planners'];
 
 type ActiveTool = 'cursor' | 'handle';
 

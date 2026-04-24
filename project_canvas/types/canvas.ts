@@ -26,7 +26,8 @@ export type NodeType =
   | 'viewpoint'
   | 'diagram'
   | 'print'
-  | 'sketch';
+  | 'sketch'
+  | 'cadastral'; // 지적도 — VWorld 결과 수신 시 자동 생성
 
 /* 아트보드 컨테이너 유형 */
 export type ArtboardType = 'blank' | 'sketch' | 'image' | 'thumbnail';
@@ -39,6 +40,52 @@ export interface SketchPanelSettings {
   style: string | null;
   aspectRatio: string | null;
   resolution: string;
+}
+
+export type PlannerMessage =
+  | { type: 'user'; text: string }
+  | { type: 'ai'; data: Record<string, unknown> };
+
+/* Insight 데이터 직렬화 가능 구조 (FetchLawsResult와 동일 형태) */
+export interface SavedInsightData {
+  formatted: string;
+  categorized: {
+    law: Array<{
+      source: string;
+      lawName: string;
+      articleTitle: string;
+      content: string;
+      [key: string]: unknown;
+    }>;
+    building: Array<{
+      source: string;
+      lawName: string;
+      articleTitle: string;
+      content: string;
+      [key: string]: unknown;
+    }>;
+    land: Array<{
+      source: string;
+      lawName: string;
+      articleTitle: string;
+      content: string;
+      [key: string]: unknown;
+    }>;
+  };
+  pnu: string | null;
+  landCharacteristics?: {
+    landArea: string | null;
+    landCategory: string | null;
+    terrain: string | null;
+    roadFrontage: string | null;
+  } | null;
+  parkingOrdinance?: Array<{
+    source: string;
+    lawName: string;
+    articleTitle: string;
+    content: string;
+    [key: string]: unknown;
+  }>;
 }
 
 export interface PlanPanelSettings {
@@ -70,6 +117,9 @@ export interface CanvasNode {
   viewpointAnalysis?: string;                      // 생성 후 시점 분석 텍스트
   parentId?: string;    // 파생 출처 노드 id
   autoPlaced?: boolean; // Auto Layout 배치 노드 (수동 드래그 시 false로 전환)
+  plannerMessages?: PlannerMessage[];
+  plannerInsightData?: SavedInsightData; // Insight 패널 데이터 (재진입 시 복원용)
+  cadastralPnu?: string;                 // 지적도 노드 전용 — VWorld PNU 코드
 }
 
 export interface CanvasViewport {
@@ -86,6 +136,7 @@ export const NODE_DEFINITIONS: Record<NodeType, { label: string; displayLabel: s
   diagram:   { label: 'PLAN TO DIAGRAM',    displayLabel: 'DIAGRAM',    caption: 'Plan to Diagram' },
   print:     { label: 'PRINT',              displayLabel: 'PRINT',      caption: 'Print' },
   sketch:    { label: 'SKETCH',             displayLabel: 'SKETCH',     caption: 'Sketch Artboard' },
+  cadastral: { label: '지적도',              displayLabel: '지적도',      caption: '지적도' },
 };
 
 export const NODE_ORDER: NodeType[] = [
@@ -108,10 +159,11 @@ export const NODE_TO_ARTBOARD_TYPE: Partial<Record<NodeType, ArtboardType>> = {
   diagram:   'image',
   print:     'thumbnail',
   planners:  'thumbnail',
+  cadastral: 'image',
 };
 
 /* 아트보드 선택 + 탭 클릭 시 expand 진입하는 노드 */
-export const NODES_THAT_EXPAND: NodeType[] = ['image', 'plan', 'print', 'planners'];
+export const NODES_THAT_EXPAND: NodeType[] = ['image', 'plan', 'print', 'planners', 'cadastral'];
 
 /* 아트보드 유형 배지 레이블 */
 export const ARTBOARD_LABEL: Record<Exclude<ArtboardType, 'blank'>, string> = {

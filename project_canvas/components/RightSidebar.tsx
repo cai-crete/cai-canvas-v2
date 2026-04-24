@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   NodeType, NODE_DEFINITIONS, NODE_ORDER, ArtboardType,
   ARTBOARD_COMPATIBLE_NODES, NODES_NAVIGATE_DISABLED,
-  PANEL_CTA_MESSAGE, DISABLED_TAB_MESSAGE, ViewpointPanelSettings,
+  PANEL_CTA_MESSAGE, DISABLED_TAB_MESSAGE, ViewpointPanelSettings, PlannerMessage,
 } from '@/types/canvas';
 import ChangeViewpointPanel from '@/components/panels/ChangeViewpointPanel';
 
@@ -21,6 +21,8 @@ interface Props {
   onViewpointGenerate?: () => void;
   isViewpointGenerating?: boolean;
   viewpointAnalysis?: string;
+  // planners 전용
+  plannerMessages?: PlannerMessage[];
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -30,6 +32,59 @@ const IconChevronDown = () => <svg viewBox="0 0 20 20" {...IC}><polyline points=
 const IconNavigate    = () => (
   <svg viewBox="0 0 20 20" {...IC}><path d="M4 10H16M11 5L16 10L11 15" /></svg>
 );
+
+function extractFirstLine(text: string): string {
+  return text.split('\n').find(l => l.trim().length > 0) ?? '';
+}
+
+function parseShortFinal(data: Record<string, unknown>): string {
+  const raw = data?.short_final ?? data?.final ?? data?.summary ?? '';
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function PlannerReportPanel({ messages }: { messages: PlannerMessage[] }) {
+  const aiMessages = messages.filter(m => m.type === 'ai') as Array<{ type: 'ai'; data: Record<string, unknown> }>;
+
+  if (aiMessages.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '1.5rem 1rem', gap: '0.5rem' }}>
+        <span className="text-title" style={{ fontSize: '0.75rem', color: 'var(--color-gray-300)', letterSpacing: '0.08em' }}>PLANNERS</span>
+        <span style={{ display: 'block', width: 28, height: 1, background: 'var(--color-gray-200)' }} />
+        <span className="text-caption" style={{ color: 'var(--color-gray-300)', textAlign: 'center' }}>
+          기획서를 생성하려면<br />PLANNERS를 열어 대화를 시작하세요
+        </span>
+      </div>
+    );
+  }
+
+  const lastAi = aiMessages[aiMessages.length - 1];
+  const reportText = parseShortFinal(lastAi.data);
+  const previewLine = extractFirstLine(reportText);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div style={{ padding: '0.875rem 1rem 0.75rem', borderBottom: '1px solid var(--color-gray-100)', flexShrink: 0 }}>
+        <span className="text-title" style={{ fontSize: '0.7rem', color: 'var(--color-gray-400)', letterSpacing: '0.08em' }}>기획서 미리보기</span>
+      </div>
+      <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+        {previewLine ? (
+          <p className="text-body-3" style={{ color: 'var(--color-gray-700)', margin: 0, lineHeight: 1.6 }}>
+            {previewLine}
+          </p>
+        ) : (
+          <p className="text-caption" style={{ color: 'var(--color-gray-300)', margin: 0 }}>
+            기획서를 생성하면 미리보기가 표시됩니다
+          </p>
+        )}
+        <div style={{ marginTop: '0.75rem' }}>
+          <span className="text-caption" style={{ color: 'var(--color-gray-300)' }}>
+            AI 응답 {aiMessages.length}건
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function NodePanel({
   type, onGenerate, hasSelectedArtboard, onShowToast,
@@ -99,6 +154,7 @@ export default function RightSidebar({
   viewpointPanelSettings, onViewpointSettingsChange,
   onViewpointGenerate, isViewpointGenerating,
   viewpointAnalysis,
+  plannerMessages,
 }: Props) {
   const [accordionOpen, setAccordionOpen] = useState(true);
 
@@ -167,6 +223,7 @@ export default function RightSidebar({
   ══════════════════════════════════════════════════════════════ */
   if (isPanelMode) {
     const isViewpoint = activeSidebarNodeType === 'viewpoint';
+    const isPlanners  = activeSidebarNodeType === 'planners';
 
     return (
       <div style={{ ...area, overflowY: 'hidden' }}>
@@ -243,6 +300,8 @@ export default function RightSidebar({
                 onViewpointGenerate?.();
               }}
             />
+          ) : isPlanners ? (
+            <PlannerReportPanel messages={plannerMessages ?? []} />
           ) : (
             <NodePanel
               type={activeSidebarNodeType!}
