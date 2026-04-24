@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 
 // ── 모델 설정 ─────────────────────────────────────────────────────────────────
 const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
-const MODEL_ANALYSIS_FALLBACK = 'gemini-3.1-flash-image-preview';
-const MODEL_IMAGE_GEN = 'gemini-2.5-pro-preview';
+const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
+const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
 const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
 
 const TIMEOUT_ANALYSIS = 120000;
