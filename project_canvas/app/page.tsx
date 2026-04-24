@@ -7,6 +7,7 @@ import {
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
   NODE_DEFINITIONS, COL_GAP_PX, SketchPanelSettings, PlanPanelSettings, ViewpointPanelSettings,
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
+  PlannerMessage, SavedInsightData,
 } from '@/types/canvas';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
@@ -99,6 +100,10 @@ export default function CanvasPage() {
   const edgesRef = useRef<CanvasEdge[]>([]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
+  /* ── planners expand 중 실시간 데이터 ref ───────────────────────── */
+  const plannerMessagesRef    = useRef<PlannerMessage[]>([]);
+  const plannerInsightDataRef = useRef<SavedInsightData | null>(null);
+
   /* ── localStorage 복원 완료 플래그 (persist effect 선실행 방지) ─── */
   const isRestoredRef = useRef(false);
 
@@ -110,6 +115,18 @@ export default function CanvasPage() {
   const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
   const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
+
+  /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
+  useEffect(() => {
+    if (!expandedNodeId) return;
+    const node = nodes.find(n => n.id === expandedNodeId);
+    if (node?.type === 'planners') {
+      plannerMessagesRef.current    = node.plannerMessages ?? [];
+      plannerInsightDataRef.current = node.plannerInsightData ?? null;
+    }
+  // expandedNodeId 변경 시에만 초기화 (nodes 변경마다 리셋하면 안 됨)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedNodeId]);
 
   /* ── 생성 상태 ──────────────────────────────────────────────────── */
   const [isGenerating,    setIsGenerating]    = useState(false);
@@ -335,19 +352,54 @@ export default function CanvasPage() {
     reader.readAsDataURL(file);
   }, [nodes, offset, scale, pushHistory]);
 
-  /* ── expand에서 돌아올 때 썸네일 생성 */
+  /* ── planners: 지적도 노드 자동 생성 ────────────────────────────── */
+  const handleCadastralDataReceived = useCallback((pnu: string | null, _landCount: number) => {
+    if (!expandedNodeId || !pnu) return;
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const existing = currentNodes.filter(n => n.type === 'cadastral');
+    const num = existing.length + 1;
+    const newId = generateId();
+    const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+    const newNode: CanvasNode = {
+      id: newId, type: 'cadastral',
+      title: `지적도 #${num}`,
+      position, instanceNumber: num, hasThumbnail: false, artboardType: 'image',
+      parentId: expandedNodeId, autoPlaced: true,
+      cadastralPnu: pnu,
+    };
+    let nextNodes = [...currentNodes, newNode];
+    if (pushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = pushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+    const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
+    pushHistory(nextNodes, [...currentEdges, newEdge]);
+  }, [expandedNodeId, nodes, pushHistory]);
+
+  /* ── expand에서 돌아올 때 썸네일 생성 + planners 데이터 flush */
   const handleReturnFromExpand = useCallback(() => {
     if (!expandedNodeId) { setExpandedNodeId(null); return; }
     const node = nodes.find(n => n.id === expandedNodeId);
     const isSketchImage = node?.artboardType === 'sketch' && node?.type === 'image';
     const isSketchPlan  = node?.artboardType === 'sketch' && node?.type === 'plan';
+    const isPlanners    = node?.type === 'planners';
 
     if (!isSketchImage && !isSketchPlan) {
+      const msgs        = plannerMessagesRef.current;
+      const insightData = plannerInsightDataRef.current;
       setNodes(prev => {
         const next = prev.map(n => {
           if (n.id !== expandedNodeId) return n;
           const targetArtboardType = NODE_TARGET_ARTBOARD_TYPE[n.type] || n.artboardType;
-          return { ...n, hasThumbnail: true, artboardType: targetArtboardType };
+          const updates: Partial<CanvasNode> = { hasThumbnail: true, artboardType: targetArtboardType };
+          if (isPlanners) {
+            if (msgs.length > 0)  updates.plannerMessages    = msgs;
+            if (insightData)      updates.plannerInsightData = insightData;
+          }
+          return { ...n, ...updates };
         });
         setHistory(h => [...h.slice(0, historyIndex + 1), { nodes: next, edges: edgesRef.current }]);
         setHistoryIndex(i => i + 1);
@@ -355,6 +407,8 @@ export default function CanvasPage() {
       });
     }
 
+    plannerMessagesRef.current    = [];
+    plannerInsightDataRef.current = null;
     setExpandedNodeId(null);
   }, [expandedNodeId, nodes, historyIndex]);
 
@@ -858,6 +912,10 @@ export default function CanvasPage() {
           onGeneratePlanComplete={handleGeneratePlanComplete}
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
+          onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
+          onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
+          initialInsightData={expandedNode?.plannerInsightData}
+          onCadastralDataReceived={handleCadastralDataReceived}
         />
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -908,6 +966,7 @@ export default function CanvasPage() {
             onViewpointGenerate={handleGenerateViewpoint}
             isViewpointGenerating={isGenerating}
             viewpointAnalysis={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.viewpointAnalysis : undefined}
+            plannerMessages={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.plannerMessages : undefined}
           />
         </div>
       )}
