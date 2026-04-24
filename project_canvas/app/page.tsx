@@ -9,6 +9,7 @@ import {
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
 } from '@/types/canvas';
 import { placeNewChild } from '@/lib/autoLayout';
+import { compressImageBase64 } from '@/lib/compressImage';
 import InfiniteCanvas    from '@/components/InfiniteCanvas';
 import LeftToolbar       from '@/components/LeftToolbar';
 import RightSidebar      from '@/components/RightSidebar';
@@ -73,7 +74,7 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 4;
 
 /* 아트보드 미선택 상태에서 탭 클릭 시 바로 expand 진입하는 노드 */
-const DIRECT_EXPAND_NODES: NodeType[] = ['planners', 'image', 'plan'];
+const DIRECT_EXPAND_NODES: NodeType[] = ['image', 'plan'];
 
 type ActiveTool = 'cursor' | 'handle';
 
@@ -340,6 +341,7 @@ export default function CanvasPage() {
     const node = nodes.find(n => n.id === expandedNodeId);
     const isSketchImage = node?.artboardType === 'sketch' && node?.type === 'image';
     const isSketchPlan  = node?.artboardType === 'sketch' && node?.type === 'plan';
+
     if (!isSketchImage && !isSketchPlan) {
       setNodes(prev => {
         const next = prev.map(n => {
@@ -352,6 +354,7 @@ export default function CanvasPage() {
         return next;
       });
     }
+
     setExpandedNodeId(null);
   }, [expandedNodeId, nodes, historyIndex]);
 
@@ -679,12 +682,15 @@ export default function CanvasPage() {
     setIsGenerating(true);
 
     try {
+      /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
+      const compressed = await compressImageBase64(base64, mimeType);
+
       const res = await fetch('/api/change-viewpoint', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_base64: base64,
-          mime_type:    mimeType,
+          image_base64: compressed.base64,
+          mime_type:    compressed.mimeType,
           viewpoint:    settings.viewpoint,
           user_prompt:  settings.prompt,
         }),

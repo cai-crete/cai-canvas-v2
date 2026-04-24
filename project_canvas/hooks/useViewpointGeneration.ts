@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { compressImageBase64 } from '@/lib/compressImage';
 
 export interface ViewpointParams {
   viewpoint: 'aerial' | 'street' | 'quarter' | 'detail';
@@ -41,9 +42,12 @@ export function useViewpointGeneration(): UseViewpointGenerationReturn {
       setError(null);
 
       try {
+        /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
+        const compressed = await compressImageBase64(imageBase64, mimeType);
+
         const body = {
-          image_base64: imageBase64,
-          mime_type:    mimeType,
+          image_base64: compressed.base64,
+          mime_type:    compressed.mimeType,
           viewpoint:    params.viewpoint,
           user_prompt:  params.userPrompt ?? '',
         };

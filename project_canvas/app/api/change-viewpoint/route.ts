@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const maxDuration = 60; // Vercel Timeout 60초로 연장 (Pro plan 기준)
+export const dynamic = 'force-dynamic';
+
 const VALID_VIEWPOINTS = ['aerial', 'street', 'quarter', 'detail'] as const;
 type Viewpoint = (typeof VALID_VIEWPOINTS)[number];
 
@@ -84,6 +87,15 @@ export async function POST(req: NextRequest) {
   if (!upstreamRes.ok) {
     const text = await upstreamRes.text().catch(() => '');
     console.error(`Viewpoint backend error ${upstreamRes.status}:`, text);
+    
+    // 업스트림에서 413이 발생한 경우 (v5 서버의 제한)
+    if (upstreamRes.status === 413) {
+      return NextResponse.json(
+        { error: '업스트림 서버의 이미지 용량 제한을 초과했습니다. 더 작은 이미지를 사용하세요.' },
+        { status: 413 }
+      );
+    }
+
     return NextResponse.json(
       { error: `Backend error: ${upstreamRes.status}` },
       { status: 503 }

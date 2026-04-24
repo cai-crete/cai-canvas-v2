@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { compressImageBase64 } from '@/lib/compressImage';
 
 export interface PlanGenerationParams {
   userPrompt?: string;
@@ -40,9 +41,12 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
       setError(null);
 
       try {
+        /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
+        const compressed = await compressImageBase64(sketchBase64, 'image/png');
+
         const body = {
-          sketch_image: sketchBase64,
-          mime_type:    'image/png',
+          sketch_image: compressed.base64,
+          mime_type:    compressed.mimeType,
           user_prompt:  params.userPrompt ?? '',
           floor_type:   params.floorType  ?? 'RESIDENTIAL',
           grid_module:  params.gridModule ?? 4000,
