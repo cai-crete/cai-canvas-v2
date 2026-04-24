@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI, Part } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -162,38 +162,31 @@ function buildGenerationPrompt(executionPrompt: string): string {
   ].join('\n');
 }
 
-// ── 타임아웃 래퍼 ─────────────────────────────────────────────────────────────
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
-    ),
-  ]);
-}
+// ── callWithFallback (새 SDK 패턴) ────────────────────────────────────────────
+async function callWithFallback(
+  ai: GoogleGenAI,
+  primaryModel: string,
+  fallbackModel: string,
+  params: Omit<Parameters<GoogleGenAI['models']['generateContent']>[0], 'model'>,
+  timeoutMs: number
+) {
+  const withTimeout = (model: string) =>
+    Promise.race([
+      ai.models.generateContent({ ...params, model }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Timeout after ${timeoutMs / 1000}s (model: ${model})`)),
+          timeoutMs
+        )
+      ),
+    ]);
 
-// ── 폴백 래퍼 ────────────────────────────────────────────────────────────────
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-      }
-    }
-  }
-  throw lastError;
-}
-
-async function callWithFallback<T>(primary: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   try {
-    return await withRetry(primary);
-  } catch (err) {
-    console.warn('[viewpoint] Primary model failed, trying fallback:', err);
-    return await withRetry(fallback);
+    return await withTimeout(primaryModel);
+  } catch (primaryErr) {
+    console.warn(`[viewpoint] primary model failed (${primaryModel}):`, primaryErr);
+    console.log(`[viewpoint] retrying with fallback model: ${fallbackModel}`);
+    return await withTimeout(fallbackModel);
   }
 }
 
@@ -258,9 +251,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
+  const ai = new GoogleGenAI({ apiKey });
 
-  const imagePart: Part = {
+  const imagePart = {
     inlineData: {
       mimeType: mimeTypeLower as AllowedMimeType,
       data: image_base64,
@@ -272,24 +265,26 @@ export async function POST(req: NextRequest) {
   // ── Step 1: 시점 분석 (텍스트) ────────────────────────────────────────────
   let executionPrompt: string;
   try {
-    const analysisText = buildAnalysisPrompt(viewpoint, user_prompt);
-
-    const makeAnalysisCall = (modelName: string) => () => {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: PROTOCOL_VIEWPOINT_V1,
-      });
-      return withTimeout(
-        model.generateContent([imagePart, { text: analysisText }]),
-        TIMEOUT_ANALYSIS
-      ).then(r => r.response.text());
-    };
-
-    executionPrompt = await callWithFallback(
-      makeAnalysisCall(MODEL_ANALYSIS),
-      makeAnalysisCall(MODEL_ANALYSIS_FALLBACK)
+    const analysisResponse = await callWithFallback(
+      ai,
+      MODEL_ANALYSIS,
+      MODEL_ANALYSIS_FALLBACK,
+      {
+        config: { systemInstruction: PROTOCOL_VIEWPOINT_V1 },
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              imagePart,
+              { text: buildAnalysisPrompt(viewpoint, user_prompt) },
+            ],
+          },
+        ],
+      },
+      TIMEOUT_ANALYSIS
     );
 
+    executionPrompt = analysisResponse.text ?? '';
     console.log(`[viewpoint] analysis done in ${Date.now() - startTime}ms`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -302,32 +297,33 @@ export async function POST(req: NextRequest) {
   let generatedMimeType: string;
 
   try {
-    const generationText = buildGenerationPrompt(executionPrompt);
-
-    const makeGenerationCall = (modelName: string) => () => {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
-      });
-      return withTimeout(
-        model.generateContent([imagePart, { text: generationText }]),
-        TIMEOUT_IMAGE_GEN
-      ).then(r => {
-        const parts = r.response.candidates?.[0]?.content?.parts ?? [];
-        const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-        if (!imgPart?.inlineData?.data) throw new Error('No image in generation response');
-        return { data: imgPart.inlineData.data, mimeType: imgPart.inlineData.mimeType ?? 'image/png' };
-      });
-    };
-
-    const result = await callWithFallback(
-      makeGenerationCall(MODEL_IMAGE_GEN),
-      makeGenerationCall(MODEL_IMAGE_GEN_FALLBACK)
+    const generationResponse = await callWithFallback(
+      ai,
+      MODEL_IMAGE_GEN,
+      MODEL_IMAGE_GEN_FALLBACK,
+      {
+        config: { responseModalities: ['IMAGE', 'TEXT'] },
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              imagePart,
+              { text: buildGenerationPrompt(executionPrompt) },
+            ],
+          },
+        ],
+      },
+      TIMEOUT_IMAGE_GEN
     );
 
-    generatedImageBase64 = result.data;
-    generatedMimeType = result.mimeType;
+    const parts = generationResponse.candidates?.[0]?.content?.parts ?? [];
+    const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) => p.inlineData?.mimeType?.startsWith('image/'));
+    if (!imgPart?.inlineData?.data) {
+      throw new Error('No image in generation response');
+    }
+
+    generatedImageBase64 = imgPart.inlineData.data;
+    generatedMimeType = imgPart.inlineData.mimeType ?? 'image/png';
 
     console.log(`[viewpoint] viewpoint=${viewpoint} total elapsed=${Date.now() - startTime}ms`);
   } catch (err) {

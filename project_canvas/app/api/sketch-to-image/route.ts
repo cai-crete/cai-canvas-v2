@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
-import { GoogleGenerativeAI, Part } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
 
 const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
@@ -17,36 +17,15 @@ const MAX_PROMPT_LENGTH = 2000;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
-    ),
-  ]);
-}
-
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-      }
-    }
-  }
-  throw lastError;
-}
-
-async function callWithFallback<T>(primary: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+async function callWithFallback<T>(
+  primary: () => Promise<T>,
+  fallback: () => Promise<T>
+): Promise<T> {
   try {
-    return await withRetry(primary);
+    return await primary();
   } catch (err) {
     console.warn('Primary model failed, trying fallback:', err);
-    return await withRetry(fallback);
+    return await fallback();
   }
 }
 
@@ -116,9 +95,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'API configuration error: GEMINI_API_KEY_IMAGE is missing' }, { status: 500 });
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
+  const ai = new GoogleGenAI({ apiKey });
 
-  const imagePart: Part = {
+  const imagePart = {
     inlineData: {
       mimeType: mimeTypeLower as AllowedMimeType,
       data: sketch_image,
@@ -140,16 +119,17 @@ export async function POST(req: NextRequest) {
       `스타일 모드: ${style_mode}`,
     ].join('\n');
 
-    const makeAnalysisCall = (modelName: string) => () => {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: systemPrompt,
-      });
-      return withTimeout(
-        model.generateContent([imagePart, { text: analysisPrompt }]),
-        TIMEOUT_ANALYSIS
-      ).then(r => r.response.text());
-    };
+    const makeAnalysisCall = (modelName: string) => () =>
+      Promise.race([
+        ai.models.generateContent({
+          model: modelName,
+          config: { systemInstruction: systemPrompt },
+          contents: [{ role: 'user', parts: [imagePart, { text: analysisPrompt }] }],
+        }).then(r => r.text ?? ''),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_ANALYSIS}ms`)), TIMEOUT_ANALYSIS)
+        ),
+      ]);
 
     analysisText = await callWithFallback(
       makeAnalysisCall(MODEL_ANALYSIS),
@@ -191,23 +171,27 @@ export async function POST(req: NextRequest) {
       '이미지를 생성하고 ROOM 5의 Failure Mode 체크를 완료한 후 generation-spec을 출력하세요.',
     ].join('\n');
 
-    const makeGenerationCall = (modelName: string) => () => {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: systemPrompt,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
-      });
-      return withTimeout(
-        model.generateContent([imagePart, { text: generationPrompt }]),
-        TIMEOUT_IMAGE_GEN
-      ).then(r => {
-        const parts = r.response.candidates?.[0]?.content?.parts ?? [];
-        const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-        if (!imgPart?.inlineData?.data) throw new Error('No image in generation response');
-        return imgPart.inlineData.data;
-      });
-    };
+    const makeGenerationCall = (modelName: string) => () =>
+      Promise.race([
+        ai.models.generateContent({
+          model: modelName,
+          config: {
+            systemInstruction: systemPrompt,
+            responseModalities: ['IMAGE', 'TEXT'],
+          },
+          contents: [{ role: 'user', parts: [imagePart, { text: generationPrompt }] }],
+        }).then(r => {
+          const parts = r.candidates?.[0]?.content?.parts ?? [];
+          const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>
+            p.inlineData?.mimeType?.startsWith('image/')
+          );
+          if (!imgPart?.inlineData?.data) throw new Error('No image in generation response');
+          return imgPart.inlineData.data as string;
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_IMAGE_GEN}ms`)), TIMEOUT_IMAGE_GEN)
+        ),
+      ]);
 
     generatedImageBase64 = await callWithFallback(
       makeGenerationCall(MODEL_IMAGE_GEN),
