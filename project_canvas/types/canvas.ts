@@ -99,6 +99,35 @@ export interface ViewpointPanelSettings {
   viewpoint: 'aerial' | 'street' | 'quarter' | 'detail';
 }
 
+export interface ViewpointAnalysisReport {
+  optical: {
+    viewpoint: string;
+    azimuth: string;
+    altitude: string;
+    perspective: string;
+    sensor: string;
+    focalLength: string;
+    lighting: string;
+    contrast: string;
+  };
+  geometric: {
+    skin: string;
+    innerFacade: string;
+    outerFacade: string;
+    baseMass: string;
+    baseFloor: string;
+    midBody: string;
+    roof: string;
+  };
+  conceptual: {
+    designAlgorithm: string;
+    colorPalette: string;
+    formMotif: string;
+    formContrast: string;
+    moodContrast: string;
+  };
+}
+
 export interface CanvasNode {
   id: string;
   type: NodeType;
@@ -114,7 +143,8 @@ export interface CanvasNode {
   planPanelSettings?: PlanPanelSettings;           // 플랜 패널 설정 복원용
   roomAnalysis?: string;                           // 생성 후 공간 분석 텍스트
   viewpointPanelSettings?: ViewpointPanelSettings; // 뷰포인트 패널 설정 복원용
-  viewpointAnalysis?: string;                      // 생성 후 시점 분석 텍스트
+  viewpointAnalysis?: string;                      // 생성 후 시점 분석 텍스트 (실행 프롬프트 원문)
+  viewpointReport?: ViewpointAnalysisReport;        // 구조화 분석 리포트 (사이드바 표 표시용)
   parentId?: string;    // 파생 출처 노드 id
   autoPlaced?: boolean; // Auto Layout 배치 노드 (수동 드래그 시 false로 전환)
   plannerMessages?: PlannerMessage[];

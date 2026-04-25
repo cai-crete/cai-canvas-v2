@@ -756,7 +756,7 @@ export default function CanvasPage() {
         throw new Error((data as { error?: string }).error ?? `API 오류: ${res.status}`);
       }
 
-      const data = await res.json() as { generated_image: string; analysis: string };
+      const data = await res.json() as { generated_image: string; analysis: string; report?: import('@/types/canvas').ViewpointAnalysisReport | null };
 
       setNodes(prev => {
         const origin = prev.find(n => n.id === selectedNodeId);
@@ -777,6 +777,7 @@ export default function CanvasPage() {
           thumbnailData: data.generated_image,
           generatedImageData: data.generated_image,
           viewpointAnalysis: data.analysis,
+          viewpointReport: data.report ?? undefined,
           viewpointPanelSettings: settings,
           parentId: selectedNodeId,
           autoPlaced: true,
@@ -965,7 +966,7 @@ export default function CanvasPage() {
             onViewpointSettingsChange={handleViewpointSettingsChange}
             onViewpointGenerate={handleGenerateViewpoint}
             isViewpointGenerating={isGenerating}
-            viewpointAnalysis={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.viewpointAnalysis : undefined}
+            viewpointReport={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.viewpointReport : undefined}
             plannerMessages={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.plannerMessages : undefined}
           />
         </div>

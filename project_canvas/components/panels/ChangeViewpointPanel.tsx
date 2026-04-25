@@ -1,6 +1,6 @@
 'use client';
 
-import { ViewpointPanelSettings } from '@/types/canvas';
+import { ViewpointPanelSettings, ViewpointAnalysisReport } from '@/types/canvas';
 
 const VIEWPOINT_OPTIONS: { label: string; value: ViewpointPanelSettings['viewpoint'] }[] = [
   { label: "Bird's eye view", value: 'aerial'  },
@@ -23,16 +23,109 @@ export interface ChangeViewpointPanelProps {
   onPromptChange: (v: string) => void;
   viewpoint: ViewpointPanelSettings['viewpoint'] | null;
   onViewpointChange: (v: ViewpointPanelSettings['viewpoint']) => void;
-  viewpointAnalysis?: string;
+  viewpointReport?: ViewpointAnalysisReport | null;
   hasSelectedArtboard: boolean;
   onGenerate: () => void;
+}
+
+// 섹션별 행 정의
+const OPTICAL_ROWS: { label: string; key: keyof ViewpointAnalysisReport['optical'] }[] = [
+  { label: '촬영 시점',   key: 'viewpoint'   },
+  { label: '방위각',      key: 'azimuth'     },
+  { label: '촬영 고도',   key: 'altitude'    },
+  { label: '투시 왜곡',   key: 'perspective' },
+  { label: '센서 포맷',   key: 'sensor'      },
+  { label: '이점 거리',   key: 'focalLength' },
+  { label: '광선 및 날씨', key: 'lighting'   },
+  { label: '대비 강도',   key: 'contrast'    },
+];
+
+const GEOMETRIC_ROWS: { label: string; key: keyof ViewpointAnalysisReport['geometric'] }[] = [
+  { label: '인피 시스템', key: 'skin'        },
+  { label: '내부 파사드', key: 'innerFacade' },
+  { label: '외부 파사드', key: 'outerFacade' },
+  { label: '기본 매스',   key: 'baseMass'    },
+  { label: '하층부',      key: 'baseFloor'   },
+  { label: '중인층부',    key: 'midBody'     },
+  { label: '상층부',      key: 'roof'        },
+];
+
+const CONCEPTUAL_ROWS: { label: string; key: keyof ViewpointAnalysisReport['conceptual'] }[] = [
+  { label: '디자인 알고리즘', key: 'designAlgorithm' },
+  { label: '주조색',          key: 'colorPalette'    },
+  { label: '형태 모티브',     key: 'formMotif'       },
+  { label: '형태적 대비',     key: 'formContrast'    },
+  { label: '감성적 대비',     key: 'moodContrast'    },
+];
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-family-bebas)',
+  fontSize: '0.625rem',
+  color: 'var(--color-gray-400)',
+  letterSpacing: '0.12em',
+  marginBottom: '0.375rem',
+  display: 'block',
+};
+
+const tableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse' as const,
+  fontSize: '0.625rem',
+  fontFamily: 'var(--font-family-pretendard)',
+  marginBottom: '0.625rem',
+};
+
+const thStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '0.25rem 0.5rem',
+  color: 'var(--color-gray-500)',
+  fontWeight: 400,
+  width: '38%',
+  verticalAlign: 'top',
+  lineHeight: 1.5,
+  borderBottom: '1px solid var(--color-gray-100)',
+};
+
+const tdStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '0.25rem 0.5rem',
+  color: 'var(--color-black)',
+  verticalAlign: 'top',
+  lineHeight: 1.5,
+  borderBottom: '1px solid var(--color-gray-100)',
+};
+
+function ReportSection<T extends object>({
+  title,
+  rows,
+  data,
+}: {
+  title: string;
+  rows: { label: string; key: keyof T }[];
+  data: T;
+}) {
+  return (
+    <div>
+      <span style={sectionTitleStyle}>{title}</span>
+      <table style={tableStyle}>
+        <tbody>
+          {rows.map(({ label, key }) => (
+            <tr key={String(key)}>
+              <th style={thStyle}>{label}</th>
+              <td style={tdStyle}>{String(data[key])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function ChangeViewpointPanel({
   isGenerating,
   prompt, onPromptChange,
   viewpoint, onViewpointChange,
-  viewpointAnalysis,
+  viewpointReport,
   hasSelectedArtboard,
   onGenerate,
 }: ChangeViewpointPanelProps) {
@@ -135,17 +228,24 @@ export default function ChangeViewpointPanel({
             padding: '0.75rem',
             minHeight: '5rem',
           }}>
-            {viewpointAnalysis ? (
-              <p style={{
-                fontFamily: 'var(--font-family-pretendard)',
-                fontSize: '0.6875rem',
-                color: 'var(--color-black)',
-                lineHeight: 1.6,
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-              }}>
-                {viewpointAnalysis}
-              </p>
+            {viewpointReport ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <ReportSection
+                  title="1. 관측 및 시점 파라미터"
+                  rows={OPTICAL_ROWS}
+                  data={viewpointReport.optical}
+                />
+                <ReportSection
+                  title="2. 기하학 & 공간 구조 명세"
+                  rows={GEOMETRIC_ROWS}
+                  data={viewpointReport.geometric}
+                />
+                <ReportSection
+                  title="3. 개념 & 시각적 속성"
+                  rows={CONCEPTUAL_ROWS}
+                  data={viewpointReport.conceptual}
+                />
+              </div>
             ) : (
               <p style={{
                 fontFamily: 'var(--font-family-pretendard)',

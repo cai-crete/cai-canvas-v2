@@ -5,6 +5,7 @@ import {
   NodeType, NODE_DEFINITIONS, NODE_ORDER, ArtboardType,
   ARTBOARD_COMPATIBLE_NODES, NODES_NAVIGATE_DISABLED,
   PANEL_CTA_MESSAGE, DISABLED_TAB_MESSAGE, ViewpointPanelSettings, PlannerMessage,
+  ViewpointAnalysisReport,
 } from '@/types/canvas';
 import ChangeViewpointPanel from '@/components/panels/ChangeViewpointPanel';
 
@@ -20,7 +21,7 @@ interface Props {
   onViewpointSettingsChange?: (settings: ViewpointPanelSettings) => void;
   onViewpointGenerate?: () => void;
   isViewpointGenerating?: boolean;
-  viewpointAnalysis?: string;
+  viewpointReport?: ViewpointAnalysisReport | null;
   // planners 전용
   plannerMessages?: PlannerMessage[];
 }
@@ -153,7 +154,7 @@ export default function RightSidebar({
   hasSelectedArtboard, onShowToast,
   viewpointPanelSettings, onViewpointSettingsChange,
   onViewpointGenerate, isViewpointGenerating,
-  viewpointAnalysis,
+  viewpointReport,
   plannerMessages,
 }: Props) {
   const [accordionOpen, setAccordionOpen] = useState(true);
@@ -290,7 +291,7 @@ export default function RightSidebar({
                 prompt: viewpointPanelSettings?.prompt ?? '',
                 viewpoint: v,
               })}
-              viewpointAnalysis={viewpointAnalysis}
+              viewpointReport={viewpointReport}
               hasSelectedArtboard={hasSelectedArtboard}
               onGenerate={() => {
                 if (!hasSelectedArtboard) {

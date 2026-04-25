@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
+import { GoogleGenAI } from '@google/genai';
+import { buildSystemPrompt, loadProtocolFile, buildReportExtractionPrompt } from '@/lib/prompt';
+import type { ViewpointAnalysisReport } from '@/types/canvas';
 
-// ── 모델 설정 ─────────────────────────────────────────────────────────────────
-const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
-const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
+const MODEL_ANALYSIS = 'gemini-2.5-pro-preview-05-06';
+const MODEL_IMAGE_GEN = 'gemini-2.0-flash-preview-image-generation';
 const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
-const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
+const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-preview-05-20';
 
 const TIMEOUT_ANALYSIS = 120000;
 const TIMEOUT_IMAGE_GEN = 180000;
@@ -21,176 +22,25 @@ type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 const VALID_VIEWPOINTS = ['aerial', 'street', 'quarter', 'detail'] as const;
 type Viewpoint = (typeof VALID_VIEWPOINTS)[number];
 
-// ── 인라인 프로토콜 (fs 의존성 없음) ──────────────────────────────────────────
-const PROTOCOL_VIEWPOINT_V1 = `# SYSTEM: Integrated Viewpoint Simulation Architect (IVSP-Unified)
-# Protocol Version: v1
-# Node: N05 Viewpoint
-
-# GOAL
-Change the angle of view of the provided architectural image to a specific new perspective **without altering the building's original geometry, materials, or style.**
-Translate the user's viewpoint selection into "Numerical Geo-Spatial Coordinates" and simulate a photorealistic architectural image based on physical optical laws.
-Execute a "Physical Movement Command" within a completed 3D reality — shifting from simple generation to precise "Coordinate-Based Virtual Photography."
-
-# CONTEXT
-- **Ontological Status:** The input image is a "Completed Architectural Reality." It is a fixed physical object, not a sketch.
-- **Operational Logic:** Apply Intuition-to-Coordinate Translation. Convert viewpoint selections into precise relative vectors.
-- **Geometric Sanctuary:** The building's proportions, structure, floor count, window count, and material details are **Immutable Constants**. Only the observer (camera) moves.
-
-# ROLE
-**Coordinate Controller & Virtual Architectural Photographer**
-You are an engine that calculates precise GPS coordinates relative to the subject and selects optimal industrial standard camera equipment (Fujifilm GFX 100S, Phase One, etc.) based on the calculated distance and angle.
-
-# ACTION PROTOCOL (MANDATORY EXECUTION WORKFLOW)
-
-## Pre-Step: Define Viewpoint Delta (Δ) & Anchor Reality
-1. **Current Viewpoint Analysis (V0):** Reverse-engineer the camera position of the input image. Fix the building's geometric form as an "Immutable Reference."
-2. **Target Viewpoint Setting (V1):** Convert the selected viewpoint into specific coordinates. Define Azimuth, Altitude, Distance, and Pitch.
-3. **Movement Vector Calculation (Δ):** Calculate the Optimal Orbit Path from V0 to V1. Maintain "Geometric Sanctuary" throughout the movement.
-
-## Step 1: Coordinate Anchoring & Vector Calculation
-1. Fix the building's main facade at **06:00 (Front)**.
-2. Translate the selected viewpoint into a specific vector:
-   - Street View → **06:00 Vector**, Height 1.6m
-   - Aerial View → **High Altitude (>150m)**, any azimuth
-   - Detail View → **Close Range**, any azimuth
-   - Quarter View (Corner) → **04:30 Vector**, standard altitude
-
-## Step 2: Scenario Mapping & Optical Engineering
-- **Street View:** Mount **23mm Tilt-Shift Lens** on **Fujifilm GFX 100S**. Zero vertical distortion, architectural stability at 1.6m height.
-- **Aerial View:** Mount **32mm Lens** on **Phase One System**. Capture contextual layout and roof geometry.
-- **Detail View:** Mount **110mm Macro Lens (f/2.8)**. Shallow depth of field to emphasize material textures.
-- **Quarter View:** Mount **45mm Standard Lens**. Apply 2-Point Perspective to maximize volumetric perception.
-
-## Step 3: Layering & Blind Spot Inference
-1. **Perspective Enforcement:** 1-Point for face-on views, 2-Point for corner views, 3-Point for high-altitude.
-2. **Blind Spot Logic:** If moving to Rear or hidden sides, extract "Design DNA" from front facade. Logically place Service Doors, Ventilation, and MEP details.
-3. **Material Injection:** Lock original textures. Apply Relighting only to match the new solar angle.
-
-## Step 4: Final Execution & Compliance Check
-- Original geometry preserved 100%? (No Hallucination)
-- Perspective mathematically correct? (No Distortion)
-- Blind spot logically inferred? (No Blank Spaces)
-- Materials and proportions unchanged?
-
-**[GENERATE IMAGE NOW]**`;
-
-// ── 시점별 스펙 ───────────────────────────────────────────────────────────────
-const VIEWPOINT_SPEC: Record<string, { label: string; instruction: string }> = {
-  street: {
-    label: 'Street View',
-    instruction: [
-      'TARGET: Street View / Eye Level',
-      '- Vector: 06:00 (Front facade), Height 1.6m',
-      '- Camera: Fujifilm GFX 100S + 23mm Tilt-Shift Lens',
-      '- Perspective: 1-Point (vertical lines strictly parallel)',
-      '- Priority: Zero vertical distortion, architectural stability',
-    ].join('\n'),
-  },
-  aerial: {
-    label: "Aerial View / Bird's Eye",
-    instruction: [
-      "TARGET: Aerial View / Bird's Eye",
-      '- Vector: Any azimuth, Altitude >150m, Pitch -45° to -90°',
-      '- Camera: Phase One System + 32mm Lens',
-      '- Perspective: 3-Point (converging verticals acceptable)',
-      '- Priority: Full site layout, roof geometry, surrounding context',
-    ].join('\n'),
-  },
-  detail: {
-    label: 'Detail View',
-    instruction: [
-      'TARGET: Detail View / Close-up',
-      '- Vector: Any azimuth, Distance <5m from facade',
-      '- Camera: 110mm Macro Lens (f/2.8), shallow Depth of Field',
-      '- Perspective: Minimal distortion at close range',
-      '- Priority: Material texture, surface detail, craftsmanship',
-    ].join('\n'),
-  },
-  quarter: {
-    label: 'Quarter View',
-    instruction: [
-      'TARGET: Quarter View / Corner Shot',
-      '- Vector: 04:30 direction (45° from front-right corner)',
-      '- Camera: 45mm Standard Lens, standard altitude',
-      '- Perspective: 2-Point (maximize volumetric perception)',
-      '- Priority: Building mass, depth, corner articulation',
-    ].join('\n'),
-  },
+const VIEWPOINT_LABEL: Record<Viewpoint, string> = {
+  street:  "Street View / Eye Level",
+  aerial:  "Aerial View / Bird's Eye",
+  detail:  "Detail View / Close-up",
+  quarter: "Quarter View / Corner Shot",
 };
 
-// ── 분석 프롬프트 조립 ────────────────────────────────────────────────────────
-function buildAnalysisPrompt(viewpoint: string, feedback: string): string {
-  const spec = VIEWPOINT_SPEC[viewpoint];
-  const lines = [
-    '## TASK',
-    `Change the viewpoint of this architectural image to: **${spec.label}**`,
-    '',
-    '## TARGET VIEWPOINT SPECIFICATION',
-    spec.instruction,
-    '',
-    '## EXECUTION INSTRUCTIONS',
-    'Follow the ACTION PROTOCOL in sequence:',
-    '',
-    '**Pre-Step:** Define V0 (current camera), V1 (target), Δ (movement path)',
-    '**Step 1:** Lock building geometry — floor count, window count, proportions as Immutable Constants',
-    '**Step 2:** Confirm camera body and lens per specification. State focal length and optical parameters.',
-    '**Step 3:** If new viewpoint exposes hidden faces, extract Design DNA and logically place service elements.',
-    '**Step 4:** Calculate new solar angle and shadow direction. Lock original material values.',
-    '',
-    '**Final Output:** Synthesize all steps into a single precise image generation prompt.',
-    'End with: [GENERATE IMAGE NOW]',
-  ];
-
-  if (feedback) {
-    lines.push('', '## USER FEEDBACK (integrate into this simulation)', feedback);
-  }
-
-  return lines.join('\n');
-}
-
-// ── 이미지 생성 프롬프트 조립 ─────────────────────────────────────────────────
-function buildGenerationPrompt(executionPrompt: string): string {
-  return [
-    executionPrompt,
-    '',
-    '## FORM PROTECTION SHIELD (NON-NEGOTIABLE)',
-    '- Floor count: LOCKED — do not add or remove floors',
-    '- Window count and placement: LOCKED — do not alter grid',
-    '- Building proportions and mass: LOCKED — no geometric deformation',
-    '- Material identity (concrete/glass/metal): LOCKED — texture only shifts with light',
-    '- No hallucinated ornaments or structural elements',
-  ].join('\n');
-}
-
-// ── callWithFallback (새 SDK 패턴) ────────────────────────────────────────────
-async function callWithFallback(
-  ai: GoogleGenAI,
-  primaryModel: string,
-  fallbackModel: string,
-  params: Omit<Parameters<GoogleGenAI['models']['generateContent']>[0], 'model'>,
-  timeoutMs: number
-) {
-  const withTimeout = (model: string) =>
-    Promise.race([
-      ai.models.generateContent({ ...params, model }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Timeout after ${timeoutMs / 1000}s (model: ${model})`)),
-          timeoutMs
-        )
-      ),
-    ]);
-
+async function callWithFallback<T>(
+  primary: () => Promise<T>,
+  fallback: () => Promise<T>
+): Promise<T> {
   try {
-    return await withTimeout(primaryModel);
-  } catch (primaryErr) {
-    console.warn(`[viewpoint] primary model failed (${primaryModel}):`, primaryErr);
-    console.log(`[viewpoint] retrying with fallback model: ${fallbackModel}`);
-    return await withTimeout(fallbackModel);
+    return await primary();
+  } catch (err) {
+    console.warn('[viewpoint] Primary model failed, trying fallback:', err);
+    return await fallback();
   }
 }
 
-// ── 메인 핸들러 ───────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   let body: {
     image_base64: string;
@@ -212,7 +62,6 @@ export async function POST(req: NextRequest) {
     user_prompt = '',
   } = body;
 
-  // ── 입력 검증 ──────────────────────────────────────────────────────────────
   if (!image_base64) {
     return NextResponse.json({ error: 'image_base64 is required' }, { status: 400 });
   }
@@ -241,10 +90,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── API Key 확인 ───────────────────────────────────────────────────────────
+  let systemPrompt: string;
+  try {
+    const protocolContent = loadProtocolFile('protocol-change-viewpoint-v1.txt');
+    const knowledgeTemplates = loadProtocolFile('knowledge-viewpoint-templates.txt');
+    systemPrompt = buildSystemPrompt(protocolContent, [knowledgeTemplates]);
+  } catch (err) {
+    console.error('[viewpoint] Protocol load failed:', err);
+    return NextResponse.json({ error: 'Protocol initialization failed' }, { status: 500 });
+  }
+
   const apiKey = process.env.GEMINI_API_KEY_VIEWPOINT ?? process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error('[viewpoint] GEMINI_API_KEY_VIEWPOINT is not set');
     return NextResponse.json(
       { error: 'API configuration error: GEMINI_API_KEY_VIEWPOINT is missing' },
       { status: 500 }
@@ -262,29 +119,41 @@ export async function POST(req: NextRequest) {
 
   const startTime = Date.now();
 
-  // ── Step 1: 시점 분석 (텍스트) ────────────────────────────────────────────
+  // Phase 1: 시점 분석 — Metacognitive Analysis + Final Execution Prompt 생성
   let executionPrompt: string;
+
   try {
-    const analysisResponse = await callWithFallback(
-      ai,
-      MODEL_ANALYSIS,
-      MODEL_ANALYSIS_FALLBACK,
-      {
-        config: { systemInstruction: PROTOCOL_VIEWPOINT_V1 },
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              imagePart,
-              { text: buildAnalysisPrompt(viewpoint, user_prompt) },
-            ],
-          },
-        ],
-      },
-      TIMEOUT_ANALYSIS
+    const analysisPrompt = [
+      '## TASK',
+      `Change the viewpoint of this architectural image to: **${VIEWPOINT_LABEL[viewpoint]}**`,
+      '',
+      '## EXECUTION INSTRUCTIONS',
+      'Follow the ACTION PROTOCOL (Steps 1–4) in sequence.',
+      'Output format must include:',
+      '  1. [Metacognitive Analysis] — using the Section 3 template in knowledge',
+      '  2. [Final Execution Prompt] — using the Section 4 template in knowledge',
+      '',
+      'End the Final Execution Prompt with: [GENERATE IMAGE NOW]',
+      ...(user_prompt ? ['', '## USER FEEDBACK (integrate into this simulation)', user_prompt] : []),
+    ].join('\n');
+
+    const makeAnalysisCall = (modelName: string) => () =>
+      Promise.race([
+        ai.models.generateContent({
+          model: modelName,
+          config: { systemInstruction: systemPrompt },
+          contents: [{ role: 'user', parts: [imagePart, { text: analysisPrompt }] }],
+        }).then(r => r.text ?? ''),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_ANALYSIS}ms`)), TIMEOUT_ANALYSIS)
+        ),
+      ]);
+
+    executionPrompt = await callWithFallback(
+      makeAnalysisCall(MODEL_ANALYSIS),
+      makeAnalysisCall(MODEL_ANALYSIS_FALLBACK)
     );
 
-    executionPrompt = analysisResponse.text ?? '';
     console.log(`[viewpoint] analysis done in ${Date.now() - startTime}ms`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -292,38 +161,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Analysis failed: ${msg}` }, { status: 503 });
   }
 
-  // ── Step 2: 이미지 생성 ───────────────────────────────────────────────────
+  // Phase 1.5: 구조화 리포트 추출 (non-fatal — 실패해도 이미지 생성 계속)
+  let viewpointReport: ViewpointAnalysisReport | null = null;
+  try {
+    const reportPrompt = buildReportExtractionPrompt(executionPrompt);
+    const makeReportCall = (modelName: string) => () =>
+      Promise.race([
+        ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts: [{ text: reportPrompt }] }],
+        }).then(r => r.text ?? ''),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Report extraction timeout')), 30000)
+        ),
+      ]);
+    const rawJson = await callWithFallback(
+      makeReportCall(MODEL_ANALYSIS),
+      makeReportCall(MODEL_ANALYSIS_FALLBACK)
+    );
+    viewpointReport = JSON.parse(rawJson.trim()) as ViewpointAnalysisReport;
+    console.log(`[viewpoint] report extracted in ${Date.now() - startTime}ms`);
+  } catch (err) {
+    console.warn('[viewpoint] Report extraction failed (non-fatal):', err);
+  }
+
+  // Phase 2: 이미지 생성
   let generatedImageBase64: string;
   let generatedMimeType: string;
 
   try {
-    const generationResponse = await callWithFallback(
-      ai,
-      MODEL_IMAGE_GEN,
-      MODEL_IMAGE_GEN_FALLBACK,
-      {
-        config: { responseModalities: ['IMAGE', 'TEXT'] },
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              imagePart,
-              { text: buildGenerationPrompt(executionPrompt) },
-            ],
-          },
-        ],
-      },
-      TIMEOUT_IMAGE_GEN
+    const generationPrompt = [
+      executionPrompt,
+      '',
+      '## FORM PROTECTION SHIELD (NON-NEGOTIABLE)',
+      '- Floor count: LOCKED — do not add or remove floors',
+      '- Window count and placement: LOCKED — do not alter grid',
+      '- Building proportions and mass: LOCKED — no geometric deformation',
+      '- Material identity (concrete/glass/metal): LOCKED — texture only shifts with light',
+      '- No hallucinated ornaments or structural elements',
+    ].join('\n');
+
+    const makeGenerationCall = (modelName: string) => () =>
+      Promise.race([
+        ai.models.generateContent({
+          model: modelName,
+          config: { responseModalities: ['IMAGE', 'TEXT'] },
+          contents: [{ role: 'user', parts: [imagePart, { text: generationPrompt }] }],
+        }).then(r => {
+          const parts = r.candidates?.[0]?.content?.parts ?? [];
+          const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>
+            p.inlineData?.mimeType?.startsWith('image/')
+          );
+          if (!imgPart?.inlineData?.data) throw new Error('No image in generation response');
+          return {
+            data: imgPart.inlineData.data as string,
+            mimeType: imgPart.inlineData.mimeType ?? 'image/png',
+          };
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_IMAGE_GEN}ms`)), TIMEOUT_IMAGE_GEN)
+        ),
+      ]);
+
+    const result = await callWithFallback(
+      makeGenerationCall(MODEL_IMAGE_GEN),
+      makeGenerationCall(MODEL_IMAGE_GEN_FALLBACK)
     );
 
-    const parts = generationResponse.candidates?.[0]?.content?.parts ?? [];
-    const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) => p.inlineData?.mimeType?.startsWith('image/'));
-    if (!imgPart?.inlineData?.data) {
-      throw new Error('No image in generation response');
-    }
-
-    generatedImageBase64 = imgPart.inlineData.data;
-    generatedMimeType = imgPart.inlineData.mimeType ?? 'image/png';
+    generatedImageBase64 = result.data;
+    generatedMimeType = result.mimeType;
 
     console.log(`[viewpoint] viewpoint=${viewpoint} total elapsed=${Date.now() - startTime}ms`);
   } catch (err) {
@@ -335,7 +241,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 응답 ─────────────────────────────────────────────────────────────────
+  // NodeCard.tsx: artboardType='image' 노드는 thumbnailData를 src로 직접 사용하므로 data URL 반환
   const imageDataUrl = generatedImageBase64.startsWith('data:')
     ? generatedImageBase64
     : `data:${generatedMimeType};base64,${generatedImageBase64}`;
@@ -343,5 +249,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     generated_image: imageDataUrl,
     analysis: executionPrompt,
+    report: viewpointReport,
   });
 }
