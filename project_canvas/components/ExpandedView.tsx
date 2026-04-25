@@ -9,6 +9,7 @@ import SketchToPlanExpandedView from '@/sketch-to-plan/ExpandedView';
 import PlannersPanel from '@/planners/PlannersPanel';
 import { PlannersInsightPanel } from '@/components/panels/PlannersInsightPanel';
 import type { FetchLawsResult } from '@/planners/lib/lawApi';
+import PrintExpandedView, { type PrintGenerateResult } from '@/print/ExpandedView';
 
 interface Props {
   node: CanvasNode;
@@ -33,6 +34,7 @@ interface Props {
   onGeneratePlanComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
+  onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
   onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
   onInsightDataChange?: (data: FetchLawsResult | null) => void;
   initialInsightData?: SavedInsightData | null;
@@ -137,6 +139,7 @@ export default function ExpandedView({
   onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomReset,
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
   isGenerating = false,
+  onGeneratePrintComplete,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
@@ -197,6 +200,18 @@ export default function ExpandedView({
           <PlannersInsightPanel apiInsightData={insightData} />
         </ExpandedSidebar>
       </div>
+    );
+  }
+
+  /* ── print 전용 뷰 ─────────────────────────────────────────────── */
+  if (node.type === 'print') {
+    return (
+      <PrintExpandedView
+        node={node}
+        onCollapse={onCollapse}
+        onGeneratingChange={onGeneratingChange}
+        onGeneratePrintComplete={onGeneratePrintComplete}
+      />
     );
   }
 

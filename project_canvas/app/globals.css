@@ -16,6 +16,7 @@
   --color-gray-200: #CCCCCC;  /* 인터랙션 보더 */
   --color-gray-100: #EEEEEE;  /* 구분선 전용 */
   --color-app-bg:   #F5F5F5;  /* 작업 영역 배경 */
+  --color-placeholder: #999999; /* 입력 플레이스홀더 */
 
   /* ── 폰트 패밀리 (§A.1) ──────────────────────────────────────────────── */
   --font-family-bebas:      var(--font-bebas), 'Bebas Neue', sans-serif;

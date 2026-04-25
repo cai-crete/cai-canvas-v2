@@ -499,6 +499,16 @@ export default function CanvasPage() {
     });
   }, [pushHistory]);
 
+  /* ── print GENERATE 완료 → 노드 썸네일 업데이트 ────────────────────── */
+  const handleGeneratePrintComplete = useCallback(({ thumbnailBase64 }: { thumbnailBase64: string }) => {
+    if (!expandedNodeId) return;
+    setNodes(prev => prev.map(n =>
+      n.id === expandedNodeId
+        ? { ...n, hasThumbnail: true, thumbnailData: thumbnailBase64, generatedImageData: thumbnailBase64 }
+        : n
+    ));
+  }, [expandedNodeId]);
+
   /* ── sketch-image GENERATE 실패 → ExpandedView 재진입 ─────────────── */
   const handleGenerateError = useCallback((nodeId: string) => {
     setIsGenerating(false);
@@ -913,6 +923,7 @@ export default function CanvasPage() {
           onGeneratePlanComplete={handleGeneratePlanComplete}
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
+          onGeneratePrintComplete={handleGeneratePrintComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
           initialInsightData={expandedNode?.plannerInsightData}
@@ -974,7 +985,7 @@ export default function CanvasPage() {
 
       {isGenerating && (
         <GeneratingToast
-          label={generatingLabel}
+          label={expandedNode?.type === 'print' ? 'PRINT GENERATING' : generatingLabel}
           onCancel={() => {
             abortControllerRef.current?.abort();
             setIsGenerating(false);
