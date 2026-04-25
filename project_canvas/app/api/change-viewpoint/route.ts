@@ -6,10 +6,10 @@ import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile, buildReportExtractionPrompt } from '@/lib/prompt';
 import type { ViewpointAnalysisReport } from '@/types/canvas';
 
-const MODEL_ANALYSIS = 'gemini-2.5-pro-preview-05-06';
-const MODEL_IMAGE_GEN = 'gemini-2.0-flash-preview-image-generation';
+const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
+const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
 const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
-const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-preview-05-20';
+const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
 
 const TIMEOUT_ANALYSIS = 120000;
 const TIMEOUT_IMAGE_GEN = 180000;
@@ -23,9 +23,9 @@ const VALID_VIEWPOINTS = ['aerial', 'street', 'quarter', 'detail'] as const;
 type Viewpoint = (typeof VALID_VIEWPOINTS)[number];
 
 const VIEWPOINT_LABEL: Record<Viewpoint, string> = {
-  street:  "Street View / Eye Level",
-  aerial:  "Aerial View / Bird's Eye",
-  detail:  "Detail View / Close-up",
+  street: "Street View / Eye Level",
+  aerial: "Aerial View / Bird's Eye",
+  detail: "Detail View / Close-up",
   quarter: "Quarter View / Corner Shot",
 };
 
