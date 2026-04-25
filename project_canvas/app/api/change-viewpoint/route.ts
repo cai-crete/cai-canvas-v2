@@ -100,10 +100,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Protocol initialization failed' }, { status: 500 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY_VIEWPOINT ?? process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY_IMAGE;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'API configuration error: GEMINI_API_KEY_VIEWPOINT is missing' },
+      { error: 'API configuration error: GEMINI_API_KEY_IMAGE is missing' },
       { status: 500 }
     );
   }
