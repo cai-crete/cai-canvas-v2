@@ -184,7 +184,7 @@ export const NODE_DEFINITIONS: Record<NodeType, { label: string; displayLabel: s
 };
 
 export const NODE_ORDER: NodeType[] = [
-  'planners', 'plan', 'image', 'elevation', 'viewpoint', 'diagram', 'print', 'sketch',
+  'planners', 'plan', 'image', 'elevation', 'viewpoint', 'diagram', 'print',
 ];
 
 /* 아트보드 유형별 호환 노드 탭 */

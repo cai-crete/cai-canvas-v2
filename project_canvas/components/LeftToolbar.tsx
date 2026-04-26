@@ -272,9 +272,9 @@ export default function LeftToolbar({
         {isDropdownOpen && (
           <div style={{
             position: 'absolute',
-            bottom: 'calc(100% + 0.5rem)',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            top: '50%',
+            left: 'calc(100% + 0.5rem)',
+            transform: 'translateY(-50%)',
             background: 'var(--color-white)',
             borderRadius: 'var(--radius-box)',
             boxShadow: 'var(--shadow-float)',
