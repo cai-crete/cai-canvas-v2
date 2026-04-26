@@ -516,7 +516,7 @@ export default function CanvasPage() {
       const newNode: CanvasNode = {
         id: generateId(),
         type: 'plan',
-        artboardType: 'sketch',
+        artboardType: 'image',
         title: `${NODE_DEFINITIONS['plan'].caption} #${num}`,
         position: {
           x: origin.position.x + CARD_W + COL_GAP_PX,
@@ -793,7 +793,7 @@ export default function CanvasPage() {
       const newNode: CanvasNode = {
         id: generateId(),
         type: 'image',
-        artboardType: 'sketch',
+        artboardType: 'image',
         title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
         position: {
           x: origin.position.x + CARD_W + COL_GAP_PX,
