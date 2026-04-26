@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { CanvasNode, NodeType, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings, PlannerMessage, SavedInsightData } from '@/types/canvas';
+import { CanvasNode, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings, PlannerMessage, SavedInsightData } from '@/types/canvas';
 import LeftToolbar from '@/components/LeftToolbar';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchToImageExpandedView from '@/sketch-to-image/ExpandedView';
@@ -10,6 +10,7 @@ import PlannersPanel from '@/planners/PlannersPanel';
 import { PlannersInsightPanel } from '@/components/panels/PlannersInsightPanel';
 import type { FetchLawsResult } from '@/planners/lib/lawApi';
 import PrintExpandedView, { type PrintGenerateResult } from '@/print/ExpandedView';
+import ElevationExpandedView, { type ElevationGenerateResult } from '@/elevation/ExpandedView';
 
 interface Props {
   node: CanvasNode;
@@ -35,6 +36,7 @@ interface Props {
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
   onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
+  onGenerateElevationComplete?: (params: ElevationGenerateResult) => void;
   onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
   onInsightDataChange?: (data: FetchLawsResult | null) => void;
   initialInsightData?: SavedInsightData | null;
@@ -140,6 +142,7 @@ export default function ExpandedView({
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
   isGenerating = false,
   onGeneratePrintComplete,
+  onGenerateElevationComplete,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
@@ -211,6 +214,19 @@ export default function ExpandedView({
         onCollapse={onCollapse}
         onGeneratingChange={onGeneratingChange}
         onGeneratePrintComplete={onGeneratePrintComplete}
+      />
+    );
+  }
+
+  /* ── elevation 전용 뷰 ──────────────────────────────────────────── */
+  if (node.type === 'elevation') {
+    return (
+      <ElevationExpandedView
+        node={node}
+        onCollapse={onCollapse}
+        onGeneratingChange={onGeneratingChange}
+        isGenerating={isGenerating}
+        onGenerateElevationComplete={onGenerateElevationComplete}
       />
     );
   }

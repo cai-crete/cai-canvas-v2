@@ -7,8 +7,9 @@ import {
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
   NODE_DEFINITIONS, COL_GAP_PX, SketchPanelSettings, PlanPanelSettings, ViewpointPanelSettings,
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
-  PlannerMessage, SavedInsightData,
+  PlannerMessage, SavedInsightData, ElevationImages,
 } from '@/types/canvas';
+import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
 import InfiniteCanvas    from '@/components/InfiniteCanvas';
@@ -26,6 +27,48 @@ function generateId(): string {
     const r = Math.random() * 16 | 0;
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
+}
+
+/* ── CrossGrid 합성 썸네일 생성 (Canvas API, 브라우저 전용) ──────── */
+async function renderCrossGridThumbnail(images: ElevationImages): Promise<string> {
+  const CW = 280, CH = 198;
+  const canvas = document.createElement('canvas');
+  canvas.width  = CW * 3;
+  canvas.height = CH * 3;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+  ctx.fillStyle = '#F4F4F4';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const loadImg = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = reject;
+    img.src = src.startsWith('data:') || src.startsWith('http') ? src : `data:image/jpeg;base64,${src}`;
+  });
+
+  const drawCell = async (src: string, col: number, row: number) => {
+    try {
+      const img = await loadImg(src);
+      const x = col * CW, y = row * CH;
+      const s = Math.min(CW / img.width, CH / img.height);
+      const w = img.width * s, h = img.height * s;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, CW, CH);
+      ctx.drawImage(img, x + (CW - w) / 2, y + (CH - h) / 2, w, h);
+    } catch { /* skip on error */ }
+  };
+
+  await Promise.all([
+    drawCell(images.top,   1, 0),
+    drawCell(images.left,  0, 1),
+    drawCell(images.front, 1, 1),
+    drawCell(images.right, 2, 1),
+    drawCell(images.rear,  1, 2),
+  ]);
+
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 /* ── 스토리지 키 ─────────────────────────────────────────────────── */
@@ -299,7 +342,10 @@ export default function CanvasPage() {
   }, [nodes, offset, scale, pushHistory]);
 
   /* ── elevation/viewpoint/diagram 전용 자식 노드 생성 ─────────── */
-  const createChildNode = useCallback((parentId: string, type: NodeType, artboardType: ArtboardType) => {
+  const createChildNode = useCallback((
+    parentId: string, type: NodeType, artboardType: ArtboardType,
+    extraProps?: Partial<CanvasNode>,
+  ): string => {
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
     const existing = currentNodes.filter(n => n.type === type);
@@ -312,6 +358,7 @@ export default function CanvasPage() {
       title: `${NODE_DEFINITIONS[type].caption} #${num}`,
       position, instanceNumber: num, hasThumbnail: false,
       artboardType, parentId, autoPlaced: true,
+      ...extraProps,
     };
 
     let nextNodes = [...currentNodes, newNode];
@@ -324,6 +371,7 @@ export default function CanvasPage() {
 
     const newEdge: CanvasEdge = { id: generateId(), sourceId: parentId, targetId: newId };
     pushHistory(nextNodes, [...currentEdges, newEdge]);
+    return newId;
   }, [nodes, pushHistory]);
 
   /* ── 이미지 파일 업로드 → image 아트보드 생성 ────────────────── */
@@ -509,6 +557,53 @@ export default function CanvasPage() {
     ));
   }, [expandedNodeId]);
 
+  /* ── elevation GENERATE 완료 → CrossGrid 결과 노드 생성 ──────────── */
+  const handleGenerateElevationComplete = useCallback(async ({
+    aepl, images, nodeId,
+  }: ElevationGenerateResult) => {
+    setIsGenerating(false);
+
+    const thumbnail = await renderCrossGridThumbnail(images);
+
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const existing = currentNodes.filter(n => n.type === 'elevation');
+    const num = existing.length + 1;
+    const newId = generateId();
+
+    const { position, pushdowns } = placeNewChild(nodeId, currentNodes, currentEdges);
+
+    const resultNode: CanvasNode = {
+      id: newId,
+      type: 'elevation',
+      title: `${NODE_DEFINITIONS['elevation'].caption} #${num}`,
+      position,
+      instanceNumber: num,
+      hasThumbnail: true,
+      artboardType: 'image',
+      parentId: nodeId,
+      autoPlaced: true,
+      thumbnailData: thumbnail,
+      generatedImageData: images.front,
+      elevationImages: images,
+      elevationAeplData: aepl,
+    };
+
+    let nextNodes = currentNodes.map(n =>
+      n.id === nodeId ? { ...n, hasThumbnail: true } : n
+    );
+    nextNodes = [...nextNodes, resultNode];
+    if (pushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = pushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+
+    const newEdge: CanvasEdge = { id: generateId(), sourceId: nodeId, targetId: newId };
+    pushHistory(nextNodes, [...currentEdges, newEdge]);
+  }, [nodes, pushHistory]);
+
   /* ── sketch-image GENERATE 실패 → ExpandedView 재진입 ─────────────── */
   const handleGenerateError = useCallback((nodeId: string) => {
     setIsGenerating(false);
@@ -551,7 +646,23 @@ export default function CanvasPage() {
         return;
       }
 
-      /* elevation/diagram: image 아트보드에서만 자식 생성 */
+      /* elevation: image 아트보드에서 자식 노드 생성 + 즉시 expand */
+      if (type === 'elevation') {
+        if (selectedNode.artboardType === 'image') {
+          const sourceImage = selectedNode.generatedImageData ?? selectedNode.thumbnailData;
+          setGeneratingLabel('ELEVATION GENERATING');
+          const childId = createChildNode(selectedNode.id, type, 'image',
+            sourceImage ? { thumbnailData: sourceImage, hasThumbnail: true } : undefined
+          );
+          setExpandedNodeId(childId);
+        } else {
+          showToast('이미지를 선택해 주세요');
+        }
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
+      /* diagram: image 아트보드에서만 자식 생성 */
       if (NODES_NAVIGATE_DISABLED.includes(type)) {
         if (selectedNode.artboardType === 'image') {
           createChildNode(selectedNode.id, type, 'image');
@@ -924,6 +1035,7 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
+          onGenerateElevationComplete={handleGenerateElevationComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
           initialInsightData={expandedNode?.plannerInsightData}

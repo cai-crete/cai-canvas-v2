@@ -11,6 +11,7 @@ export function loadProtocolFile(filename: string): string {
     join(process.cwd(), 'sketch-to-image', '_context', filename),
     join(process.cwd(), 'sketch-to-plan', '_context', filename),
     join(process.cwd(), 'change-viewpoint', '_context', filename),
+    join(process.cwd(), 'elevation', '_context', filename),
     join(process.cwd(), '_context', filename),
   ];
   for (const p of candidates) {

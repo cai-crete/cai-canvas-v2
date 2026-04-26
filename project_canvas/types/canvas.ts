@@ -99,6 +99,17 @@ export interface ViewpointPanelSettings {
   viewpoint: 'aerial' | 'street' | 'quarter' | 'detail';
 }
 
+export interface ElevationPanelSettings { prompt: string; }
+
+export interface ElevationImages {
+  front: string; rear: string; left: string; right: string; top: string;
+}
+
+export interface ElevationAeplData {
+  width: number; height: number; depth: number;
+  voidRatio: number; baseMaterial: string; secondaryMaterial: string;
+}
+
 export interface ViewpointAnalysisReport {
   optical: {
     viewpoint: string;
@@ -150,6 +161,9 @@ export interface CanvasNode {
   plannerMessages?: PlannerMessage[];
   plannerInsightData?: SavedInsightData; // Insight 패널 데이터 (재진입 시 복원용)
   cadastralPnu?: string;                 // 지적도 노드 전용 — VWorld PNU 코드
+  elevationPanelSettings?: ElevationPanelSettings;
+  elevationImages?: ElevationImages;
+  elevationAeplData?: ElevationAeplData;
 }
 
 export interface CanvasViewport {
@@ -193,7 +207,7 @@ export const NODE_TO_ARTBOARD_TYPE: Partial<Record<NodeType, ArtboardType>> = {
 };
 
 /* 아트보드 선택 + 탭 클릭 시 expand 진입하는 노드 */
-export const NODES_THAT_EXPAND: NodeType[] = ['image', 'plan', 'print', 'planners', 'cadastral'];
+export const NODES_THAT_EXPAND: NodeType[] = ['image', 'plan', 'print', 'planners', 'cadastral', 'elevation'];
 
 /* 아트보드 유형 배지 레이블 */
 export const ARTBOARD_LABEL: Record<Exclude<ArtboardType, 'blank'>, string> = {
@@ -202,7 +216,7 @@ export const ARTBOARD_LABEL: Record<Exclude<ArtboardType, 'blank'>, string> = {
   thumbnail: 'THUMBNAIL',
 };
 
-export const NODES_NAVIGATE_DISABLED: NodeType[] = ['elevation', 'diagram'];
+export const NODES_NAVIGATE_DISABLED: NodeType[] = ['diagram'];
 
 export const PANEL_CTA_MESSAGE: Partial<Record<NodeType, string>> = {
   plan:      '스케치를 선택해 주세요',
