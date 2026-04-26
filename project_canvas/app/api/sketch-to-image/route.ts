@@ -4,6 +4,7 @@ export const maxDuration = 90;
 export const dynamic = 'force-dynamic';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
+import { getStylePrompt } from '@/lib/architect-styles';
 
 const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
 const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest) {
   let systemPrompt: string;
   try {
     const protocolContent = loadProtocolFile('protocol-sketch-to-image-v2.3.txt');
-    systemPrompt = buildSystemPrompt(protocolContent);
+    const stylePrompt = getStylePrompt(style_mode);
+    systemPrompt = buildSystemPrompt(protocolContent, stylePrompt ? [stylePrompt] : []);
   } catch (err) {
     console.error('Protocol load failed:', err);
     return NextResponse.json({ error: 'Protocol initialization failed' }, { status: 500 });
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest) {
       '',
       `사용자 요청: ${user_prompt || '(없음)'}`,
       `시각화 모드: ${viz_mode}`,
-      `스타일 모드: ${style_mode}`,
+      `스타일 모드: ${style_mode}${style_mode !== 'NONE' ? ' (건축가 스타일 가이드라인이 시스템 프롬프트에 포함됨 — 해당 건축가의 4-Phase 프로세스를 따를 것)' : ''}`,
     ].join('\n');
 
     const makeAnalysisCall = (modelName: string) => () =>

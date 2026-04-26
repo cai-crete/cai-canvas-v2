@@ -129,6 +129,22 @@ export default function NodeCard({
 
   const isBlank = artboardType === 'blank';
 
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const raw = node.generatedImageData ?? node.thumbnailData ?? node.sketchData;
+    if (!raw) return;
+    const isImage = artboardType === 'image';
+    const mime = isImage ? 'image/jpeg' : 'image/png';
+    const ext  = isImage ? 'jpg' : 'png';
+    const dataUrl = raw.startsWith('data:') ? raw : `data:${mime};base64,${raw}`;
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `cai-canvas-${node.title}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const artboardBorder = 'none';
   const artboardBoxShadow = isSelected ? '0 0 0 2px var(--color-black), var(--shadow-float)' : 'var(--shadow-float)';
 
@@ -161,7 +177,7 @@ export default function NodeCard({
           <button
             title="다운로드"
             style={actionBtnBase}
-            onClick={e => e.stopPropagation()}
+            onClick={handleDownload}
             onPointerEnter={e => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'; e.currentTarget.style.color = 'var(--color-black)'; }}
             onPointerLeave={e => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.backgroundColor = 'var(--color-white)'; e.currentTarget.style.color = 'var(--color-gray-500)'; }}
           >
@@ -244,7 +260,7 @@ export default function NodeCard({
         ) : (artboardType === 'image' && node.thumbnailData) ? (
           /* image 아트보드 + 데이터 있음 */
           <img
-            src={node.thumbnailData}
+            src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : `data:image/jpeg;base64,${node.thumbnailData}`}
             alt={def.displayLabel}
             style={{
               position: 'absolute', inset: 0,
