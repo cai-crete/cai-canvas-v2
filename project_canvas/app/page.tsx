@@ -157,6 +157,7 @@ export default function CanvasPage() {
   /* ── 선택 / 확장 상태 ────────────────────────────────────────────── */
   const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
   const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
+  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'default'>('default');
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -441,6 +442,7 @@ export default function CanvasPage() {
 
   /* ── expand에서 돌아올 때 썸네일 생성 + planners 데이터 flush */
   const handleReturnFromExpand = useCallback(() => {
+    setExpandedViewMode('default');
     if (!expandedNodeId) { setExpandedNodeId(null); return; }
     const node = nodes.find(n => n.id === expandedNodeId);
     const isSketchImage = node?.artboardType === 'sketch' && node?.type === 'image';
@@ -648,6 +650,18 @@ export default function CanvasPage() {
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
+      /* IMAGE 탭 + plan/image/viewpoint 노드(artboardType=image) → Image ExpandedView */
+      if (
+        type === 'image' &&
+        selectedNode.artboardType === 'image' &&
+        (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
+      ) {
+        setExpandedViewMode('image');
+        setExpandedNodeId(selectedNode.id);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
       /* viewpoint: 사이드바 패널 토글 (ExpandedView 없음) */
       if (type === 'viewpoint') {
         if (selectedNode.artboardType === 'image') {
@@ -729,12 +743,14 @@ export default function CanvasPage() {
           selected.artboardType === 'image' &&
           (selected.type === 'image' || selected.type === 'viewpoint' || selected.type === 'plan');
         if (selected.type === type || isImageResultNode) {
+          setExpandedViewMode(type === 'image' ? 'image' : 'default');
           setExpandedNodeId(selectedNodeId);
           setActiveSidebarNodeType(null);
           return;
         }
       }
     }
+    setExpandedViewMode('default');
     createAndExpandNode(type);
   }, [selectedNodeId, nodes, createAndExpandNode]);
 
@@ -1032,6 +1048,7 @@ export default function CanvasPage() {
       {expandedNode ? (
         <ExpandedView
           node={expandedNode}
+          viewMode={expandedViewMode}
           onCollapse={handleReturnFromExpand}
           onCollapseWithSketch={handleCollapseWithSketch}
           onGenerateError={handleGenerateError}
@@ -1076,7 +1093,7 @@ export default function CanvasPage() {
             onNodeSelect={handleNodeCardSelect}
             onNodeDeselect={handleNodeDeselect}
             onNodesSelect={handleNodesSelect}
-            onNodeExpand={setExpandedNodeId}
+            onNodeExpand={(id) => { setExpandedViewMode('default'); setExpandedNodeId(id); }}
             onNodeDuplicate={duplicateNode}
             onNodeDelete={deleteNode}
           />

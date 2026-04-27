@@ -9,6 +9,7 @@ import { useBlueprintGeneration, GenerationParams } from '@/hooks/useBlueprintGe
 
 export interface SketchToImageExpandedViewProps {
   node: CanvasNode;
+  displayNodeType?: import('@/types/canvas').NodeType;
   onCollapse: () => void;
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings) => void;
   onGenerateError?: (nodeId: string) => void;
@@ -95,7 +96,7 @@ function SketchToolBtn({
    SketchToImageExpandedView
 ══════════════════════════════════════════════════════════════════ */
 export default function SketchToImageExpandedView({
-  node, onCollapse, onCollapseWithSketch, onGenerateError, onAbortControllerReady,
+  node, displayNodeType, onCollapse, onCollapseWithSketch, onGenerateError, onAbortControllerReady,
   onGenerateComplete, onGeneratingChange,
   isGenerating: globalIsGenerating = false,
 }: SketchToImageExpandedViewProps) {
@@ -377,7 +378,7 @@ export default function SketchToImageExpandedView({
       </div>
 
       {/* 우측 ExpandedSidebar */}
-      <ExpandedSidebar currentNodeType={node.type} onCollapse={handleSketchCollapse}>
+      <ExpandedSidebar currentNodeType={displayNodeType ?? node.type} onCollapse={handleSketchCollapse}>
         <SketchToImagePanel
           isGenerating={effectiveIsGenerating}
           error={error}

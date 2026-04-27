@@ -14,6 +14,7 @@ import ElevationExpandedView, { type ElevationGenerateResult } from '@/elevation
 
 interface Props {
   node: CanvasNode;
+  viewMode?: 'image' | 'default';
   onCollapse: () => void;
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings) => void;
   onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings) => void;
@@ -136,7 +137,7 @@ function SketchInfiniteGrid() {
    ExpandedView — 라우터: 노드 유형별 전용 뷰로 위임
 ══════════════════════════════════════════════════════════════════ */
 export default function ExpandedView({
-  node, onCollapse, onCollapseWithSketch, onCollapseWithPlanSketch, onGenerateError, onAbortControllerReady,
+  node, viewMode = 'default', onCollapse, onCollapseWithSketch, onCollapseWithPlanSketch, onGenerateError, onAbortControllerReady,
   activeTool, scale, canUndo, canRedo,
   onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomReset,
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
@@ -146,8 +147,10 @@ export default function ExpandedView({
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
-  const isSketchImageMode = node.type === 'image' || node.type === 'viewpoint';
-  const isSketchPlanMode  = node.type === 'plan';
+  const isSketchImageMode =
+    node.type === 'image' || node.type === 'viewpoint' ||
+    (viewMode === 'image' && node.artboardType === 'image');
+  const isSketchPlanMode  = node.type === 'plan' && viewMode !== 'image';
   const isSketchMode      = node.artboardType === 'sketch' || node.artboardType === 'blank';
 
   const [insightData, setInsightData] = useState<FetchLawsResult | null>(
@@ -159,6 +162,7 @@ export default function ExpandedView({
     return (
       <SketchToImageExpandedView
         node={node}
+        displayNodeType={viewMode === 'image' && node.type !== 'image' ? 'image' : undefined}
         onCollapse={onCollapse}
         onCollapseWithSketch={onCollapseWithSketch}
         onGenerateError={onGenerateError}
