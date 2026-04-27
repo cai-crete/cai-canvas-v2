@@ -275,7 +275,7 @@ export default function SketchToPlanExpandedView({
 
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
-    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', touchAction: 'none', background: 'var(--color-app-bg)', display: 'flex' }}>
 
       {/* 스케치 캔버스 */}
       <div style={{ position: 'absolute', inset: 0 }}>

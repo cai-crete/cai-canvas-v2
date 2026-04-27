@@ -958,7 +958,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: 'var(--color-app-bg)' }}
+      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'none', background: 'var(--color-app-bg)' }}
     >
       {/* z=1 Grid */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
