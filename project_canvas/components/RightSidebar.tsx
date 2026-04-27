@@ -12,6 +12,7 @@ import ChangeViewpointPanel from '@/components/panels/ChangeViewpointPanel';
 interface Props {
   activeSidebarNodeType: NodeType | null;
   selectedArtboardType: ArtboardType | null;
+  activeTabHint?: NodeType | null;
   onNodeTabSelect: (type: NodeType) => void;
   onNavigateToExpand: (type: NodeType) => void;
   hasSelectedArtboard: boolean;
@@ -149,7 +150,7 @@ function NodePanel({
 }
 
 export default function RightSidebar({
-  activeSidebarNodeType, selectedArtboardType,
+  activeSidebarNodeType, selectedArtboardType, activeTabHint,
   onNodeTabSelect, onNavigateToExpand,
   hasSelectedArtboard, onShowToast,
   viewpointPanelSettings, onViewpointSettingsChange,
@@ -187,7 +188,8 @@ export default function RightSidebar({
   };
 
   const tabBtn = (type: NodeType) => {
-    const disabled = isTabDisabled(type);
+    const isHinted = type === activeTabHint;
+    const disabled = isTabDisabled(type) && !isHinted;
     return (
       <div key={type} style={pill()}>
         <button

@@ -324,15 +324,21 @@ export default function NodeCard({
           </div>
         )}
 
-        {/* ── 아트보드 유형 배지 (blank 제외) ────────────────────── */}
+        {/* ── 아트보드 유형 배지 (blank 제외) — 클릭 시 ExpandedView 진입 ── */}
         {!isBlank && (
-          <div
+          <button
+            onClick={e => { e.stopPropagation(); onExpand(id); }}
+            onPointerDown={e => e.stopPropagation()}
             style={{
               position: 'absolute',
               bottom: 8,
               left: 10,
-              pointerEvents: 'none',
               zIndex: 6,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              pointerEvents: 'all',
             }}
           >
             <span
@@ -344,10 +350,10 @@ export default function NodeCard({
               }}
             >
               {artboardType === NODE_TARGET_ARTBOARD_TYPE[node.type]
-                ? (NODE_GENERATED_LABEL[node.type] || ARTBOARD_LABEL[artboardType])
-                : ARTBOARD_LABEL[artboardType]}
+                ? (NODE_GENERATED_LABEL[node.type] || ARTBOARD_LABEL[artboardType as Exclude<typeof artboardType, 'blank'>])
+                : ARTBOARD_LABEL[artboardType as Exclude<typeof artboardType, 'blank'>]}
             </span>
-          </div>
+          </button>
         )}
       </div>
 

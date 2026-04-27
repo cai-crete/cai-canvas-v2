@@ -201,6 +201,18 @@ export default function CanvasPage() {
     ? (nodes.find(n => n.id === selectedNodeId)?.artboardType ?? null)
     : null;
 
+  /* ── 선택 노드에 대응하는 활성 탭 힌트 (disabled 방지용, 시각 하이라이트 없음) */
+  const activeTabHint: NodeType | null = (() => {
+    if (!selectedNodeId) return null;
+    const node = nodes.find(n => n.id === selectedNodeId);
+    if (!node) return null;
+    if (
+      node.artboardType === 'image' &&
+      (node.type === 'plan' || node.type === 'image' || node.type === 'viewpoint')
+    ) return 'image';
+    return null;
+  })();
+
   /* ── history helpers ─────────────────────────────────────────────── */
   const pushHistory = useCallback((nextNodes: CanvasNode[], nextEdges?: CanvasEdge[]) => {
     const edgesToSave = nextEdges ?? edgesRef.current;
@@ -711,10 +723,16 @@ export default function CanvasPage() {
     if (NODES_NAVIGATE_DISABLED.includes(type)) return;
     if (selectedNodeId) {
       const selected = nodes.find(n => n.id === selectedNodeId);
-      if (selected && selected.type === type) {
-        setExpandedNodeId(selectedNodeId);
-        setActiveSidebarNodeType(null);
-        return;
+      if (selected) {
+        const isImageResultNode =
+          type === 'image' &&
+          selected.artboardType === 'image' &&
+          (selected.type === 'image' || selected.type === 'viewpoint' || selected.type === 'plan');
+        if (selected.type === type || isImageResultNode) {
+          setExpandedNodeId(selectedNodeId);
+          setActiveSidebarNodeType(null);
+          return;
+        }
       }
     }
     createAndExpandNode(type);
@@ -1081,6 +1099,7 @@ export default function CanvasPage() {
           <RightSidebar
             activeSidebarNodeType={activeSidebarNodeType}
             selectedArtboardType={selectedArtboardType}
+            activeTabHint={activeTabHint}
             onNodeTabSelect={handleNodeTabSelect}
             onNavigateToExpand={handleNavigateToExpand}
             hasSelectedArtboard={selectedNodeId !== null}

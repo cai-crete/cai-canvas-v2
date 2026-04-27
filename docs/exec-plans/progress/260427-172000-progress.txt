@@ -1,0 +1,25 @@
+작업: 생성 이미지 노드 — 사이드바 IMAGE 활성화 + ExpandedView 라우팅
+
+완료된 작업:
+1. page.tsx — handleNodeCardSelect: IMAGE 패널 자동 활성화
+   - 조건 추가: artboardType==='image' && (type==='plan'||'image'||'viewpoint') → setActiveSidebarNodeType('image')
+   - 결과: 생성된 이미지 노드 클릭 시 사이드바가 자동으로 IMAGE 패널 모드로 전환됨
+
+2. ExpandedView.tsx — isSketchImageMode에 viewpoint 조건 추가
+   - 기존: node.type === 'image'
+   - 변경: node.type === 'image' || node.type === 'viewpoint'
+   - 결과: viewpoint 노드 Expand 시 SketchToImageExpandedView 라우팅
+     (generatedImageData가 스케치 캔버스에 로드됨)
+
+3. page.tsx — handleNavigateToExpand: navigate 시 기존 노드 expand
+   - 추가 조건: type==='image' && artboardType==='image' && (type in image/viewpoint/plan) → 새 노드 생성 대신 해당 노드 expand
+   - 결과: IMAGE 패널 → 버튼 클릭 시 viewpoint/plan 노드도 SketchToImageExpandedView로 직접 열림
+
+동작 흐름 (변경 후):
+- image 노드(artboard=image): 선택 → IMAGE 패널 / Expand → SketchToImageExpandedView
+- plan 노드(artboard=image): 선택 → IMAGE 패널 / Expand(배지/더블탭) → SketchToPlanExpandedView / → 버튼 → SketchToImageExpandedView
+- viewpoint 노드(artboard=image): 선택 → IMAGE 패널 / Expand → SketchToImageExpandedView
+
+다음 할 일:
+- 없음 (요청된 모든 작업 완료)
+- iPad Safari에서 생성 이미지 선택 후 사이드바 IMAGE 패널 확인 및 Expand 동작 테스트 권장

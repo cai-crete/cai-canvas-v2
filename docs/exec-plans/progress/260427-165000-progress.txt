@@ -1,0 +1,29 @@
+작업: PLAN/IMAGE 생성 이미지 배지 클릭 → ExpandedView 연동
+
+완료된 작업:
+1. ExpandedView.tsx — isSketchImageMode/isSketchPlanMode 조건 변경
+   - 기존: artboardType === 'sketch' && type === 'image'/'plan'
+   - 변경: type === 'image' / type === 'plan'
+   - 결과: artboardType=image인 plan/image 타입도 스케치 뷰로 라우팅
+
+2. ExpandedView.tsx — 정적 이미지 뷰 블록 제거
+   - 제거된 블록: artboardType === 'image' && (type === 'image' || type === 'plan') 시 정적 img 표시
+   - 이제 plan/image 타입은 무조건 SketchToPlanExpandedView/SketchToImageExpandedView로 라우팅
+
+3. NodeCard.tsx — 배지를 클릭 가능한 <button>으로 변경
+   - 기존: pointerEvents: 'none'인 <div>
+   - 변경: onClick={e => { e.stopPropagation(); onExpand(id); }} 및 onPointerDown stopPropagation
+   - 결과: PLAN/IMAGE/SKETCH 등 모든 배지 클릭 시 ExpandedView 진입 가능
+
+동작 흐름:
+- image 타입 + artboardType=image: 배지("IMAGE") 클릭 → SketchToImageExpandedView (generatedImageData 로드)
+- plan 타입 + artboardType=image: 배지("PLAN") 클릭 → SketchToPlanExpandedView (generatedImageData 로드)
+- 기존 더블탭/확대버튼 동작도 동일하게 스케치뷰로 라우팅됨
+
+충돌 방지:
+- handleArtboardPointerDown의 closest('button') 가드 → 배지 클릭 시 카드 드래그/선택 동작 차단
+- onPointerDown stopPropagation → 이중 방어
+
+다음 할 일:
+- 없음 (요청된 모든 작업 완료)
+- iPad Safari에서 배지 클릭 및 스케치 진행 테스트 권장

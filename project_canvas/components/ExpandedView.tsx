@@ -146,8 +146,8 @@ export default function ExpandedView({
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
-  const isSketchImageMode = node.artboardType === 'sketch' && node.type === 'image';
-  const isSketchPlanMode  = node.artboardType === 'sketch' && node.type === 'plan';
+  const isSketchImageMode = node.type === 'image' || node.type === 'viewpoint';
+  const isSketchPlanMode  = node.type === 'plan';
   const isSketchMode      = node.artboardType === 'sketch' || node.artboardType === 'blank';
 
   const [insightData, setInsightData] = useState<FetchLawsResult | null>(
@@ -215,48 +215,6 @@ export default function ExpandedView({
         onGeneratingChange={onGeneratingChange}
         onGeneratePrintComplete={onGeneratePrintComplete}
       />
-    );
-  }
-
-  /* ── 생성 이미지 뷰 (image/plan → generate 결과, artboardType=image) ── */
-  if (node.artboardType === 'image' && (node.type === 'image' || node.type === 'plan')) {
-    const imgSrc = node.generatedImageData ?? node.thumbnailData;
-    const displaySrc = imgSrc
-      ? (imgSrc.startsWith('data:') ? imgSrc : `data:image/jpeg;base64,${imgSrc}`)
-      : null;
-    return (
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          left: 'calc(4rem + 1.5rem)',
-          right: 'calc(var(--sidebar-w) + 2rem)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem',
-        }}>
-          {displaySrc ? (
-            <img
-              src={displaySrc}
-              alt={node.title}
-              style={{
-                maxWidth: '100%', maxHeight: '100%',
-                objectFit: 'contain',
-                borderRadius: 'var(--radius-box)',
-                boxShadow: 'var(--shadow-float)',
-              }}
-            />
-          ) : (
-            <span className="text-body-3" style={{ color: 'var(--color-gray-300)' }}>이미지가 없습니다</span>
-          )}
-        </div>
-        <LeftToolbar
-          activeTool={activeTool} scale={scale}
-          canUndo={canUndo} canRedo={canRedo}
-          onToolChange={onToolChange} onUndo={onUndo} onRedo={onRedo}
-          onZoomIn={onZoomIn} onZoomOut={onZoomOut} onZoomReset={onZoomReset}
-          onAddArtboard={onAddArtboard}
-        />
-        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
-      </div>
     );
   }
 

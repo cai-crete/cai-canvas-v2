@@ -1,0 +1,24 @@
+작업: IMAGE 버튼 하이라이트 — disabled 우선순위 버그 수정
+
+오류 원인 분석:
+- ARTBOARD_COMPATIBLE_NODES['image'] = ['elevation', 'viewpoint', 'diagram', 'print']
+  → 'image' NodeType 자신은 이 목록에 없음
+- image artboard 노드 선택 시: isTabDisabled('image') → true
+- 이전 구현: isHinted = !disabled && type === activeTabHint
+  → disabled=true이면 isHinted=false → 하이라이트 적용 안 됨
+- ELEVATION/CHANGE VIEWPOINT/PRINT는 목록에 포함되어 disabled=false → 하이라이트 정상 동작
+  (이것이 사용자가 확인을 요청한 이유)
+
+수정된 사항:
+- RightSidebar.tsx — tabBtn 로직 변경
+  - 이전: const disabled = isTabDisabled(type); const isHinted = !disabled && type === activeTabHint;
+  - 변경: const isHinted = type === activeTabHint; const disabled = isTabDisabled(type) && !isHinted;
+  - 효과: activeTabHint에 해당하는 버튼은 disabled 여부와 관계없이 하이라이트 + 클릭 가능
+
+동작 흐름 (수정 후):
+- image/viewpoint/plan 노드(artboard=image) 선택 → IMAGE 버튼 var(--color-gray-100) 하이라이트
+- IMAGE 버튼 클릭 → handleNodeTabSelect('image') → ExpandedView 진입
+- ELEVATION/CHANGE VIEWPOINT/PRINT 버튼은 기존처럼 image artboard에서 활성(enabled) 상태 유지
+
+다음 할 일:
+- 없음 (요청된 수정 완료)
