@@ -55,6 +55,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   touch-action: none;
+  overscroll-behavior: none;
   font-family: var(--font-family-pretendard);
   background-color: var(--color-app-bg);
   color: var(--color-black);

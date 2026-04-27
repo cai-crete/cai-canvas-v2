@@ -1,0 +1,15 @@
+작업: 펜슬 + 손바닥 동시 접촉 시 캔버스 드래그 현상 수정
+
+완료된 작업:
+1. SketchCanvas.tsx (handlePointerDown): pen pointerType 감지 시 isPanning/pointerPositions/lastPinchDist 즉시 초기화
+2. SketchCanvas.tsx (handlePointerMove): isPanning 블록 앞에 penActiveRef guard 추가 → 펜 활성 중 패닝 취소
+3. SketchCanvas.tsx: handlePointerCancel 구현 + canvas에 onPointerCancel 연결 → iOS pointercancel 시 상태 정리
+4. InfiniteCanvas.tsx: onPointerCancel={handleWrapperPointerDown} 버그 제거 (취소 이벤트에서 패닝 재시작하던 문제)
+5. globals.css: overscroll-behavior: none 추가 → bounce/overscroll 완전 차단
+
+이전 세션(260427-tablet-touch-drag-fix)에서 touch-action: none 전역 적용 완료.
+이번 세션은 JavaScript 레벨의 palm rejection 경쟁 조건 수정.
+
+다음 할 일:
+- iPad Safari에서 실제 테스트 확인 필요
+- 특히 손바닥이 먼저 닿은 뒤 펜슬로 드로잉 시나리오 검증

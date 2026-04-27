@@ -1,0 +1,30 @@
+## 방금 한 일
+
+CANVAS_API_SECRET을 print-proxy에서 실제로 사용할 수 있도록 보완.
+
+## 원인
+
+Next.js 앱은 자신의 디렉토리(`project_canvas/.env.local`)만 읽고,
+프로젝트 루트의 `.env.local`은 자동 상속되지 않음.
+→ `process.env.CANVAS_API_SECRET`이 undefined로 처리되어 백엔드 인증 헤더가 전송되지 않았음.
+
+## 변경 파일
+
+1. project_canvas/.env.local
+   - CANVAS_API_SECRET 추가 (3e7e24254317ea2eea25ded3c3302cef0fdb76c6daff389050962235d9e654a0)
+
+## 인증 흐름 요약
+
+클라이언트(print/ExpandedView.tsx)
+  → /api/print-proxy/api/print (print-proxy route.ts)
+    → x-canvas-api-secret 헤더로 CANVAS_API_SECRET 포워딩
+      → https://cai-print-v3.vercel.app (백엔드에서 헤더 검증)
+
+## 완료된 것
+
+- project_canvas/.env.local에 CANVAS_API_SECRET 설정 완료
+- print-proxy가 x-canvas-api-secret 헤더를 정상 전송하는 구조 확인
+
+## 다음에 할 것
+
+- 없음 (단건 보완 완료)

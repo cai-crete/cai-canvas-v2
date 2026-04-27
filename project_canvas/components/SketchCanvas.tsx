@@ -407,6 +407,9 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
 
     if (e.pointerType === 'pen') {
       penActiveRef.current = true;
+      isPanning.current = false;
+      pointerPositions.current.clear();
+      lastPinchDist.current = 0;
     } else if (e.pointerType === 'touch') {
       pointerPositions.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointerPositions.current.size >= 2) {
@@ -551,6 +554,10 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
 
     /* 통합 패닝 */
     if (isPanning.current) {
+      if (penActiveRef.current) {
+        isPanning.current = false;
+        return;
+      }
       const rawX = panOffsetSnap.current.x + (e.clientX - panStart.current.x);
       const rawY = panOffsetSnap.current.y + (e.clientY - panStart.current.y);
       onInternalOffsetChange(clampOffset(rawX, rawY, internalZoomRef.current / 100));
@@ -658,6 +665,21 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       currentPath.current = null;
     }
   }, [activeTool, internalZoom, internalOffset, textDragRect, pushSnapshot]);
+
+  /* ── Pointer cancel (iOS palm rejection cleanup) ───────────────── */
+  const handlePointerCancel = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch') {
+      pointerPositions.current.delete(e.pointerId);
+      if (pointerPositions.current.size === 0) {
+        isPanning.current = false;
+        lastPinchDist.current = 0;
+      }
+    } else if (e.pointerType === 'pen') {
+      penActiveRef.current = false;
+      isDrawing.current = false;
+      currentPath.current = null;
+    }
+  }, []);
 
   /* ── Wheel zoom + middle button default prevention ─────────────── */
   useEffect(() => {
@@ -999,6 +1021,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onDragStart={e => e.preventDefault()}
         onMouseEnter={() => setShowCursor(true)}
         onMouseLeave={() => setShowCursor(false)}

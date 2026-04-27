@@ -387,7 +387,6 @@ export default function InfiniteCanvas({
     <div
       ref={wrapperRef}
       onPointerDown={handleWrapperPointerDown}
-      onPointerCancel={handleWrapperPointerDown}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       style={{
