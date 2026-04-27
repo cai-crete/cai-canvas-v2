@@ -89,6 +89,7 @@ export default function NodeCard({
   const handleArtboardPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
     onMouseDown(id, e);
   };
@@ -198,8 +199,10 @@ export default function NodeCard({
 
       {/* ── 아트보드 ─────────────────────────────────────────────── */}
       <div
+        draggable={false}
         onPointerDown={handleArtboardPointerDown}
         onPointerUp={handleArtboardPointerUp}
+        onDragStart={e => e.preventDefault()}
         style={{
           width: CARD_W_REM,
           height: CARD_H_REM,
