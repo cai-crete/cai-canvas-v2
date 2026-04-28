@@ -1,32 +1,29 @@
-작업: ExpandedView 생성 이미지 높이 맞춤 + 원본 교체 버그 수정
+작업: 외부 검토 의견 반영 판단 및 계획서 업데이트
 
 완료된 작업:
 
-1. project_canvas/components/SketchCanvas.tsx
-   - Props에 `referenceImageUrl?: string` 추가
-   - 렌더에 z=0 참조 이미지 오버레이 추가 (height:100%, width:auto, opacity:0.35)
-   - 기존 canvasW 미사용 변수 정리 (fitCanvas 분기에서 제거)
+1. 외부 검토 의견 5건 판단
+   - ❶ 패키지 빌드 방식 확인: 부분 반영 (위험은 기존 계획서에 이미 있었음, B-1 체크리스트 보강)
+   - ❷ 저장 데이터 불일치 위험: 반영 + 전제 오류 수정 (TypeScript 통과 주장 오류, 저장 데이터 위험은 유효)
+   - ❸ 504 발생 주장: 사실 오류 확인 및 수정 (maxDuration=300 > 120s이므로 504 발생 불가)
+     → 실제 응답 시간 기반 타임아웃 조정 원칙은 유효하게 B-2에 반영
+   - ❹ Strict Mode 별도 브랜치: 반영 (C-1 절차 보강)
+   - ➕ BFF 로깅 강화: 반영 (B-5 신규 항목 추가)
 
-2. project_canvas/sketch-to-image/ExpandedView.tsx
-   - `refImage` state 추가
-   - load effect 수정:
-     * sketchData → loadImage(fitCanvas=true) [이전과 동일]
-     * generatedImageData → setRefImage() [캔버스 로드 안 함, 오버레이만]
-     * thumbnailData → loadImage(fitCanvas=true) [이전과 동일]
-   - SketchCanvas에 `referenceImageUrl={refImage ?? undefined}` 전달
+2. 계획서 업데이트 (docs/exec-plans/active/Review/260428-canvas-print-integration-review.md)
+   - B-1: 패키지 빌드 방식(소스 vs 번들) 확인 항목 추가
+   - A-2: Optional Chaining + 기본값 방어 코딩 체크리스트 추가
+   - B-2: 타임아웃 값 결정 절차 추가 (응답 시간 측정 → 2~3배 기준), 504 오류 주장 수정 메모
+   - C-1: 별도 브랜치 + 회귀 테스트 절차 명시
+   - B-5: 신규 - BFF catch TimeoutError 분기 (504 vs 502 구분)
+   - 우선순위 표 업데이트 (B-5 추가)
+   - 섹션 7 추가: 외부 검토 반영 기록
 
-3. project_canvas/sketch-to-plan/ExpandedView.tsx
-   - 동일한 refImage state + load effect 수정
-   - thumbnailData: `loadImage(node.thumbnailData)` → `loadImage(node.thumbnailData, false, true)` (fitCanvas 추가)
-   - SketchCanvas에 `referenceImageUrl={refImage ?? undefined}` 전달
+현재 상태:
+- 계획서 v2 완성 (외부 검토 반영 완료)
+- 실제 코드 수정은 아직 미착수 (사용자 승인 후 진행 예정)
 
-해결된 이슈:
-- Issue 1: generatedImageData는 이제 height:100% CSS 오버레이로 표시 → 높이 꽉 참
-- Issue 2: generatedImageData가 캔버스에 로드되지 않아 exportAsBase64()에 포함 안됨 →
-  Generate 후 sketchData에 생성 이미지가 오염되지 않음
-
-다음 할 일:
-- 브라우저에서 검증:
-  1. 생성된 이미지 노드를 ExpandedView로 열었을 때 높이에 맞는 반투명 참조 이미지 확인
-  2. 참조 이미지 위에 스케치 → Generate → 다시 ExpandedView 열었을 때 스케치만 로드되는지 확인
-  3. sketchData가 있는 노드는 이전과 동일하게 동작하는지 확인
+즉시 실행 가능한 수정 (Print 팀 협의 불필요):
+- B-2 + B-5: print/route.ts fetch 타임아웃 + TimeoutError 분기 (단, 타임아웃 값은 응답 시간 측정 후 확정)
+- B-3: library/route.ts maxDuration = 30 추가
+- B-4: next.config.ts bodySizeLimit 주석 수정

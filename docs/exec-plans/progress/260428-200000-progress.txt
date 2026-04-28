@@ -1,0 +1,43 @@
+작업: Print 팀 배포 완료 후 Canvas 측 최종 연동 작업 (A-1, A-2, B-1)
+
+완료된 작업:
+
+1. A-1 — package.json file: 경로 → GitHub Packages 교체
+   - 사용자가 GITHUB_TOKEN 설정 후 npm install @cai-crete/print-components@0.1.1 직접 실행
+   - package.json: "file:../../cai-harness-print/project.10_print" → "^0.1.1" 교체됨
+   - added 27 packages, changed 1 package
+
+2. A-2a — types/canvas.ts 패키지 타입 직접 참조
+   - 상단에 import type { SelectedImage, PrintSavedState } from '@cai-crete/print-components' 추가
+   - printSavedState?: { html, mode, prompt, savedAt, metadata } 인라인 → printSavedState?: PrintSavedState 교체
+   - printSelectedImages?: Array<{...}> 인라인 → printSelectedImages?: SelectedImage[] 교체
+
+3. A-2b — print/ExpandedView.tsx as 캐스팅 제거
+   - (node.printSelectedImages as SelectedImage[]) → node.printSelectedImages 로 변경
+   - types/canvas.ts가 SelectedImage[]로 이미 타입 지정되므로 캐스팅 불필요
+
+4. B-1a — next.config.ts webpack alias 8개 제거
+   - '@/app', '@/types/print-canvas', '@/lib/types', '@/lib/export', '@/lib/saves',
+     '@/lib/imageUtils', '@/lib/thumbnailUtils', '@/lib/htmlUtils', '@/lib/agentErrors' 제거
+   - print-components 패키지 내부가 상대 경로만 사용하므로 alias 불필요 (Print 팀 확인)
+   - 'path' import 및 PRINT_PKG 변수도 함께 제거
+   - transpilePackages, webpack dev cache 비활성화는 유지
+
+5. B-1b — tsconfig.json paths alias 8개 제거
+   - 동일 8개 항목 제거, "@/*": ["./*"] 유지
+
+6. tsc --noEmit — 오류 0건 확인
+
+현재 상태:
+- 검토 계획서(260428-canvas-print-integration-review.md) 전 항목 완료
+  - A-1 ✅, A-2 ✅, B-1 ✅, B-2 ✅, B-3 ✅, B-4 ✅, B-5 ✅
+- 보류 항목 없음 (C-1, C-2는 장기 선택 항목으로 배포 안정화 후 판단)
+
+잔여 선택 항목 (우선순위 낮음):
+- C-1: reactStrictMode: true 검증 (별도 브랜치, 안정화 후)
+- C-2: content-length 헤더 제거 (print/route.ts, 선택)
+
+다음에 해야 할 일:
+- Vercel 배포 시 환경변수 3개 설정 필요:
+  GITHUB_TOKEN (packages:read), PRINT_API_URL, CANVAS_API_SECRET
+- 배포 후 Print 노드 ExpandedView 정상 동작 확인
