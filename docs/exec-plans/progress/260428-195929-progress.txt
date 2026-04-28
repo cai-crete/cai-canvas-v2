@@ -1,0 +1,28 @@
+## 진행 상황 — 260428-195929
+
+### 완료된 작업
+
+**Problem 1: strokeData 항상 저장**
+- `project_canvas/app/page.tsx`
+  - `handleCollapseWithSketch`: `if (strokeData) updates.strokeData = strokeData;`를
+    `n.artboardType !== 'image'` 조건 밖으로 분리
+  - `handleCollapseWithPlanSketch`: 동일 수정
+  - 효과: IMAGE 아트보드 포함 모든 노드에서 스케치 획이 minimize 후에도 복원됨
+
+**Problem 2: 배경 이미지 + 스케치 합성 후 API 전송**
+- `project_canvas/sketch-to-plan/ExpandedView.tsx`
+  - `compositeSketchOnBackground(bgBase64, sketchBase64)` 헬퍼 함수 추가
+    - 배경 이미지 위에 스케치 획을 합성한 PNG base64 반환
+    - bgImg 자연 크기 기준 캔버스, 스케치를 동일 크기로 오버레이
+  - `handleGenerate`: `planBaseImage` 있으면 합성 이미지를 API에 전송
+    - `const apiSketchBase64 = planBaseImage ? await compositeSketchOnBackground(...) : sketchBase64`
+    - AI가 위성사진 컨텍스트 + 스케치 범위를 동시에 인식하여 올바른 평면도 생성
+
+### 미완료 (브라우저 검증 필요)
+- 스케치 minimize 후 재진입 시 획 복원 확인
+- 배경+스케치 합성 이미지 API 전송 후 생성 결과 확인
+
+### 관련 파일
+- `docs/exec-plans/active/260428-sketch-persist-plan-image-fix.md`
+- `project_canvas/app/page.tsx` (L524~557 수정)
+- `project_canvas/sketch-to-plan/ExpandedView.tsx` (헬퍼 함수 추가 + handleGenerate 수정)

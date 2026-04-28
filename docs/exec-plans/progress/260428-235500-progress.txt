@@ -1,0 +1,17 @@
+작업: sketch-to-image / sketch-to-plan API 503/504 오류 수정
+
+원인:
+- Google이 gemini-2.5-pro-preview 모델을 v1beta에서 제거 (→ gemini-2.5-pro로 이름 변경)
+- primary(gemini-3.1-pro-preview) 실패 → fallback(gemini-2.5-pro-preview) 404 → 503 반환
+- sketch-to-image maxDuration = 90이 2-Phase AI 호출(최대 90+120=210초)을 감당 못해 Vercel에서 504
+
+방금 완료한 작업:
+- sketch-to-image/route.ts: MODEL_ANALYSIS_FALLBACK 'gemini-2.5-pro-preview' → 'gemini-2.5-pro'
+- sketch-to-image/route.ts: maxDuration 90 → 300
+- sketch-to-plan/route.ts: MODEL_ANALYSIS_FALLBACK 'gemini-2.5-pro-preview' → 'gemini-2.5-pro'
+  (sketch-to-plan은 maxDuration이 이미 300이었음)
+
+다음에 할 일:
+- 로컬(localhost:3900)에서 Generate 테스트 → 503 해소 확인
+- Vercel 재배포 후 504 해소 확인
+- 작업지시서 docs/exec-plans/active/260428-gemini-model-404-fix.md 는 테스트 후 completed로 이동

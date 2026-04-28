@@ -1,0 +1,45 @@
+작업: ExpandedView 3가지 수정 (Issue 1/2/3)
+
+방금 완료한 작업:
+
+[Issue 1] 스케치 획 개별 수정 가능 복원
+- SketchCanvas.tsx: exportPathsJSON() / loadPathsJSON() 추가
+  - exportPathsJSON: paths, textItems, uploadedImageData, imageTransform → JSON 직렬화
+  - loadPathsJSON: JSON 파싱 후 모든 스트로크 상태 복원 + undo 스택 재설정 (편집 가능)
+- canvas.ts: CanvasNode에 strokeData?: string 필드 추가
+- sketch-to-image/ExpandedView.tsx:
+  - handleSketchCollapse: exportPathsJSON() 호출 → strokeData 4번째 인자로 전달
+  - useEffect: node.strokeData 있으면 loadPathsJSON으로 복원 (strokes 편집 가능)
+  - onCollapseWithSketch 타입에 strokeData?: string 추가
+- sketch-to-plan/ExpandedView.tsx: 동일 처리
+- page.tsx: handleCollapseWithSketch/handleCollapseWithPlanSketch strokeData 저장
+
+[Issue 2] Plan 생성 시 원본 이미지 보존 + 평면도 선 합성
+- sketch-to-plan/ExpandedView.tsx:
+  - planBaseImage state 추가 + planFileInputRef 커스텀 파일 인풋
+  - [+] 업로드 버튼 → 커스텀 파일 인풋으로 변경 (이미지를 refImage + planBaseImage에만 설정, 캔버스 로드 X)
+  - useEffect: artboardType='image'의 thumbnailData → refImage + planBaseImage (캔버스 로드 X)
+  - handleGenerate: onGeneratePlanComplete에 planBaseImage 전달
+  - onGeneratePlanComplete 타입에 planBaseImage?: string 추가
+- page.tsx:
+  - compositeImages() 함수 추가 (배경 이미지 + 흰색 제거 평면도 선 합성, Canvas API)
+  - handleGeneratePlanComplete: async 변환, planBaseImage 있으면 compositeImages 실행
+- ExpandedView.tsx: onGeneratePlanComplete 타입 업데이트
+
+[Issue 3] ExpandedSidebar 축소 아이콘 교체
+- ExpandedSidebar.tsx: IconCollapse → NodeCard의 IconExpand 반대 방향 (Minimize) 아이콘으로 교체
+  - 4개 선 (2개 L자 폴리라인 + 2개 대각선) 중심을 향하는 방향
+
+TypeScript 타입 체크: 오류 없음
+
+완료된 이슈:
+- Issue 1: strokeData 직렬화/복원으로 획 편집 가능 (지우개, undo 동작)
+- Issue 2: planBaseImage + compositeImages로 원본이미지+평면도 합성 결과 생성
+- Issue 3: ExpandedSidebar 캔버스 복귀 버튼 Minimize 아이콘
+
+다음에 할 일:
+- 브라우저에서 검증:
+  1. Image/Plan ExpandedView에서 스케치 후 복귀 → 지우개/undo가 이전 획에 작동하는지
+  2. 이미지 업로드 후 Plan 스케치 → Generate → 합성 결과(원본+선) 확인
+  3. ExpandedSidebar 캔버스 복귀 버튼이 Minimize 아이콘으로 표시되는지
+- exec-plan 브라우저 검증 항목 완료 시 completed 폴더로 이동

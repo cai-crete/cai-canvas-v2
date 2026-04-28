@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const maxDuration = 90;
+export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
@@ -8,7 +8,7 @@ import { getStylePrompt } from '@/lib/architect-styles';
 
 const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
 const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
-const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
+const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro';
 const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
 const TIMEOUT_ANALYSIS = 90000;
 const TIMEOUT_IMAGE_GEN = 120000;

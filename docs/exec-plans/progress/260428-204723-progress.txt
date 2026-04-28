@@ -1,0 +1,41 @@
+작업: Plan/Image ExpandedView 버그 4종 수정 (260428-plan-image-bugs-full.md)
+
+완료한 작업 (코드 수정):
+
+[I2] SketchCanvas.tsx — pendingImageTransformRef 추가
+  - loadPathsJSON: setUploadedImageData 전에 pendingImageTransformRef.current = restoredTx 저장
+  - uploadedImageData useEffect: pendingImageTransformRef 있으면 재계산 없이 저장된 transform 적용
+  → 재진입 시 원본 이미지 비율 보존, 스케치 정렬 오차 해소
+
+[I1] page.tsx — handleCollapseWithSketch
+  - artboardType !== 'image' 조건 제거, sketchBase64 있으면 artboard 무관하게 thumbnailData 저장
+  - (image artboard는 sketchData 저장 제외, thumbnailData만 업데이트)
+  → Image ExpandedView minimize 후 썸네일에 스케치 획 표시
+
+[P1] types/canvas.ts
+  - CanvasNode에 planBaseImageData?: string 필드 추가
+
+[P1] sketch-to-plan/ExpandedView.tsx
+  - compositeSketchOnBackground: sketch 이미지 크기 기준, bgImg CSS height:100% centered와 동일하게 합성 (P2-A 동시 적용)
+  - onCollapseWithPlanSketch 시그니처에 planBaseImageData? 추가
+  - useEffect: node.planBaseImageData에서 planBaseImage + refImage 복원
+  - handlePlanCollapse: async화, planBaseImage 있으면 composite thumbnail, planBaseImage 전달
+  - handleGenerate: finalThumb 합성 후 onCollapseWithPlanSketch에 planBaseImageData 전달
+
+[P1] page.tsx — handleCollapseWithPlanSketch
+  - I1 패턴 동일 적용 (image artboard 썸네일 저장)
+  - planBaseImageData 파라미터 추가, 노드에 저장
+
+[P2-A] 위 compositeSketchOnBackground 좌표 수정 완료 (ExpandedView 항목에 포함)
+
+[P2-B] protocol-sketch-to-plan-v3.8.txt
+  - 섹션 3.1과 3.2 사이에 3.1.A "배경 사진 컨텍스트 인식" 삽입
+  - Geographic Anchor Recognition, Sketch-to-Site Alignment, Orientation Preservation 3개 항목
+
+남은 작업:
+- 브라우저 검증 (localhost:3900):
+  1. Image artboard: 스케치 후 minimize → 썸네일에 스케치 획 표시 확인 (I1)
+  2. Image artboard: minimize 후 재진입 → 원본 이미지 비율 유지 + 스케치 정렬 확인 (I2)
+  3. Plan artboard (위성사진 배경 있음): minimize → 썸네일에 위성사진+스케치 표시 확인 (P1)
+  4. Plan artboard: 재진입 → 위성사진 배경 복원 확인 (P1)
+  5. Plan artboard: Generate → 합성 이미지가 올바른 위치에 평면도 생성 확인 (P2-A+B)

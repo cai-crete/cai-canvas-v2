@@ -7,7 +7,7 @@ import { buildSystemPrompt, loadProtocolFile } from '@/lib/prompt';
 
 const MODEL_ANALYSIS = 'gemini-3.1-pro-preview';
 const MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview';
-const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview';
+const MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro';
 const MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image';
 const TIMEOUT_ANALYSIS = 120000;
 const TIMEOUT_IMAGE_GEN = 180000;
