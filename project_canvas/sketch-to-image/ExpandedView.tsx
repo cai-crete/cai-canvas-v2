@@ -128,7 +128,7 @@ export default function SketchToImageExpandedView({
 
   /* Expand 시 generatedImageData 우선 로드, 없으면 sketchData */
   useEffect(() => {
-    const toLoad = node.generatedImageData ?? node.sketchData;
+    const toLoad = node.generatedImageData ?? node.sketchData ?? node.thumbnailData;
     if (toLoad) {
       sketchCanvasRef.current?.loadImage(toLoad);
     }

@@ -1,0 +1,25 @@
+작업: 업로드 이미지 → SketchToImageExpandedView 라우팅 (방향 수정)
+
+완료된 작업:
+1. 방향 수정 확인
+   - 이전 계획: 신규 ImageViewerExpandedView 컴포넌트로 라우팅
+   - 수정된 방향: 업로드 이미지도 기존 SketchToImageExpandedView로 라우팅
+
+2. ExpandedView.tsx 수정
+   - isImageViewerMode 조건 및 ImageViewerExpandedView 라우팅 블록 제거
+   - ImageViewerExpandedView import 제거
+   - isSketchImageMode 원복: node.type==='image' || node.type==='viewpoint' 포함
+
+3. sketch-to-image/ExpandedView.tsx 수정
+   - 이미지 로드 우선순위에 thumbnailData 추가
+   - Before: node.generatedImageData ?? node.sketchData
+   - After:  node.generatedImageData ?? node.sketchData ?? node.thumbnailData
+   - 업로드 이미지(thumbnailData만 있는 경우)도 스케치 캔버스에 로드됨
+
+미처리 파일:
+- project_canvas/components/ImageViewerExpandedView.tsx: 더 이상 사용되지 않음 (삭제 여부 사용자 확인 필요)
+- docs/exec-plans/active/upload-image-viewer-expandedview.md: 내용 업데이트 필요
+
+다음 할 일:
+- 동작 검증 (업로드 이미지 Expand/IMAGE 버튼 → SketchToImageExpandedView에 이미지 로드됨)
+- ImageViewerExpandedView.tsx 삭제 여부 확인
