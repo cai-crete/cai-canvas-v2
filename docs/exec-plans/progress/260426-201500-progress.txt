@@ -1,0 +1,24 @@
+## 방금 한 일
+
+NodeCard.tsx 다운로드 버튼 기능 구현.
+
+## 원인
+
+다운로드 버튼 onClick에 e.stopPropagation()만 있고 실제 파일 저장 로직이 없었음.
+
+## 변경 파일
+
+1. project_canvas/components/NodeCard.tsx
+   - handleDownload 함수 추가 (isBlank 선언 직후)
+   - 다운로드 우선순위: generatedImageData → thumbnailData → sketchData
+   - artboardType === 'image' → JPEG (.jpg), 그 외 → PNG (.png)
+   - 파일명: cai-canvas-{node.title}.jpg / .png
+   - 다운로드 버튼 onClick을 e.stopPropagation() → handleDownload로 교체
+
+## 완료된 것
+
+- 모든 노드 카드 상단 [download] 버튼 클릭 시 파일 다운로드
+
+## 다음에 할 것
+
+- 없음 (단건 기능 구현 완료)

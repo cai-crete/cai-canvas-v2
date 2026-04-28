@@ -1,0 +1,202 @@
+# VIEWPOINT KNOWLEDGE: Execution Templates & Specifications
+# Used by: protocol-change-viewpoint-v1.txt (IVSP-Unified)
+
+---
+
+## SECTION 1: Pre-Step Action Protocol (Viewpoint Delta Definition)
+
+GOAL: Define the coordinates before (V0) and after (V1) the change to confirm this is a
+"Physical Camera Movement" rather than simple image generation.
+
+### Step Pre-A: Current Viewpoint Analysis (V0)
+* Input Status: Reverse-engineer the camera position of the input image.
+* Example: "Top-Down Aerial View (Satellite View, Pitch -90°, Altitude 300m)"
+* Geometry Check: Fix the building's geometric form and layout identified in the current view as an "Immutable Reference."
+
+### Step Pre-B: Target Viewpoint Setting (V1)
+* User Command: Convert the user's request into specific coordinates.
+* Input: "Bird's-eye view from {4 o'clock direction}"
+* Coordination: Azimuth 120° (4 o'clock), Altitude 45° (High Angle), Distance 200m.
+
+### Step Pre-C: Movement Vector Calculation (Δ)
+* Action: Calculate the Optimal Orbit Path from V0 to V1.
+* Continuity: Maintain the "Geometric Sanctuary" protocol to ensure the building's form is not distorted during the movement process.
+
+---
+
+## SECTION 2: Coordinate Anchoring & Scenario Mapping
+
+Reference: Fix the building's main facade at 06:00 (Front).
+
+### Coordinate Translation Logic
+* "Right/Side"  → 03:00 Vector
+* "Rear/Back"   → 12:00 Vector
+* "Bird's eye"  → High Altitude (>150m)
+* "Corner/General" → 04:30 Vector (ISO View)
+
+### Optical Scenario Map
+
+**Street View (06:00 ~ 06:30)**
+* Action: Mount 23mm Tilt-Shift Lens on Fujifilm GFX 100S.
+* Focus: Zero vertical distortion, architectural stability (1.6m height).
+* Perspective: 1-Point (vertical lines strictly parallel).
+
+**Aerial View (High Altitude)**
+* Action: Mount 32mm Lens on Phase One System.
+* Focus: Contextual layout and roof geometry analysis.
+* Perspective: 3-Point (converging verticals acceptable).
+
+**Detail View (Close-range)**
+* Action: Mount 110mm Macro Lens (f/2.8).
+* Focus: Shallow depth of field to emphasize material textures.
+* Perspective: Minimal distortion at close range.
+
+**Quarter View (04:30 Corner)**
+* Action: Mount 45mm Standard Lens.
+* Focus: 2-Point Perspective to maximize volumetric perception.
+* Priority: Building mass, depth, corner articulation.
+
+---
+
+## SECTION 3: Analysis Output Template
+
+When performing Metacognitive Analysis, structure your output as follows:
+
+### Optical & Viewpoint Parameters
+
+| Variable | Structured Value |
+| :--- | :--- |
+| **Viewpoint** | [e.g. High-angle partial corner view] |
+| **Azimuth** | [e.g. 04:30 direction (building front = 06:00)] |
+| **Altitude** | [e.g. 100m ~ 150m (intersection aerial)] |
+| **Perspective** | [e.g. 2-Point Perspective (vertical lines parallel)] |
+| **Sensor Format** | [e.g. Medium Format] |
+| **Focal Length** | [e.g. 45mm ~ 50mm (standard perspective)] |
+| **Lighting** | [e.g. Overcast, morning time] |
+| **Contrast** | [e.g. Low (soft shadows)] |
+
+### Geometric & Spatial Specifications
+
+| System Category | Structure & Material Description |
+| :--- | :--- |
+| **Skin System** | [e.g. Double-skin facade structure] |
+| **Inner Facade** | [e.g. Flat glass curtain wall] |
+| **Outer Facade** | [e.g. Parametric louver with 3D curved pattern] |
+| **Base Mass** | [e.g. Solid Glass Box mass] |
+| **Base Floor (1F)** | [e.g. Lobby structure, exposed column placement] |
+| **Mid Body** | [e.g. Core section V-type open stack area] |
+| **Roof** | [e.g. Flat roof, rooftop MEP equipment box, louver extension platform] |
+
+### Conceptual & Visual Attributes
+
+| Attribute Category | Data Indicators |
+| :--- | :--- |
+| **Design Algorithm** | [e.g. Parametricism] |
+| **Color Palette** | [e.g. Achromatic (bright white), transparent (glass)] |
+| **Form Motif** | [e.g. Kinetic energy (waves, flow, data streams)] |
+| **Form Expression** | [e.g. Orthogonal solid system → electrically curved facade] |
+| **Mood Expression** | [e.g. Hi-tech/futuristic characteristics → visual continuity] |
+
+---
+
+## SECTION 4: Final Execution Prompt Template
+
+Use the following structure for the [Final Execution Prompt]:
+
+```
+GOAL:
+Change the angle of view of the provided architectural image to "[TARGET VIEWPOINT]"
+without altering the building's original geometry, materials, or style.
+
+ACTION PROTOCOL:
+[1] Viewpoint Delta (Δ)
+- V0 (Current): [Azimuth, height/altitude of current view]
+- V1 (Target): [Azimuth, altitude, pitch of target view]
+
+[2] Coordinate Anchoring & Scenario Mapping
+- Target: [Viewpoint description]
+- Optic Gear: Mount [Lens] on [Camera body].
+- Focus: [Key capture objective]
+
+[3] Reality Mapping & Blind Spot Logic
+- Geometry Sanctuary: Strictly lock the immutable constants: [list key materials/elements].
+- Perspective Enforcement: Apply [1/2/3]-point perspective.
+- Blind Spot Inference: [Describe what is exposed or reconstructed in the new view].
+- Relighting: Lock original textures. Apply Relighting to match [new solar angle description].
+```
+
+---
+
+## SECTION 5: Example Outputs
+
+### Example A — Right-side Aerial View
+
+```
+GOAL:
+Change the angle of view of the provided architectural image to a "Right-side Aerial View
+(3 o'clock direction)" without altering the building's original geometry, materials, or style.
+
+ACTION PROTOCOL:
+[1] Viewpoint Delta (Δ)
+- V0 (Current): Azimuth 05:30, Eye-level (Height 1.6m).
+- V1 (Target): Azimuth 03:00 (Right side), High Altitude (>150m), Pitch -45°.
+
+[2] Coordinate Anchoring & Scenario Mapping
+- Target: High-Altitude Aerial View from the 03:00 Vector.
+- Optic Gear: Mount 32mm Lens on Phase One System.
+- Focus: Contextual layout and roof geometry analysis, specifically capturing the lateral
+  depth of the rhythmic multi-gable structure.
+
+[3] Reality Mapping & Blind Spot Logic
+- Geometry Sanctuary: Strictly lock the immutable constants: wooden glulam frames,
+  transparent glass curtain walls, stone masonry base, and dark metal roof panels.
+- Perspective Enforcement: Apply standard 3-point perspective suitable for high-altitude photography.
+- Blind Spot Inference: Fully expose the lateral depth of the overlapping triangular gables.
+  Reconstruct the rear landscape and lake connection extending from the right side,
+  based on the front facade's Design DNA.
+- Relighting: Lock original textures. Apply Relighting to match the new solar angle from
+  the right-side upper atmosphere, reflecting soft natural light off the vast side glass
+  facade and sloping roof.
+```
+
+### Example B — Top-Down Aerial View (Satellite)
+
+```
+GOAL:
+Change the angle of view of the provided architectural image to a "Top-Down Aerial View
+(Satellite View)" without altering the building's original geometry, materials, or style.
+
+ACTION PROTOCOL:
+[1] Viewpoint Delta (Δ)
+- V0 (Current): Azimuth 05:30, Eye-level (Height 1.6m).
+- V1 (Target): Azimuth N/A (Zenith), High Altitude (300m), Pitch -90°.
+
+[2] Coordinate Anchoring & Scenario Mapping
+- Target: Top-Down Aerial View (Layout/Site Plan View).
+- Optic Gear: Mount 32mm Lens on Phase One System.
+- Focus: Contextual layout and roof geometry analysis, capturing the geometric footprint
+  of the rhythmic multi-gable structure and its spatial relationship with surroundings.
+
+[3] Reality Mapping & Blind Spot Logic
+- Geometry Sanctuary: Strictly lock the immutable constants: dark metal roof panels,
+  wooden glulam frame edges, and the precise building footprint.
+- Perspective Enforcement: Apply 1-Point Perspective (or strict Orthographic projection)
+  to accurately represent the site layout without vertical distortion.
+- Blind Spot Inference: Fully expose the top-down geometric layout of the intersecting
+  triangular gables. Reconstruct the complete 360-degree surrounding landscape, including
+  the rear lake, front grassy area, pathways, and vegetation.
+- Relighting: Lock original textures. Apply Relighting to match an overhead solar position,
+  emphasizing the ridges and valleys of the dark metal roof through subtle highlights,
+  and clearly delineating the building's cast shadow onto the surrounding ground.
+```
+
+---
+
+## SECTION 6: Form Protection Shield (Non-Negotiable)
+
+Apply these constraints to every generated image:
+- Floor count: LOCKED — do not add or remove floors
+- Window count and placement: LOCKED — do not alter grid
+- Building proportions and mass: LOCKED — no geometric deformation
+- Material identity (concrete/glass/metal): LOCKED — texture only shifts with light
+- No hallucinated ornaments or structural elements

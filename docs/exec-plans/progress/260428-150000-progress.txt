@@ -1,0 +1,44 @@
+작업: Canvas ↔ Print 노드 연결 — 경로 A + BFF 구현 완료 (Phase 7까지)
+
+완료된 작업:
+1. 계획서 업데이트 (A + BFF 확정 방향 반영)
+2. Phase 1: .env.local.example 업데이트 (PRINT_API_URL, CANVAS_API_SECRET, GITHUB_TOKEN 추가)
+3. Phase 2: .npmrc 생성 (@cai-crete GitHub Packages 레지스트리 설정)
+4. Phase 3: next.config.ts 업데이트
+   - transpilePackages: ['@cai-crete/print-components']
+   - webpack alias 8개 (@/app/*, @/lib/types 등 패키지 내부 경로 리디렉션)
+   - tsconfig.json paths 9개 추가 (tsc --noEmit 오류 0건)
+5. Phase 4: BFF 전용 라우트 교체
+   - 신규: app/api/print-proxy/api/print/route.ts (POST, 검증, 20MB 제한)
+   - 신규: app/api/print-proxy/api/library/route.ts (GET, 패키지가 라이브러리 조회 시 사용)
+   - 제거: app/api/print-proxy/[...path]/route.ts (개방형 catch-all 프록시)
+6. Phase 5: app/layout.tsx — print-tokens.css import 추가
+7. Phase 6: print/ExpandedView.tsx 교체
+   - @cai-crete/print-components의 PrintExpandedView 래핑
+   - renderToolbarWrapper로 닫기 버튼 + undo/redo/library/saves 툴바 주입
+   - node.generatedImageData ?? node.thumbnailData → SelectedImage[] 변환
+   - onSave(PrintSaveResult.thumbnail) → onGeneratePrintComplete({ thumbnailBase64 }) 매핑
+   - apiBaseUrl="/api/print-proxy" 고정
+8. Phase 7: npm install @cai-crete/print-components@0.1.0 완료 (GITHUB_TOKEN 사용)
+
+아직 완료되지 않은 작업:
+Phase 0 잔여: .env.local에 실제 CANVAS_API_SECRET 추가 (사용자가 직접 추가했다고 확인)
+Phase 8: 로컬 연동 테스트 (Print 서버 실행 필요)
+Phase 9: Vercel 환경변수 설정 (배포 시)
+
+현재 상태:
+- TypeScript 타입 검사 오류 0건 (tsc --noEmit 통과)
+- 개발 서버 실행 및 Print 노드 클릭으로 ExpandedView 테스트 가능한 상태
+- CANVAS_API_SECRET가 .env.local에 있으면 Print 서버와 실제 통신 가능
+- Print 서버(localhost:3777 또는 cai-print-v3.vercel.app)가 실행 중이어야 GENERATE 기능 동작
+
+다음에 해야 할 일:
+1. Canvas 개발 서버(localhost:3900) 실행 후 Print 노드 클릭 테스트
+2. GENERATE 버튼 클릭 → 브라우저 Network 탭에서 /api/print-proxy/api/print 호출 확인
+3. 정상 동작 확인 후 Phase 8 체크리스트 완료 처리
+4. 완료 시 docs/exec-plans/active/260428-print-canvas-connection-fix.md → completed/ 이동
+
+특이사항:
+- 패키지의 GlobalHeader (고정 헤더, "CAI CANVAS | PRINT VER.3")는 Print 확장 뷰에서 항상 표시됨 (의도된 동작)
+- 닫기 버튼은 renderToolbarWrapper로 좌측 툴바 상단에 주입됨
+- CANVAS_API_SECRET 없으면 BFF가 503 반환 (이전 방식은 조건부로 시도했다가 401)

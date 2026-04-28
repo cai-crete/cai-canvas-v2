@@ -1,0 +1,65 @@
+## 세션 16 (계속) — 2026-04-24
+
+### 방금 무엇을 했는지
+N05 Change Viewpoint — cai-change-viewpoint-v5 백엔드 연결 구현 완료.
+Phase 0 ~ Phase 5 전체 완료.
+
+### 완료된 작업
+
+**Phase 0**: .env.local 환경변수 추가
+- GEMINI_API_KEY_VIEWPOINT=AIzaSyD_Le8H4z0JjWzsulZ4sDWhQfYa6Ty2VLU
+- VIEWPOINT_API_URL=https://cai-change-viewpoint-v5.vercel.app
+
+**Phase 1**: types/canvas.ts 타입 확장
+- ViewpointPanelSettings 인터페이스 추가 (prompt, viewpoint)
+- CanvasNode에 viewpointPanelSettings, viewpointAnalysis 필드 추가
+- NODES_NAVIGATE_DISABLED에서 'viewpoint' 제거
+
+**Phase 2**: app/api/change-viewpoint/route.ts 신규 생성 (프록시 라우트)
+- JSON 입력 → FormData 변환 → v5 백엔드 포워딩
+- 출력: { generated_image, analysis }
+
+**Phase 3**: hooks/useViewpointGeneration.ts 신규 생성
+- useBlueprintGeneration 패턴 동일
+
+**Phase 4**: 사이드바 패널 구현
+- components/panels/ChangeViewpointPanel.tsx 신규 생성
+  - Prompt 텍스트에리어
+  - Viewpoint 4개 선택 버튼 (Bird's eye/Street/Corner/Detail)
+  - Analysis Report 섹션
+  - GENERATE 버튼 (비활성 조건 포함)
+- components/RightSidebar.tsx 수정
+  - viewpoint 5개 props 추가
+  - viewpoint 전용 패널 분기 (← navigate 버튼 생략)
+
+**Phase 5**: page.tsx 핸들러 추가
+- handleViewpointSettingsChange: 패널 설정 노드에 저장
+- handleGenerateViewpoint: API 호출 + GeneratingToast('PICTURE GENERATING') + 노드 생성
+- handleNodeTabSelect: viewpoint 탭 → 사이드바 패널 토글
+- RightSidebar에 viewpoint props 전달
+
+### 어디까지 완료됐는가
+
+| 항목 | 상태 |
+|------|------|
+| Phase 0 환경변수 | ✅ 완료 |
+| Phase 1 타입 확장 | ✅ 완료 |
+| Phase 2 API Route (프록시) | ✅ 완료 |
+| Phase 3 React Hook | ✅ 완료 |
+| Phase 4 사이드바 패널 | ✅ 완료 |
+| Phase 5 page.tsx | ✅ 완료 |
+| 브라우저 검증 | ⏸️ 미진행 (개발 서버 실행 필요) |
+
+### 다음에 무엇을 해야 하는지
+1. 개발 서버 실행 후 기능 동작 확인:
+   - image 아트보드 선택 → VIEWPOINT 탭 클릭 → 사이드바 패널 열림 확인
+   - Viewpoint 선택 + GENERATE 클릭 → GeneratingToast('PICTURE GENERATING') 확인
+   - 생성 완료 → 새 viewpoint 노드 + 엣지 생성 확인
+   - 생성된 viewpoint 노드 선택 → Analysis Report 텍스트 표시 확인
+2. v5 백엔드 응답 확인:
+   - https://cai-change-viewpoint-v5.vercel.app/api/generate 공개 접근 가능한지 테스트
+   - FormData 포맷이 v5 스펙과 일치하는지 확인
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

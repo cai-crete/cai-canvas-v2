@@ -1,0 +1,82 @@
+# ELEVATION GENERATION GUIDE — Protocol B (v7)
+# Image generation guidelines for architectural elevation drawings
+
+## Purpose
+Guide for generating orthographic architectural elevation drawings from AEPLSchema data.
+Used in Protocol B: 4 non-front elevations generated via Gemini image generation model.
+
+## General Style Requirements
+- Render as clean architectural elevation drawings
+- White/light gray background (#F8F8F6)
+- Crisp, precise linework
+- No perspective distortion — true orthographic projection
+- Scale: consistent across all views
+- No entourage (people, trees, cars) unless explicitly in context description
+- Shadows: optional subtle drop shadow to indicate depth
+
+## View-Specific Camera Guidelines
+
+### REAR ELEVATION
+- Camera position: directly opposite front facade, same height
+- Show: service elements, utility openings, loading areas, fire escapes
+- Typically less refined than front: raw concrete, brick, or service finishes
+- Window pattern: fewer, smaller, irregularly placed for utility
+
+### LEFT ELEVATION
+- Camera position: 90° left of front-facing direction
+- Show: building depth, floor plate stacking, side windows
+- Reveal: building section profile, parapet height, any setbacks
+- Match floor level heights to front elevation
+
+### RIGHT ELEVATION
+- Camera position: 90° right of front-facing direction
+- Mirror considerations of left elevation
+- Note: may differ if building has asymmetric plan
+
+### TOP VIEW (Roof Plan)
+- Camera position: directly above, looking down
+- Show: roof plan geometry, equipment (HVAC, elevator overrun, skylights)
+- Indicate: building footprint outline, roof level changes
+- Light gray fill for roof surface, darker outlines for equipment/structures
+
+## Material Rendering Guidelines
+
+### Concrete
+- Color: as specified in AEPLSchema materials.base.color
+- Texture: subtle aggregate texture or board-form marks if rough
+- Joints: indicate construction joints/panel joints with thin lines
+
+### Brick
+- Color: warm earth tones per schema color
+- Pattern: running bond or specified pattern, 1:3 ratio bricks
+- Mortar: slightly lighter than brick color
+
+### Glass / Curtain Wall
+- Color: tinted per materials.glass.color
+- Reflections: subtle sky reflection gradient (lighter top, darker bottom)
+- Mullion grid: thin dark lines for frame system
+- Opacity: render as semi-transparent showing dark interior suggestion
+
+### Aluminum / Metal Panels
+- Color: per schema
+- Texture: flat, reflective sheen
+- Joints: thin lines indicating panel module
+
+### Stone / Masonry
+- Color: per schema
+- Texture: subtle variation in tone within panels
+- Coursing lines: horizontal lines indicating stone courses
+
+## Dimensional Consistency Rules
+1. Floor-to-floor height: consistent across all views (derive from height/floor_count)
+2. Bay width: consistent with front elevation (derive from width/bay_count)
+3. Total height: identical in all four side/rear views
+4. Building depth: left/right views show full depth dimension
+
+## Prompt Construction Template (for each view)
+"Architectural elevation drawing of [style] building. [view] elevation.
+Materials: [base.name] [base.color] primary facade, [secondary.name] accents, [glass.color] glass.
+[floor_count] floors, [bay_count] bays. void_ratio: [void_ratio].
+[inferred_views.[view]] description.
+Clean orthographic drawing, white background, professional architectural rendering.
+No perspective, no entourage. Consistent scale with other elevations."

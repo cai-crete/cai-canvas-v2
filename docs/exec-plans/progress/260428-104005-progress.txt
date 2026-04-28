@@ -1,0 +1,42 @@
+작업: Canvas ↔ Print 노드 연결 — 브라우저 테스트 3대 버그 수정
+
+완료된 작업:
+1. Phase 1~8 서버 테스트 완료 (이전 파일 참조)
+2. 브라우저 테스트 후 발견된 3가지 버그 수정:
+
+[Fix 1] Bebas Neue 폰트 미적용
+  - 원인: @cai-crete/print-components 패키지가 text-ui-title / text-ui-subtitle / text-ui-caption 클래스 사용하는데 Canvas 앱의 globals.css에 미정의
+  - 수정: globals.css에 세 클래스 추가 (--font-family-bebas / --font-family-pretendard 변수 사용)
+  - 파일: project_canvas/app/globals.css
+
+[Fix 2] 이미지 삽입 시 썸네일 슬롯 깨짐
+  - 원인: React 19 Strict Mode 이중 effect 실행 → useMemo가 캐시한 Blob URL을 cleanup이 revoke해버려 src 무효화
+  - 수정: next.config.ts에 reactStrictMode: false 추가
+  - 파일: project_canvas/next.config.ts
+
+[Fix 3] GENERATE 버튼 클릭 시 "Failed to fetch" 오류
+  - 원인: BFF에서 req.body ReadableStream + duplex:'half' 스트리밍 방식이 Next.js 15 dev 환경에서 불안정
+  - 수정: req.arrayBuffer()로 본문 전체 버퍼링 후 ArrayBuffer로 upstream 전송. content-length도 실제 버퍼 크기로 정확하게 설정
+  - 파일: project_canvas/app/api/print-proxy/api/print/route.ts
+
+아직 완료되지 않은 작업:
+- 서버 재시작 후 브라우저 재테스트 필요 (3가지 수정 적용 확인):
+  1. INSERT IMAGE 슬롯에 이미지가 정상적으로 표시되는지
+  2. GENERATE 버튼이 정상적으로 API 호출되는지
+  3. 헤더/레이블에 Bebas Neue 폰트가 적용되는지
+- Phase 8 완료 후 계획서 active → completed 이동
+- Phase 9: Vercel 환경변수 설정 (배포 시)
+
+현재 상태:
+- 3가지 수정 코드 적용 완료
+- 서버 재시작이 필요함 (next.config.ts 변경으로 인해)
+- 사용자가 서버 재기동 후 브라우저 테스트 결과 보고 대기 중
+
+다음에 해야 할 일:
+1. 서버 재시작: 프로젝트 루트에서 npm run dev
+2. 브라우저에서 localhost:3900 확인
+3. Print 노드 클릭 → ExpandedView 열기
+4. 이미지 삽입 → 정상 표시 확인
+5. GENERATE 클릭 → 성공 확인
+6. SAVE → Canvas 썸네일 업데이트 확인
+7. 정상이면 Phase 8 완료 처리 후 계획서 이동

@@ -1,0 +1,21 @@
+작업: Canvas ↔ Print 노드 연결 불량 원인 분석
+
+완료된 작업:
+1. 참조 레포(CAI2-print) 구조 분석
+2. 현재 프로젝트(cai-canvas-v2-jw) 구조 분석
+3. 원인 파악 완료 — 3개 Critical + 4개 High/Medium 결함
+4. 작업지시서 작성: docs/exec-plans/active/260428-print-canvas-connection-fix.md
+
+핵심 원인 요약:
+[Critical-❶] PRINT_API_URL 환경변수 없음 → route.ts에서 undefined URL로 요청 → 즉시 502
+[Critical-❷] API 응답 파싱 불일치 → 서버는 {html, ...} 반환, 현재 코드는 {pages/images} 기대 → 항상 에러
+[Critical-❸] CANVAS_API_SECRET 없음 → print 서버 인증 실패 → 401
+[High-❹] @cai-crete/print-components 패키지 미설치 (참조 레포는 npm 패키지 방식 사용)
+[High-❺] next.config.ts에 transpilePackages + webpack alias 8개 누락
+[Medium-❻] print-tokens.css 미import → CSS 변수 누락으로 UI 깨짐
+
+다음에 해야 할 일:
+1. 사용자에게 경로 A(패키지 통합) vs 경로 B(현재 구현 수정) 결정 요청
+2. Phase 0 완료 후 — Print 팀에서 CANVAS_API_SECRET 수령 + 패키지 배포 확인
+3. Phase 1 — .env.local에 환경변수 추가 (가장 먼저, 어느 경로든 필요)
+4. 경로 A 선택 시 — Phase 2~5 순서대로 진행

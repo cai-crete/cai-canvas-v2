@@ -1,0 +1,30 @@
+## 진행 상황 — 2026-04-24 18:00
+
+### 방금 완료한 작업
+change-viewpoint API 503 오류 수정
+
+### 원인
+change-viewpoint/route.ts의 MODEL_IMAGE_GEN과 MODEL_ANALYSIS_FALLBACK 위치가 뒤바뀌어 있었음.
+- `gemini-2.5-pro-preview`(텍스트 전용)가 이미지 생성 역할(MODEL_IMAGE_GEN)에 배치
+- `responseModalities: ['IMAGE', 'TEXT']` 요청 불가 → 이미지 생성 실패 → 503 반환
+
+### 수정 내용 (route.ts 모델 설정 4줄)
+
+변경 전:
+- MODEL_ANALYSIS = 'gemini-3.1-pro-preview'
+- MODEL_ANALYSIS_FALLBACK = 'gemini-3.1-flash-image-preview'  ← 이미지 모델이 텍스트 폴백 역할
+- MODEL_IMAGE_GEN = 'gemini-2.5-pro-preview'                 ← 텍스트 모델이 이미지 생성 역할
+- MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image'
+
+변경 후 (sketch-to-image와 동일하게 정렬):
+- MODEL_ANALYSIS = 'gemini-3.1-pro-preview'
+- MODEL_IMAGE_GEN = 'gemini-3.1-flash-image-preview'
+- MODEL_ANALYSIS_FALLBACK = 'gemini-2.5-pro-preview'
+- MODEL_IMAGE_GEN_FALLBACK = 'gemini-2.5-flash-image'
+
+### 빌드 결과
+✓ npm run build 성공 (TypeScript 0 errors)
+
+### 다음에 할 일
+- git commit 및 Vercel 재배포
+- 배포 후 change-viewpoint 실제 동작 검증

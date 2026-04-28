@@ -1,0 +1,50 @@
+작업: Canvas ↔ Print 노드 연결 — GENERATE 413 오류 수정
+
+완료된 작업:
+1. Phase 1~8 서버 테스트 완료 (이전 파일 참조)
+2. 브라우저 테스트 Fix 1~3 적용 (260428-104005-progress.txt 참조)
+3. 브라우저 재테스트 결과:
+   - Fix 1 (폰트): 정상 ✅
+   - Fix 2 (이미지 슬롯): 정상 ✅
+   - Fix 3 (GENERATE 413): 미해결 → 새 원인 분석 후 추가 수정
+
+[Fix 4] GENERATE 413 Payload Too Large 오류
+  - 증상: GENERATE 클릭 시 사이드바에 "Unexpected token 'R', 'Request En'... is not valid JSON" 표시
+  - 콘솔: :3900/api/print-proxy/api/print → 413 (Payload Too Large)
+  - 원인 분석:
+    · Next.js 15.1+ 에서 Route Handler도 기본 1MB body size limit 적용됨
+    · print 서버(3777): next.config.ts에 bodySizeLimit: '50mb' 이미 설정됨 ✅
+    · Canvas BFF(3900): next.config.ts에 bodySizeLimit 미설정 → 기본 1MB 적용 ❌
+    · 이미지 파일이 1MB 초과 시 Next.js가 route handler 실행 전에 413 plain-text 반환
+    · 프론트엔드 res.json()이 plain-text 413 파싱 실패 → JSON parse error
+  - 수정: project_canvas/next.config.ts에 experimental.serverActions.bodySizeLimit: '50mb' 추가
+  - 파일: project_canvas/next.config.ts
+
+[Fix 5] ERR_INVALID_URL — selectedImages base64 줄바꿈 문자
+  - 증상: 콘솔에 "Failed to load data:image/png;base64--... ERR_INVALID_URL" 두 건
+  - 원인: parseNodeImage()가 node.generatedImageData에서 base64 추출 시 줄바꿈(\n) 제거 안 함
+           → Print_ExpandedView.tsx가 fetch(`data:${mimeType};base64,${base64}`) 호출 시 URL 무효
+  - 수정: parseNodeImage() 반환 시 current.replace(/\s/g, '') 추가
+  - 파일: project_canvas/print/ExpandedView.tsx
+
+아직 완료되지 않은 작업:
+- 서버 재시작 후 브라우저 재테스트 필요:
+  1. GENERATE 버튼 → 413 오류 없이 정상 생성되는지
+  2. selectedImages ERR_INVALID_URL 콘솔 에러 해소 확인
+  3. SAVE → Canvas 썸네일 업데이트 확인
+- Phase 8 완료 처리 후 계획서 active → completed 이동
+- Phase 9: Vercel 환경변수 설정 (배포 시)
+
+현재 상태:
+- Fix 4, Fix 5 코드 적용 완료
+- 서버 재시작 필요 (next.config.ts 변경)
+- 사용자가 서버 재기동 후 브라우저 테스트 결과 보고 대기 중
+
+다음에 해야 할 일:
+1. 서버 재시작: project_canvas/ 에서 npm run dev
+2. 브라우저에서 localhost:3900 접속
+3. Print 노드 클릭 → ExpandedView 열기
+4. INSERT IMAGE로 이미지 추가
+5. GENERATE 클릭 → 413 오류 없이 성공 확인
+6. SAVE → Canvas 썸네일 업데이트 확인
+7. 정상이면 Phase 8 완료 처리

@@ -1,0 +1,27 @@
+## 방금 한 일
+
+NodeCard.tsx의 414 URI Too Long 에러 수정.
+
+## 원인
+
+artboardType === 'image'인 노드의 thumbnailData를 `src` 속성에 raw base64로 전달하면
+브라우저가 이를 URL path로 해석 → GET /9j/4AAQSkZJRg... 414 오류 발생.
+
+이전 작업(260426-183000)에서 artboardType을 'sketch' → 'image'로 변경했을 때
+NodeCard.tsx의 image 분기(line 244)가 활성화되었으나,
+해당 분기에서 `src={node.thumbnailData}` — data: prefix 없이 사용 중이었음.
+
+## 변경 파일
+
+1. project_canvas/components/NodeCard.tsx (line 247)
+   - 수정 전: `src={node.thumbnailData}`
+   - 수정 후: `src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : \`data:image/jpeg;base64,\${node.thumbnailData}\`}`
+
+## 완료된 것
+
+- IMAGE 노드 카드 썸네일 렌더링 시 414 에러 해결
+- data: prefix 유무에 관계없이 안전하게 처리
+
+## 다음에 할 것
+
+- 없음 (단건 버그 수정 완료)

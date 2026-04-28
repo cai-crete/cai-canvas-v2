@@ -1,0 +1,60 @@
+## 세션 17 — 2026-04-26 (구현 세션)
+
+### 방금 무엇을 했는지
+`image-to-elevation-port-260426.md` 작업지시서 기준 Phase 1~9 전체 구현 완료.
+빌드 성공: `npm run build` ✓
+
+### 구현 완료 항목
+
+| Phase | 내용 | 상태 |
+|-------|------|------|
+| Phase 1 | types/canvas.ts — 인터페이스 3개 추가, NODES_NAVIGATE_DISABLED·NODES_THAT_EXPAND 수정 | ✅ |
+| Phase 2 | elevation/_context/ 프로토콜 파일 3개 생성 | ✅ |
+| Phase 3 | app/api/image-to-elevation/route.ts 생성 (2단계 Gemini 파이프라인) | ✅ |
+| Phase 4 | hooks/useElevationGeneration.ts 생성 | ✅ |
+| Phase 5 | elevation/ExpandedView.tsx 생성 (CrossGrid, 단일 CTA 버튼 상태머신) | ✅ |
+| Phase 6 | components/ExpandedView.tsx 수정 (elevation 라우팅 분기 추가) | ✅ |
+| Phase 7 | app/page.tsx 수정 (renderCrossGridThumbnail, createChildNode 반환값, handleGenerateElevationComplete, elevation 탭 분기, GeneratingToast) | ✅ |
+| Phase 8 | lib/prompt.ts 수정 (elevation/_context/ 경로 추가) | ✅ |
+| Phase 9 | TypeScript 타입 체크 + 빌드 검증 | ✅ |
+
+### 생성된 신규 파일
+
+- `project_canvas/elevation/ExpandedView.tsx`
+- `project_canvas/elevation/_context/protocol-image-to-elevation-v7.txt`
+- `project_canvas/elevation/_context/knowledge-aeps-schema-v4.txt`
+- `project_canvas/elevation/_context/knowledge-elevation-guide.txt`
+- `project_canvas/app/api/image-to-elevation/route.ts`
+- `project_canvas/hooks/useElevationGeneration.ts`
+
+### 수정된 기존 파일
+
+- `project_canvas/types/canvas.ts`
+- `project_canvas/components/ExpandedView.tsx`
+- `project_canvas/app/page.tsx`
+- `project_canvas/lib/prompt.ts`
+
+### 노드 흐름 (완성된 동작)
+1. 이미지 아트보드 선택 → ELEVATION 탭 클릭
+2. elevation 입력 노드 생성 (원본 이미지를 thumbnailData로 복사) + 즉시 ExpandedView 진입
+3. ExpandedView: 원본 이미지 표시 + PROMPT 입력 + GENERATE 버튼
+4. GENERATE 클릭 → 즉시 캔버스 복귀 + "ELEVATION GENERATING" toast
+5. 백그라운드: Protocol A (Gemini Vision → AEPLSchema) → Protocol B (4방향 병렬 생성, front = passthrough)
+6. 완료 시 handleGenerateElevationComplete → CrossGrid 합성 썸네일 노드 B 생성
+7. 노드 B expand → CrossGrid 5-view + EXPORT 버튼 (ELEVATION SPEC 패널 포함)
+
+### 주요 설계 결정
+- 단일 CTA 버튼: `generate → generating → export` 상태 전환 (동일 DOM 위치)
+- PROMPT 변경 시 `export`→`generate`로 리셋 (`promptChanged` state)
+- API 모델: `gemini-3.1-pro-preview` (분석) / `gemini-3.1-flash-image-preview` (이미지 생성) + 폴백
+- GEMINI_API_KEY (.env.local) 재사용 — 별도 키 불필요
+- renderCrossGridThumbnail: Canvas API 브라우저 측 합성 (840×594px, 3×3 그리드)
+
+### 다음에 무엇을 해야 하는지
+- `.env.local`에 GEMINI_API_KEY 설정 여부 확인 후 실제 테스트
+- 모델 가용성 확인 (`gemini-3.1-pro-preview`, `gemini-3.1-flash-image-preview`)
+- Phase 9 기능 테스트: elevation 탭 클릭 → 생성 → 결과 노드 확인
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

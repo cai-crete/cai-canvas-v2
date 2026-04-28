@@ -1,0 +1,78 @@
+세션 일시: 2026-04-26
+작업자: Claude (AGENT C / 실행 에이전트)
+
+=== 방금 무엇을 했는지 ===
+
+cai-print 백엔드 API 연결 구현 완료.
+
+Phase 0 (API 스펙 파악):
+  - 엔드포인트: POST https://cai-print-v3.vercel.app/api/print
+  - 요청 형식: FormData
+    - mode: 'REPORT' | 'DRAWING & SPECIFICATION' | 'PANEL' | 'VIDEO'
+    - prompt: string (선택)
+    - pageCount: number
+    - images: binary (Blob)
+  - 인증: x-canvas-api-secret 헤더 (CANVAS_API_SECRET 환경변수)
+  - 응답: JSON (pages, images, result, url 중 하나 — 아직 성공 응답 미확인)
+
+Phase 1 (API 프록시 라우트):
+  - project_canvas/app/api/print-proxy/[...path]/route.ts 생성
+    (사용자가 제공한 코드 그대로 적용)
+  - project_canvas/.env.local 에 PRINT_API_URL=https://cai-print-v3.vercel.app 추가
+
+Phase 2 (Print ExpandedView 컴포넌트):
+  - project_canvas/print/ExpandedView.tsx 신규 생성
+  - UI: PURPOSE 4개 버튼, NUMBER OF PAGES 스테퍼, PROMPT textarea,
+        GENERATE 버튼, EXPORT 버튼, 페이지 미리보기 + 내비게이션
+  - 이미지 압축: compressImageBase64 활용
+  - FormData 요청: /api/print-proxy/api/print
+  - 응답 형식: pages[], images[], result, url 다형 처리
+
+Phase 3 (ExpandedView 라우터 연결):
+  - components/ExpandedView.tsx 에 node.type === 'print' 케이스 추가
+  - Props에 onGeneratePrintComplete 추가
+
+Phase 4 (page.tsx 상태 연결):
+  - handleGeneratePrintComplete 콜백 추가
+    (thumbnailData + generatedImageData 업데이트)
+  - ExpandedView에 onGeneratePrintComplete 전달
+  - GeneratingToast 레이블: print 노드일 때 'PRINT GENERATING' 표시
+
+Phase 5 (CSS 변수):
+  - app/globals.css 에 --color-placeholder: #999999 추가
+
+TypeScript 타입 체크: 오류 없음 (tsc --noEmit 통과)
+
+=== 어디까지 완료됐는지 ===
+
+- [완료] Phase 0: API 스펙 파악
+- [완료] Phase 1: 프록시 라우트 생성
+- [완료] Phase 2: print/ExpandedView.tsx 구현
+- [완료] Phase 3: ExpandedView 라우터 연결
+- [완료] Phase 4: page.tsx 상태 연결
+- [완료] Phase 5: CSS 변수 추가
+- [미완] CANVAS_API_SECRET 환경변수 값 (사용자가 추후 제공 예정)
+
+=== 다음에 무엇을 해야 하는지 ===
+
+1. CANVAS_API_SECRET 값 확인 후 .env.local 에 추가:
+   CANVAS_API_SECRET=<Vercel 환경변수에서 확인>
+
+2. 실제 print 생성 테스트:
+   - 이미지가 있는 노드에서 PRINT 탭 클릭 → expand 진입
+   - GENERATE 클릭 → API 호출 확인
+   - 응답 구조 확인 후 필요 시 print/ExpandedView.tsx 응답 파싱 조정
+
+3. 응답 구조 확인 후 EXPORT 기능 검증
+
+=== 변경된 파일 목록 ===
+
+신규:
+  - project_canvas/app/api/print-proxy/[...path]/route.ts
+  - project_canvas/print/ExpandedView.tsx
+
+수정:
+  - project_canvas/.env.local (PRINT_API_URL 추가)
+  - project_canvas/components/ExpandedView.tsx (print 케이스 + Props)
+  - project_canvas/app/page.tsx (handleGeneratePrintComplete + GeneratingToast 레이블)
+  - project_canvas/app/globals.css (--color-placeholder 추가)

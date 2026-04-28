@@ -1,0 +1,25 @@
+작업: IMAGE 패널 자동 활성화 → IMAGE 버튼 하이라이트로 변경
+
+완료된 작업:
+1. page.tsx — handleNodeCardSelect: IMAGE 패널 자동 열기 로직 제거
+   - 제거된 조건: artboardType==='image' && (type==='plan'||'image'||'viewpoint') → setActiveSidebarNodeType('image')
+   - 변경 후: 해당 노드 선택 시 setActiveSidebarNodeType(null)로 패널을 열지 않음
+
+2. page.tsx — activeTabHint 파생값 추가
+   - 선택된 노드가 artboardType==='image' && (type==='plan'||'image'||'viewpoint') 이면 activeTabHint='image'
+   - 그 외 null
+   - RightSidebar에 activeTabHint prop으로 전달
+
+3. RightSidebar.tsx — activeTabHint prop 추가 및 tabBtn 하이라이트 적용
+   - Props에 activeTabHint?: NodeType | null 추가
+   - tabBtn: isHinted = !disabled && type === activeTabHint
+   - isHinted가 true이면 버튼 background를 var(--color-gray-100)으로 설정
+   - onMouseLeave 시에도 isHinted 상태에 맞게 background 복원
+
+동작 흐름 (변경 후):
+- image/viewpoint/plan 노드(artboard=image) 선택 → IMAGE 버튼이 var(--color-gray-100)으로 하이라이트
+- 패널은 자동으로 열리지 않음 (사용자가 버튼 클릭 시 동작)
+- thumbnail 아트보드 노드: 기존대로 PLANNERS 패널 자동 열기 유지
+
+다음 할 일:
+- 없음 (요청된 수정 완료)

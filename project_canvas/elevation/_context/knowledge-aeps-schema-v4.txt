@@ -1,0 +1,81 @@
+# AEPL SCHEMA v4 — Architectural Elevation Parameter Language
+# Reference document for image-to-elevation generation pipeline
+
+## Schema Overview
+AEPLSchema defines structured building parameters extracted from architectural photographs.
+Used as intermediary data between Protocol A (analysis) and Protocol B (elevation generation).
+
+## Field Definitions
+
+### Dimensional Proportions
+- width (number, 1.0–10.0): Relative facade width. 1.0 = narrow tower, 10.0 = wide horizontal slab.
+- height (number, 1.0–10.0): Relative building height. 1.0 = single-story, 10.0 = high-rise.
+- depth (number, 0.5–5.0): Estimated building depth relative to width. 0.5 = very shallow, 5.0 = deep plan.
+
+### Articulation Parameters
+- articulation.void_ratio (number, 0.0–1.0):
+  Ratio of glazed/open area to total facade area.
+  0.0 = completely solid wall (e.g. warehouse)
+  0.3 = typical residential (30% windows)
+  0.6 = commercial office (60% curtain wall)
+  1.0 = fully glazed facade (glass box)
+
+- articulation.floor_count (integer, 1–100): Estimated number of floors.
+- articulation.bay_count (integer, 1–20): Number of structural or compositional bays.
+
+### Material Parameters
+- materials.base: Primary cladding material
+  - name: Material identifier (concrete, brick, stone, glass, steel, aluminum, wood, ceramic)
+  - color: Dominant color as hex code (#RRGGBB)
+  - texture: Surface quality (smooth, rough, textured, reflective)
+
+- materials.secondary: Secondary/accent material (balconies, frames, trim)
+  - Same fields as base material
+
+- materials.glass: Glazing properties
+  - color: Glass tint color (#RRGGBB), clear glass ≈ #C8DCE8
+  - opacity: Visual transparency (0.0 = clear, 1.0 = opaque)
+
+### Inferred View Descriptions
+Natural language descriptions used to guide Protocol B image generation for non-visible elevations.
+- inferred_views.right: Right side elevation description
+- inferred_views.left: Left side elevation description
+- inferred_views.rear: Rear elevation description
+- inferred_views.top: Roof/aerial top view description
+
+Each description should include:
+1. Expected massing/form (continuation of front facade language)
+2. Material treatment (same or varied from front)
+3. Opening patterns (windows, doors, service entries)
+4. Any visible special features (rooftop equipment, terraces, service areas)
+
+### Classification Fields
+- style: Architectural style classification
+  Options: modernist, brutalist, classical, neoclassical, contemporary, high-tech, deconstructivist,
+           traditional, vernacular, industrial, minimalist, postmodern
+- context: Brief description of site/urban context visible in the image
+
+## Example Output
+{
+  "width": 3.5,
+  "height": 6.0,
+  "depth": 1.8,
+  "articulation": {
+    "void_ratio": 0.45,
+    "floor_count": 8,
+    "bay_count": 5
+  },
+  "materials": {
+    "base": { "name": "concrete", "color": "#D4CFC8", "texture": "smooth" },
+    "secondary": { "name": "aluminum", "color": "#9BA0A5", "texture": "reflective" },
+    "glass": { "color": "#B0C8D8", "opacity": 0.15 }
+  },
+  "inferred_views": {
+    "right": "Narrow side elevation showing concrete party wall with minimal openings, service door at ground level, same concrete finish as front facade",
+    "left": "Similar narrow profile to right elevation, possible fire escape stair visible, concrete continues",
+    "rear": "Service elevation with loading dock, utility openings, fewer windows, raw concrete finish without front facade detailing",
+    "top": "Flat roof with HVAC equipment, possible rooftop terrace area, rectangular plan footprint approximately 3.5:1.8 ratio"
+  },
+  "style": "modernist",
+  "context": "Urban commercial district, building set back from sidewalk with landscaped forecourt"
+}

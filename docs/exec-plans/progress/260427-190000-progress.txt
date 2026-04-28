@@ -1,0 +1,38 @@
+작업: Plan 생성 이미지 ExpandedView 분리 (IMAGE 버튼 → Image ExpandedView)
+
+완료된 작업:
+1. page.tsx — expandedViewMode 상태 추가
+   - const [expandedViewMode, setExpandedViewMode] = useState<'image' | 'default'>('default')
+
+2. page.tsx — handleNodeTabSelect 수정
+   - IMAGE 탭 + plan/image/viewpoint 노드(artboardType=image) 선택 시 early return
+   - setExpandedViewMode('image') → setExpandedNodeId(selectedNode.id)
+
+3. page.tsx — handleNavigateToExpand 수정
+   - type === 'image' 일 때 setExpandedViewMode('image')
+   - 그 외 setExpandedViewMode('default')
+   - createAndExpandNode 전에도 'default' 초기화
+
+4. page.tsx — onNodeExpand 래핑
+   - (id) => { setExpandedViewMode('default'); setExpandedNodeId(id); }
+   - 카드 내 Expand 버튼은 항상 Plan ExpandedView
+
+5. page.tsx — handleReturnFromExpand 수정
+   - 첫 줄에 setExpandedViewMode('default') 추가 (초기화)
+
+6. page.tsx — ExpandedView에 viewMode prop 전달
+   - <ExpandedView ... viewMode={expandedViewMode} ... />
+
+7. ExpandedView.tsx — viewMode prop 추가 및 라우팅 수정
+   - Props에 viewMode?: 'image' | 'default' 추가
+   - isSketchImageMode: node.type === 'image' || 'viewpoint' || (viewMode==='image' && artboardType==='image')
+   - isSketchPlanMode: node.type === 'plan' && viewMode !== 'image'
+
+동작 흐름 (변경 후):
+- plan 노드(artboardType=image) + 카드 Expand 버튼 → viewMode='default' → Plan ExpandedView
+- plan 노드(artboardType=image) + 사이드바 PLAN 버튼 → viewMode='default' → Plan ExpandedView
+- plan 노드(artboardType=image) + 사이드바 IMAGE 버튼 → viewMode='image' → Image ExpandedView
+- image/viewpoint 노드 → 기존과 동일 (항상 Image ExpandedView)
+
+다음 할 일:
+- 없음 (요청된 수정 완료)

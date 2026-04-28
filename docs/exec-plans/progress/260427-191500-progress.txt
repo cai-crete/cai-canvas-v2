@@ -1,0 +1,19 @@
+작업: Image ExpandedView 사이드바 헤더 "PLAN" → "IMAGE" 수정
+
+완료된 작업:
+1. sketch-to-image/ExpandedView.tsx — displayNodeType prop 추가
+   - SketchToImageExpandedViewProps에 displayNodeType?: NodeType 추가
+   - ExpandedSidebar currentNodeType={displayNodeType ?? node.type} 로 변경
+
+2. components/ExpandedView.tsx — displayNodeType 전달 로직 추가
+   - SketchToImageExpandedView 호출 시:
+     viewMode==='image' && node.type !== 'image' && node.type !== 'viewpoint'
+     → displayNodeType='image' 전달
+   - image/viewpoint 노드: undefined 전달 (기존과 동일)
+
+동작 흐름 (변경 후):
+- plan 노드 + IMAGE 버튼 → SketchToImageExpandedView → ExpandedSidebar에 'image' 전달 → "IMAGE" 표시
+- image/viewpoint 노드 → 기존대로 node.type 그대로 → "IMAGE"/"VIEWPOINT" 표시
+
+다음 할 일:
+- 없음 (요청된 수정 완료)
