@@ -1,0 +1,42 @@
+## 진행 상황 — 2026-04-25
+
+### 방금 완료한 작업
+N07 — Change Viewpoint Analysis Report 템플릿 적용
+
+### 변경 내용
+
+1. **수정: `project_canvas/types/canvas.ts`**
+   - `ViewpointAnalysisReport` 인터페이스 추가 (3섹션: optical / geometric / conceptual)
+   - `CanvasNode.viewpointReport?: ViewpointAnalysisReport` 필드 추가
+
+2. **수정: `project_canvas/lib/prompt.ts`**
+   - `VIEWPOINT_REPORT_SCHEMA` 상수 추가 (JSON 스키마 예시 포함)
+   - `buildReportExtractionPrompt(executionPrompt)` 함수 추가
+
+3. **수정: `project_canvas/app/api/change-viewpoint/route.ts`**
+   - Phase 1.5 추가: Phase 1 executionPrompt → Gemini JSON 추출 호출 (non-fatal)
+   - 응답에 `report: viewpointReport` 필드 추가
+   - `ViewpointAnalysisReport` 타입 임포트
+
+4. **수정: `project_canvas/components/panels/ChangeViewpointPanel.tsx`**
+   - `viewpointAnalysis?: string` → `viewpointReport?: ViewpointAnalysisReport | null` prop 교체
+   - Analysis Report 섹션: plain text → 3섹션 구조화 표 (ReportSection 컴포넌트)
+   - 행 정의: OPTICAL_ROWS(8), GEOMETRIC_ROWS(7), CONCEPTUAL_ROWS(5)
+
+5. **수정: `project_canvas/components/RightSidebar.tsx`**
+   - Props: `viewpointAnalysis?: string` → `viewpointReport?: ViewpointAnalysisReport | null`
+   - ChangeViewpointPanel에 `viewpointReport` 전달
+
+6. **수정: `project_canvas/app/page.tsx`**
+   - API 응답 타입에 `report?` 필드 추가
+   - 노드 생성 시 `viewpointReport: data.report ?? undefined` 저장
+   - RightSidebar: `viewpointAnalysis` → `viewpointReport` prop 교체
+
+### 빌드 결과
+✓ npm run build 성공 (TypeScript 0 errors)
+
+### 다음에 할 일
+- Vercel 배포 후 실제 change-viewpoint 생성 테스트
+  - Phase 1.5 JSON 추출 결과 확인 (3섹션 표 정상 표시)
+  - Phase 1.5 실패 시 "생성 후 표시됩니다" placeholder 폴백 확인
+  - 기존 viewpointAnalysis(실행 프롬프트)는 노드에 계속 저장됨 (재생성 참조용)

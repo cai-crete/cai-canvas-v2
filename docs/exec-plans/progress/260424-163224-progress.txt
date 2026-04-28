@@ -1,0 +1,37 @@
+## 진행 상황 — 2026-04-24 16:32
+
+### 방금 완료한 작업
+Planners 통합 3개 이슈 구현 완전 완료 + 빌드 성공
+
+#### 완료된 파일 목록
+1. **project_canvas/planners/types.ts** — ExpertTurnData, TurnGroupNodeData 등 인터페이스
+2. **project_canvas/planners/experts.ts** — 14명 전문가 배열
+3. **project_canvas/planners/utils.ts** — cn(), sanitize(), formatExpertText() 유틸
+4. **project_canvas/planners/lib/lawApi.ts** — fetchRelevantLaws() (법규 API)
+5. **project_canvas/planners/lib/lawKeywords.ts** — extractAddress(), extractZoneKeyword() 등
+6. **project_canvas/planners/lib/parkingCalculator.ts** — 주차 대수 계산
+7. **project_canvas/planners/lib/zoneLawMapping.ts** — 용도지역별 법규 매핑
+8. **project_canvas/planners/PlannersPanel.tsx** — AI 전문가 채팅 UI
+9. **project_canvas/components/panels/PlannersInsightPanel.tsx** — 법규/건물/토지 데이터 대시보드
+10. **project_canvas/app/api/planners/route.ts** — 백엔드 프록시 라우트
+11. **project_canvas/types/canvas.ts** — cadastral 노드타입, PlannerMessage, SavedInsightData 추가
+12. **project_canvas/app/page.tsx** — plannerMessagesRef, handleCadastralDataReceived, ExpandedView/RightSidebar 신규 props 추가
+13. **project_canvas/components/ExpandedView.tsx** — planners/cadastral 라우팅 브랜치 추가
+14. **project_canvas/components/RightSidebar.tsx** — PlannerReportPanel, plannerMessages prop 추가
+
+### 구현 내용 요약
+- **Issue 1** (기획서 미리보기): RightSidebar에 PlannerReportPanel 추가 — planners 탭 클릭 시 최근 AI 응답에서 short_final 추출해 미리보기 표시
+- **Issue 2** (InsightPanel 복원): plannerInsightDataRef로 expand 중 실시간 저장 → handleReturnFromExpand에서 node.plannerInsightData로 flush → ExpandedView 재진입 시 initialInsightData prop으로 복원
+- **Issue 3** (지적도 자동 생성): PlannersPanel.onCadastralDataReceived → handleCadastralDataReceived → cadastral 노드 + 엣지 자동 생성; ExpandedView에서 토지이음 iframe 표시
+
+### 빌드 결과
+✓ npm run build 성공 (0 TypeScript errors)
+- Route /api/planners 신규 등록 확인
+
+### 수정 이력 (이번 세션 이슈)
+- PlannersInsightPanel이 named export → `import { PlannersInsightPanel }` 로 수정
+- 린터가 planners 브랜치를 중복 삽입 → 첫 번째 (잘못된) 블록 제거
+
+### 다음에 할 일
+- 없음 — 3개 이슈 모두 구현 + 빌드 완료
+- 선택적: exec-plans/active/ 파일을 completed/로 이동 (사용자 확인 후)

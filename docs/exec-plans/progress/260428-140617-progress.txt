@@ -1,0 +1,48 @@
+## 방금 무엇을 했는지
+
+mcpClient.ts의 Gemini Schema 변환 버그 수정 및 커밋/푸쉬 완료.
+
+### 수정 내용
+
+**src/lib/mcpClient.ts** — `convertProperty()` 함수의 array items 누락 버그 수정
+
+```typescript
+// 수정 전 (버그):
+if (prop.items) result.items = convertProperty(prop.items);
+// → prop.type === 'array' 이지만 items가 undefined이면 조건 false
+// → items 필드 누락 → Gemini 400 INVALID_ARGUMENT 발생
+
+// 수정 후:
+if (prop.type === 'array') result.items = convertProperty(prop.items || { type: 'string' });
+// → 배열 타입이면 항상 items 포함 (기본값: { type: 'string' })
+```
+
+**증상**: Gemini가 `tools[0].function_declarations[N].parameters.properties[X].items: missing field`
+오류를 반환하여 MCP 도구 중 배열 파라미터를 가진 도구가 등록 자체에 실패했음.
+
+### 커밋 & 푸쉬
+
+- 커밋: `006584c` — fix: MCP schema 변환 시 array 타입에 items 필드 누락 오류 수정
+- 대상: `https://github.com/cai-crete/cai-planners_v2.git` (master)
+- `npx tsc --noEmit` 통과 확인 후 푸쉬
+
+## 어디까지 완료됐는지
+
+**법규 MCP 관련 수정 전체 완료:**
+
+1. ✅ api/generate.ts — tools를 config 내부로 이동 (Gemini SDK 버그 수정)
+2. ✅ api/mcp-proxy.ts — SSE 파싱 + CORS localhost:5174 추가
+3. ✅ src/lib/mcpClient.ts — array 타입 items 누락 수정 (이번 세션)
+
+**3D 버드아이 뷰 (Map3DNode) 구현 완료 (이전 세션):**
+- src/types/vworld.d.ts, src/lib/roadApi.ts, src/components/Map3DView.tsx
+- src/components/nodes/Map3DNode.tsx
+- Canvas.tsx, useStore.ts, nodes.ts, api/vworld-map.ts 수정
+
+## 다음에 무엇을 해야 하는지
+
+- Vercel 배포 완료 후 브라우저에서 실제 동작 확인
+- InsightPanel → AI 규제 분석 버튼 클릭 시 "[Agent Loop] 도구 실행: search_law" 로그 확인
+- MCP 배열 파라미터를 가진 도구 (예: get_law_articles)가 정상 동작하는지 확인
+
+작업 파일 위치: C:\Users\크리트\Downloads\Planners_harness\N01.Planners\

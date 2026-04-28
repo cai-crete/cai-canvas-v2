@@ -1,0 +1,36 @@
+== 진행 상황 (2026-04-28 18:00) ==
+
+▶ 완료된 작업:
+
+1. ISSUE 5+1 — MCP 조례 검색 통합 (서버사이드 + 클라이언트)
+   - api/_mcpServer.ts 신규 생성 (서버사이드 MCP 직접 호출)
+   - api/_zoneAnalysis.ts 신규 생성 (Gemini + MCP Agent Loop)
+   - api/planners.ts 수정 — MCP 조례 검색 결과를 lawsText에 자동 주입
+   - Planners_harness prefetchApiData()에서 getZoneAnalysis() 호출 통합
+
+2. ISSUE 4 — 건폐율/용적률 ㎡ 파라미터 표시 + 법령 정렬
+   - ZoneItem 컴포넌트에 landArea prop 추가
+   - 최대 건축면적/연면적 계산 및 카드 UI 추가
+   - 법령정보 섹션에서 높이/면적 관련 법규 최상단 정렬
+   - CAI_CANVAS + Planners_harness 양쪽 적용
+
+3. ISSUE 3 — 주차 산정 로직 변경 (의도된 용도 기준)
+   - parkingCalculator.ts에 intendedUse 파라미터 추가 (양쪽)
+   - lawKeywords.ts에 extractIntendedUse() 함수 추가
+   - PlannersPanel.tsx에서 사용자 프롬프트 용도 추출 → insightData 전달
+   - ParkingSection UI에 "기획 용도" vs "건물대장" 배지 추가
+
+4. ISSUE 2 — 3D Map 노드 CAI_CANVAS 이식
+   - types/canvas.ts — 'map3d' NodeType 추가, map3d 전용 프로퍼티 추가
+   - types/vworld.d.ts — V-World 3D SDK 전역 타입 선언 신규
+   - planners/lib/roadApi.ts — 도로 WFS 조회 + 입면 방향 계산 유틸 신규
+   - components/Map3DView.tsx — V-World WebGL 3D SDK 뷰어 컴포넌트 신규
+   - api/vworld-map/route.ts — road-wfs 액션 추가
+   - app/page.tsx — handleCadastralDataReceived에서 3D 노드 자동 생성 + 비동기 도로 분석
+   - components/ExpandedView.tsx — map3d 노드 렌더링 블록 추가
+   - TypeScript 빌드 검증 통과 (tsc --noEmit 에러 0건)
+
+▶ 다음에 해야 할 것:
+   - 브라우저에서 실제 3D 노드 생성 및 V-World SDK 로딩 테스트
+   - .env.local에 NEXT_PUBLIC_VWORLD_API_KEY 추가 (현재 하드코딩 폴백 사용 중)
+   - exec-plan을 completed/로 이동

@@ -1,0 +1,49 @@
+## 세션 — 2026-04-27
+
+### 방금 무엇을 했는지
+
+CAI-main(참조 프로젝트)과 cai-canvas-v2-main의 Planners 관련 코드를 전수 비교하고, 4개 Phase로 나눠 작업 완료.
+
+### 완료된 작업
+
+**Phase 1: RightSidebar.tsx Planners 패널 정렬** ✅
+- `parseShortFinal()`: `shortFinalOutput` 문자열을 `[카테고리] 내용` bullet 배열로 파싱하도록 교체
+- `extractFirstLine()`: 마크다운 헤더/볼드/인용/CITE_REF 제거 후 첫 줄 추출하도록 교체
+- `PlannerReportPanel`: 마지막 질문(Q) + shortFinal bullet 카드 + fallbackLine + **OPEN 버튼** 복원
+- `NodePanel`: `plannerMessages` 유무 분기 복원 (기존 "API 연동 후 활성화" 고정 메시지 제거)
+- 미사용 `isPlanners` 변수 제거
+
+**Phase 2: NodeCard.tsx PlannersThumbnail 이식** ✅
+- `PlannersThumbnail` 컴포넌트 이식 (헤더 로고 + 마지막 질문 + shortFinal bullet 4개)
+- `parseShortFinal()` 헬퍼 함수 이식
+- `plannerMessages` prop 추가 + 렌더링 분기 (thumbnail artboard + messages 있을 때)
+- `InfiniteCanvas.tsx`에서 `plannerMessages={node.plannerMessages}` 전달
+
+**Phase 3-1: PlannersPanel.tsx 아이콘 크기 정렬** ✅
+- WandSparkles, Loader2, Send 아이콘 `w-4 h-4` → `w-4.5 h-4.5` (참조와 동일)
+
+**Phase 4: page.tsx Planners 상태 관리 검증** ✅
+- ref 초기화 (expandedNodeId 변경 시) — 정상
+- handleReturnFromExpand의 ref 플러시 — 정상 (msgs, insightData → node 저장)
+- handleCadastralDataReceived 콜백 — 정상
+- ExpandedView 4개 Planners props 전달 — 정상
+- RightSidebar plannerMessages 전달 — 정상
+- **수정 불필요로 확인**
+
+### 수정된 파일
+1. `components/RightSidebar.tsx` — Planners 패널 전면 교체
+2. `components/NodeCard.tsx` — PlannersThumbnail 컴포넌트 + prop 추가
+3. `components/InfiniteCanvas.tsx` — plannerMessages prop 전달 추가
+4. `planners/PlannersPanel.tsx` — 아이콘 크기 3개소 변경
+
+### 다음에 무엇을 해야 하는지
+1. 개발 서버 실행 후 Planners 기능 테스트:
+   - Planners 노드 선택 → 우측탭에 보고서 미리보기 표시 확인
+   - OPEN 버튼 클릭 → ExpandedView 진입 확인
+   - 대화 후 캔버스 복귀 → 썸네일에 요약 표시 확인
+   - 재진입 시 대화 이력 복원 확인
+2. 다른 노드(viewpoint, elevation, print 등)에 영향 없는지 확인
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

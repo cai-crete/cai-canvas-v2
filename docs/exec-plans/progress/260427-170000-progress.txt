@@ -1,0 +1,59 @@
+## 세션 — 2026-04-27
+
+### 방금 무엇을 했는지
+
+`Frontend_canvas-cadastral-integration-260427.md` 작업지시서의 TASK 1~7 전체 구현 완료.
+
+CAI CANVAS의 지적도 아트보드가 eum.go.kr iframe(404 오류)에 의존하던 문제를 해결하고,
+Planners 백엔드 VWorld WFS 프록시를 통해 GeoJSON을 수신 → 순수 SVG 렌더링으로 교체.
+
+### 완료된 작업
+
+- TASK 1: `project_canvas/app/api/vworld-map/route.ts` 신규 생성
+  - Planners 백엔드(cai-planners-v2.vercel.app/api/vworld-map)로 서버-투-서버 프록시
+
+- TASK 2: `project_canvas/types/canvas.ts` 수정
+  - `CadastralFeature`, `CadastralGeoJson` 인터페이스 추가 (L15 이전)
+  - `CanvasNode`에 `cadastralGeoJson`, `cadastralMapCenter` 필드 추가
+
+- TASK 3: `project_canvas/components/CadastralMapView.tsx` 신규 생성
+  - 'use client' 선언 (Next.js App Router)
+  - GeoJSON Polygon/MultiPolygon → SVG path 변환 (위도 y축 반전)
+  - TMS 배경 타일 (xdworld.vworld.kr, onError 폴백)
+  - Base/Satellite/Hybrid 레이어 컨트롤
+
+- TASK 4: `project_canvas/planners/PlannersPanel.tsx` 수정
+  - `CadastralGeoJson` import 추가
+  - `onCadastralDataReceived` 시그니처 변경: (pnu, landCount) → (pnu, geoJson, mapCenter)
+  - 기존 4줄 블록 → /api/vworld-map WFS 호출 후 GeoJSON + centroid 계산 블록으로 교체
+
+- TASK 5: `project_canvas/app/page.tsx` 수정
+  - `CadastralGeoJson` import 추가
+  - `handleCadastralDataReceived` 시그니처 변경 + newNode에 geoJson/mapCenter 저장
+
+- TASK 6: `project_canvas/components/ExpandedView.tsx` 수정
+  - `CadastralMapView`, `CadastralGeoJson` import 추가
+  - Props 인터페이스 `onCadastralDataReceived` 시그니처 변경
+  - iframe(eum.go.kr) → `<CadastralMapView>` SVG 렌더링으로 교체
+
+- TASK 7: TypeScript --noEmit 에러 없음 확인
+
+### 수정된 파일 목록
+1. `project_canvas/app/api/vworld-map/route.ts` (신규)
+2. `project_canvas/types/canvas.ts`
+3. `project_canvas/components/CadastralMapView.tsx` (신규)
+4. `project_canvas/planners/PlannersPanel.tsx`
+5. `project_canvas/app/page.tsx`
+6. `project_canvas/components/ExpandedView.tsx`
+
+### 다음에 무엇을 해야 하는지
+1. git commit & push → Vercel 자동 배포
+2. 실기능 테스트: 주소 포함 안건("서울특별시 강남구 논현로128길 24-1 오피스 빌딩 신축") 입력
+   - cadastral 노드 자동 생성 확인
+   - 노드 expand 시 SVG 지적 경계 폴리곤(빨간선) 표시 확인
+   - Base/Satellite/Hybrid 버튼 전환 확인
+3. 작업지시서 completed/로 이동
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

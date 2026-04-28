@@ -1,0 +1,61 @@
+## 진행 상황 — 2026-04-28 21:00
+
+### 방금 무엇을 했는지
+Planners API FUNCTION_INVOCATION_FAILED 크래시를 수정하고 MCP 법제처 연동을 완전히 작동시킴.
+
+**수정 과정 (3번의 push):**
+
+1. Push 1 (`4ab926b`): `_zoneAnalysis.ts` import 제거, 모든 MCP 로직 `planners.ts`에 인라인화
+   - `GeminiFunctionDeclaration.parameters.type: string` vs SDK `Type` enum 충돌로 Vercel FUNCTION_INVOCATION_FAILED 발생하던 문제 해결
+   - 결과: API 복구 (success:true 확인)
+
+2. Push 2 (`0504656`): MCP 검색 전략 개선
+   - 문제: `search_law`에 긴 AND 키워드 → NOT_FOUND 반환 + `isError:true` 미감지 버그
+   - 해결: `isError:true` 감지 + 2단계 전략 구현:
+     1. `search_law("국토의 계획 및 이용에 관한 법률 시행령")` → mst="284689" 확보
+     2. `get_law_text(mst="284689", jo="제84조")` → 건폐율 조문
+     3. `get_law_text(mst="284689", jo="제85조")` → 용적률 조문 (병렬 호출)
+
+**최종 검증 결과 (curl 테스트):**
+```
+citedLaws: [
+  "[법제처] 국토의 계획 및 이용에 관한 법률 시행령 제84조 — 제2종일반주거지역의 건폐율 기준(60% 이하) 판단 근거",
+  "[법제처] 국토의 계획 및 이용에 관한 법률 시행령 제85조 — 제2종일반주거지역의 용적률 기준(100% 이상 250% 이하) 판단 근거"
+]
+```
+Gemini가 실제 법령 조문(제84조 건폐율, 제85조 용적률)을 인용하여 토론하고 있음.
+
+### 완료된 항목
+
+✅ Planners API FUNCTION_INVOCATION_FAILED 크래시 수정 (push 완료)
+✅ MCP 법제처 연동 완전 작동
+  - 국토계획법 시행령 제84조 (건폐율), 제85조 (용적률) 실제 조문 조회
+  - 용도지역 감지 → 자동 법령 조회 → Gemini 토론에 주입
+✅ lawApi.ts: cat.land 포함 → formatted에 VWorld 용도지역 데이터 → MCP 트리거 가능
+✅ 건폐율/용적률 ㎡ 파라미터 표시 (하드코딩, 이전 세션)
+✅ 주차 산정 의도된 용도 기준 (하드코딩, 이전 세션)
+✅ 3D Map 노드 CAI_CANVAS 이식 — Map3DView.tsx, roadApi.ts, vworld.d.ts, canvas.ts, ExpandedView.tsx, page.tsx, vworld-map/route.ts
+
+### 파이프라인 전체 흐름
+
+1. CAI_CANVAS PlannersPanel → `fetchRelevantLaws()` (lawApi.ts)
+   - 법제처 MCP + 공공데이터포털 건축물 + VWorld 용도지역 조회
+   - `formatted` = 모든 데이터 (cat.land 포함) → MCP 트리거 텍스트
+2. `insightData.formatted` → Planners API (`cai-planners-v2.vercel.app/api/planners`)
+   - `extractZoneNamesFromText()` → 용도지역 감지
+   - `fetchMcpZoneOrdinances()` → 2단계 MCP 조문 조회
+   - `lawsText` → `{{RELEVANT_LAWS}}` placeholder 주입
+3. Gemini Flash 2.5 → 실제 법령 인용하여 토론 생성
+   - `[[CITED_LAWS]]` 블록에 실제 법령조문 번호 기재
+
+### 남은 확인 사항
+
+1. 실제 앱에서 주소+프롬프트 입력 시 법규 검토가 법령 인용을 포함하는지 체크
+2. 3D Map 노드 실제 브라우저 동작 확인 (VWorld SDK 로드, 도로 분석, heading 계산)
+
+### 파일 위치
+
+- Planners_harness: C:\Users\크리트\Downloads\Planners_harness\N01.Planners\api\planners.ts
+- Planners git: cai-crete/cai-planners_v2 (master, commit 0504656)
+- 배포 URL: https://cai-planners-v2.vercel.app
+- CAI_CANVAS lawApi: project_canvas/planners/lib/lawApi.ts

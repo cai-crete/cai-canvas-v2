@@ -1,0 +1,37 @@
+## 진행 상황 — 2026-04-28 23:45
+
+### 이번 세션에서 한 작업
+
+**Map3D 잔여 5건 수정 (BUG-1 제외, 이미 해결됨)**
+
+1. **BUG-2/3 (캡처 → Image Node 내보내기 + 빈 썸네일)**
+   - 원인: captureCanvas가 postRender 이벤트 기반 → V-World SDK 호환 미확인 → null 반환
+   - 콜백 체인 (Map3DPanel → ExpandedView → page.tsx) 정상 연결 확인
+   - 수정: 동기 render+toDataURL 방식으로 교체 + readPixels 폴백
+   - Map3DPanel에도 디버그 로그 추가
+
+2. **FEAT-4 (레이블 토글)**
+   - applyLabelsVisible에 상세 디버그 로그 추가
+   - getLayerList 존재 여부, 레이어 수, primitives/entities 수 콘솔 출력
+
+3. **UX-5 (사이드바 디자인)**
+   - Map3DPanel.tsx 이미 CadastralPanel 패턴으로 구현됨 확인 → 추가 수정 없음
+
+4. **UX-6 (초기 시점)**
+   - height 기본값 600 → 800 변경 (Map3DView.tsx, ExpandedView.tsx)
+
+### tsc 결과
+에러 없음
+
+### 수정 파일
+- project_canvas/components/Map3DView.tsx
+- project_canvas/components/ExpandedSidebar/Map3DPanel.tsx
+- project_canvas/components/ExpandedView.tsx
+
+### 다음에 해야 할 것
+- **브라우저에서 실제 테스트** (가장 중요):
+  1. 3D Map 진입 → "Image Node로 내보내기" → 캔버스에 새 노드 생성 확인
+  2. 콘솔에서 [Map3D capture] 로그 확인 — 방법1 성공 여부, length 값
+  3. 레이블 토글 → 콘솔에서 [Map3D labels] 로그 확인 — SDK API 지원 범위
+  4. 첫 진입 시 시야가 이전보다 넓은지 확인 (height 800)
+  5. 콘솔 로그 결과에 따라 추가 수정 필요할 수 있음

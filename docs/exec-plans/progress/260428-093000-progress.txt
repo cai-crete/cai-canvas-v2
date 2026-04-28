@@ -1,0 +1,60 @@
+## 세션 — 2026-04-28
+
+### 방금 무엇을 했는지
+
+`Frontend_cadastral-map-fix-260427.md` 작업지시서에 따라 지적도 맵 타일 미표시, passive event 오류, 경계 형태 불일치 문제를 수정.
+
+### 검증 과정 (중요)
+
+1. 초기 가설 "TMS y좌표 반전 필요" → **기각됨**
+   - curl로 실측: 현재 XYZ y좌표(203128) → HTTP 200 정상
+   - TMS 반전 y좌표(321159) → HTTP 404 존재하지 않음
+   - 결론: VWorld xdworld.vworld.kr는 XYZ 좌표계 사용
+
+2. 진짜 원인 3가지 확인:
+   - **좌표 정규화 부재**: viewBox 원점이 1억+(114,468,428) → SVG float32 정밀도 한계
+   - **타일 수량 폭발**: padding 2.5배 + zoom 19 = 196장 동시 로딩 → 브라우저 연결 풀 소진
+   - **onError 영구 숨김**: 1장이라도 실패 시 display:none → 복구 불가
+
+3. passive event listener: React onWheel은 passive 기본 → preventDefault() 불가
+
+### 완료된 작업
+
+- TASK 1+2: `project_canvas/components/CadastralMapView.tsx` 전면 수정
+  - 좌표 정규화: center 기준 원점 오프셋 → viewBox가 0 근처로 정규화
+  - 타일 수량 제한: TILE_PAD=3 → 필지 bbox ±3타일 = 최대 ~49장
+  - onError 개선: display:none → opacity:0 + 진단 로그
+  - passive event 수정: React onWheel 제거 → useEffect 네이티브 리스너 {passive: false}
+  - 진단 로그 추가: [MAP DIAG] 타일 수, viewBox, 샘플 URL 출력
+
+- TASK 3: `N01.Planners/src/components/CadastralMiniMap.tsx`
+  - onError 처리 동일 개선 (display:none → opacity:0 + 로그)
+
+- TASK 4: 경계 형태 정밀도 조사 완료
+  - 결론: lp_pa_cbnd_bubun과 lt_c_landseries 모두 연속지적도 기반
+  - 토지이음과 동일한 형태를 원하면 편집지적도 레이어 또는 토지이음 API 직접 사용 필요
+  - 현재 데이터로는 VWorld 제공 데이터의 한계
+
+- TypeScript --noEmit 빌드 검증 통과
+
+### 수정된 파일 목록
+1. `project_canvas/components/CadastralMapView.tsx` (전면 수정)
+2. `N01.Planners/src/components/CadastralMiniMap.tsx` (onError 개선)
+3. `docs/exec-plans/active/Frontend/Frontend_cadastral-map-fix-260427.md` (작업지시서 고도화)
+
+### 다음에 무엇을 해야 하는지
+1. 개발 서버에서 실제 테스트:
+   - 지적도 노드 expand → 배경 타일 표시 여부 확인
+   - 콘솔에서 [MAP DIAG] 로그로 타일 URL 및 수량 확인
+   - Network 탭에서 타일 HTTP 상태 확인
+   - Base/Satellite/Hybrid 전환 테스트
+   - 줌인/줌아웃 시 "Unable to preventDefault" 경고 미발생 확인
+2. 만약 타일이 여전히 안 보이면:
+   - [MAP DIAG] 로그의 샘플 URL을 브라우저에 직접 붙여넣어 이미지 확인
+   - Network 탭에서 실패 요청 상태 코드 확인
+   - 타일 로컬 좌표가 viewBox 범위 안에 있는지 확인
+3. 지적 경계 형태 개선은 별도 이슈로 분리 (토지이음 API 연동 검토)
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

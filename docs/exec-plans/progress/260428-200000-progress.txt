@@ -1,0 +1,45 @@
+## 진행 상황 — 2026-04-28 20:00
+
+### 방금 무엇을 했는지
+Planners API FUNCTION_INVOCATION_FAILED 크래시 수정.
+
+원인: `api/planners.ts`에서 `_zoneAnalysis.ts`를 import하는데, `_zoneAnalysis.ts` 내
+`GeminiFunctionDeclaration.parameters.type`이 `string`으로 타입 선언되어 있지만
+`@google/genai` SDK는 `Type` enum을 요구함 → TypeScript 타입 에러 → esbuild 번들링 실패
+→ Vercel FUNCTION_INVOCATION_FAILED.
+
+수정 방법:
+1. `planners.ts`에서 `_zoneAnalysis.ts` import 완전 제거
+2. `extractZoneNamesFromText`, `extractAddressFromText`, `fetchMcpZoneOrdinances` 함수를
+   `planners.ts` 내에 인라인으로 직접 구현
+3. MCP 호출은 복잡한 Gemini Agent Loop 대신 직접 `fetch()`로 `search_law` 도구 단순 호출
+4. `_zoneAnalysis.ts`의 TypeScript 에러도 `any` 캐스팅으로 수정
+5. `npx tsc --noEmit` 통과 확인 → git push → Vercel 배포 완료
+
+### 어디까지 완료됐는지
+
+✅ Planners API 복구 — `{"success":true,...}` 응답 확인
+✅ `lawApi.ts` — `cat.land`(브이월드 용도지역) 포함 → MCP 트리거 텍스트 생성 (이전 세션)
+✅ 건폐율/용적률 ㎡ 파라미터 표시 (이전 세션, 하드코딩)
+✅ 주차 산정 의도된 용도 기준 (이전 세션, 하드코딩)
+✅ 3D Map 노드 CAI_CANVAS 이식 — Map3DView.tsx, roadApi.ts, vworld.d.ts, canvas.ts, ExpandedView.tsx, page.tsx, vworld-map/route.ts 구현 완료 (이전 세션)
+⏳ MCP 조례 검색 실제 동작 확인 중 — zone names 포함 요청으로 테스트 실행 중
+
+### 다음에 무엇을 해야 하는지
+
+1. MCP 조례 검색 실제 결과 확인: `fetchMcpZoneOrdinances`가 MCP 서버에서 데이터를 받아와서 토론에 반영되는지
+   - 확인 방법: curl 테스트 또는 앱에서 주소+용도지역 프롬프트 입력 후 토론 결과 확인
+   - MCP 서버 URL: korean-law-mcp.fly.dev
+
+2. LAW_API_KEY 환경변수 확인: Vercel 프로젝트에 `LAW_API_KEY`가 설정되어 있는지 확인
+
+3. 3D Map 실제 동작 브라우저 테스트: CAI_CANVAS 앱에서 주소 입력 → 지적도 + 3D 노드 생성 확인
+
+4. 기획자 토론 법규 반영 확인: 법령 데이터가 `RELEVANT_LAWS` placeholder에 주입되어
+   토론 참가자가 실제 조문을 인용하는지 확인
+
+### 주요 파일 위치
+- CAI_CANVAS: c:\Users\크리트\Desktop\AI\01. CAI_CANVAS\cai-canvas-v2-main\project_canvas\
+- Planners_harness: C:\Users\크리트\Downloads\Planners_harness\N01.Planners\api\
+- Planners git repo: cai-crete/cai-planners_v2 (master 브랜치)
+- 배포 URL: cai-planners-v2.vercel.app

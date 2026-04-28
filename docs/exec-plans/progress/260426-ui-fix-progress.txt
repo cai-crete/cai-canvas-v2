@@ -1,0 +1,30 @@
+## 세션 18 — 2026-04-26 (UI 수정)
+
+### 방금 무엇을 했는지
+1. [+] 드롭다운 위치 변경: 상단 → 우측 (gap 0.5rem 유지)
+2. 우측 패널 SKETCH 탭 삭제
+
+### 완료 항목
+
+| 항목 | 파일 | 상태 |
+|------|------|------|
+| [+] 드롭다운 우측 정렬 | LeftToolbar.tsx:272-278 | ✅ |
+| NODE_ORDER 'sketch' 제거 | types/canvas.ts:186-188 | ✅ |
+
+### 변경 상세
+
+**LeftToolbar.tsx** — 드롭다운 position 속성:
+- 기존: `bottom: 'calc(100% + 0.5rem)'`, `left: '50%'`, `transform: 'translateX(-50%)'`
+- 변경: `top: '50%'`, `left: 'calc(100% + 0.5rem)'`, `transform: 'translateY(-50%)'`
+
+**types/canvas.ts** — NODE_ORDER:
+- 기존: `['planners', 'plan', 'image', 'elevation', 'viewpoint', 'diagram', 'print', 'sketch']`
+- 변경: `['planners', 'plan', 'image', 'elevation', 'viewpoint', 'diagram', 'print']`
+
+### 다음에 무엇을 해야 하는지
+- 브라우저에서 [+] 클릭 시 드롭다운 우측 표시 확인
+- 우측 패널에서 SKETCH 탭 미표시 확인
+
+---
+
+COPYRIGHTS 2026. CRE-TE CO.,LTD. ALL RIGHTS RESERVED.

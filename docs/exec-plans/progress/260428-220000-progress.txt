@@ -1,0 +1,55 @@
+## 진행 상황 — 2026-04-28 22:00
+
+### 방금 무엇을 했는지
+법제처 자치법규 API 연동 구현 완료 (push bb4a465).
+
+**구현 내용:**
+
+1. `execute_tool` 래퍼 함수 추가:
+   - `mcpSearchOrdinance(query)`: search_ordinance 도구로 자치법규 검색
+   - `mcpGetOrdinance(ordinSeq, jo?)`: get_ordinance 도구로 조문 조회
+
+2. 헬퍼 함수 추가:
+   - `extractSido(address)`: 주소에서 시/도 추출 (서울특별시, 경기도 등)
+   - `escapeRegex(str)`: 정규식 이스케이프
+   - `findArticleNumberInToc(tocText, title)`: TOC 위치 기반 조문번호 동적 탐색
+
+3. `fetchMcpZoneOrdinances` 개선:
+   - 기존: 국토계획법 시행령만 조회
+   - 추가: 주소에서 시/도 추출 → `search_ordinance("{sido} 도시계획 조례")` →
+     시/도 레벨 조례 선택 (지자체 필드 정확 매칭) → TOC 조회 →
+     "용도지역 안에서의 건폐율" 위치 카운팅 → 제N조 동적 확정 →
+     건폐율·용적률 조문 병렬 조회
+
+**검증된 데이터:**
+- 서울특별시 도시계획 조례 MST: 2116657 (20260330 시행)
+- 제44조: 용도지역별 건폐율 (제2종일반주거지역 60%)
+- 제48조: 용도지역별 용적률 (제2종일반주거지역 200%)
+- TOC 카운팅 검증: position 44 = 제44조, position 48 = 제48조 ✓
+
+**주의사항:**
+- `execute_tool` params 구조: `{tool_name: "...", params: {...}}` (arguments 아님)
+- API key를 URL에 `?oc=KEY`로 전달 (LAW_API_KEY 환경변수)
+- `extractAddressFromText` → `extractSido`로 이어지는 파이프라인
+
+### 완료된 항목
+
+✅ 법제처 자치법규 API 연동 (push bb4a465)
+  - 시/도 도시계획 조례 동적 탐색 (TOC 기반 조문번호 추정)
+  - 서울특별시 제44조(건폐율), 제48조(용적률) 인용 가능
+✅ 국토계획법 시행령 MCP 연동 (기존)
+  - 제84조(건폐율), 제85조(용적률) 인용
+✅ Planners API FUNCTION_INVOCATION_FAILED 크래시 수정
+✅ 3D Map 노드 CAI_CANVAS 이식
+
+### 남은 확인 사항
+
+1. Vercel curl 테스트 완료 대기 중 (btp3dorrw)
+   - 서울특별시 강남구 제2종일반주거지역 요청 → 자치법규 인용 확인
+2. citedLaws에 자치법규 조례 조문이 포함되는지 검증
+
+### 파일 위치
+
+- Planners git: cai-crete/cai-planners_v2 (master, commit bb4a465)
+- 배포 URL: https://cai-planners-v2.vercel.app
+- API params: { userInput, relevantLaws, turn }

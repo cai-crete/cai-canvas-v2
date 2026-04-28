@@ -1,0 +1,59 @@
+# Map3D 버그 수정 및 UX 개선 진행 상황
+
+## 작업 일시
+2026-04-28
+
+## 완료된 작업
+
+### [BUG-1] 재진입 시 "지도 초기화 실패" 수정
+- Map3DView.tsx에 `mountKey` state 추가
+- 컴포넌트 unmount 시 mountKey increment → actualContainerId가 변경됨
+- 새 suffix가 붙은 div 엘리먼트 생성으로 SDK의 non-configurable `viewer` 프로퍼티 재정의 충돌 회피
+
+### [BUG-2] 캡처 → Image Node 내보내기
+- ExpandedView Props에 `onExportMap3dImage?: (base64: string) => void` 추가
+- Map3DPanel.tsx의 버튼 클릭 → capture() → onExportImage() 콜백 호출
+- page.tsx에 `handleExportMap3dImage` 콜백 추가 (지적도 export 패턴과 동일)
+- ExpandedView에 `onExportMap3dImage={handleExportMap3dImage}` 연결 완료
+
+### [BUG-3] 썸네일 캡처 실패 수정
+- capture() 메서드를 async/Promise 기반으로 변경
+- requestAnimationFrame 내에서 scene.render() → 즉시 toDataURL() 호출 (preserveDrawingBuffer 우회)
+- Map3DPanel에서 async capture 후 thumbnailData 자동 저장
+
+### [FEAT-4] 텍스트/POI 레이블 토글
+- types/canvas.ts에 `map3dShowLabels?: boolean` 필드 추가
+- Map3DView.tsx에 `showLabels` prop 추가
+- Map3DViewRef에 `setLabelsVisible(visible: boolean)` 메서드 노출
+- Map3DPanel.tsx에 CadastralPanel 스타일 토글 스위치 추가
+
+### [UX-5] 사이드바 디자인 통일
+- components/ExpandedSidebar/Map3DPanel.tsx 신규 파일 생성
+- CadastralPanel과 동일한 Tailwind 패턴 (header, section labels, toggle, export button)
+- ExpandedView.tsx의 인라인 사이드바 코드 → Map3DPanel 컴포넌트로 교체
+
+### [UX-6] 첫 진입 시점: 도로 기준 45도 대각선 Bird's Eye
+- calcCameraPosition() 헬퍼 함수 추가 (Map3DView.tsx)
+- 카메라 위치: 도로 방향으로 ~300m 오프셋 (0.003도)
+- 카메라 방향: heading+180+45 = 도로→대지 방향에서 45° 대각
+- tilt: -35 (완만한 하향 시점)
+- 기본 height: 500 → 600m으로 상향
+
+## 수정된 파일 목록
+1. project_canvas/types/canvas.ts — map3dShowLabels 필드 추가
+2. project_canvas/components/Map3DView.tsx — 전면 재작성
+3. project_canvas/components/ExpandedSidebar/Map3DPanel.tsx — 신규 생성
+4. project_canvas/components/ExpandedView.tsx — prop 추가, Map3DPanel 연결, showLabels 전달
+5. project_canvas/app/page.tsx — handleExportMap3dImage 콜백 추가 및 연결
+
+## 타입 체크 결과
+tsc --noEmit: 에러 없음
+
+## 다음 해야 할 것
+- 브라우저에서 실제 테스트 필요:
+  1. 3D Map 진입 → 나가기 → 재진입 시 에러 없는지 확인
+  2. "Image Node로 내보내기" 버튼 작동 확인
+  3. 썸네일 캡처 정상 여부 확인
+  4. 텍스트 토글 동작 확인 (SDK가 레이어 API 지원하는지 실제 확인 필요)
+  5. 첫 시점 45도 대각선 확인 — tilt/offset 수치 미세 조정 필요할 수 있음
+- exec-plan 완료 처리: docs/exec-plans/active/ → completed/ 이동

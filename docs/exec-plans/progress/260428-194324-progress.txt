@@ -1,0 +1,46 @@
+# Map3DView BUG-1 근본 수정 진행 상황
+
+## 작업 일시
+2026-04-28
+
+## 완료된 작업
+
+### [BUG-1] "Cannot redefine property: viewer" 재진입 에러 — 근본 수정
+
+**이전 시도의 실패 원인:**
+- per-node 싱글톤 레지스트리: Fast Refresh 시 JS 모듈이 리셋 → _registry Map 초기화 → initialized=false → 재시도 → 에러
+- mountKey React state: unmount 시 setState는 마운트 전에는 무효 → 항상 동일 ID → 미해결
+- 두 useEffect([containerId], [heading])에서 동시에 tryInit 호출 → race condition
+
+**근본 해결책:**
+1. 전역 단일 div (id="vw3d-global-singleton") — 페이지에 1개만 존재
+2. 초기화 상태를 div.dataset.initialized='true'에 저장 → DOM은 Fast Refresh 후에도 유지됨
+3. map.start() 호출 전 동기 플래그 세팅 → race condition 차단
+4. tryInit을 heading useEffect에서만 호출 (이전: 2곳에서 동시 호출 가능)
+5. 이미 초기화된 경우 → moveCamera()만 호출 (Cesium camera.setView or vw.setCamera)
+
+**수정 파일:** project_canvas/components/Map3DView.tsx (전면 재작성)
+
+### 기존 완료 사항 (이전 세션)
+- Map3DPanel.tsx 신규 생성 (UX-5)
+- onExportMap3dImage 콜백 연결 (BUG-2)
+- capture() async/rAF 방식 (BUG-3)
+- calcCamera() 45도 시점 수식 (UX-6)
+- setLabelsVisible() (FEAT-4)
+
+## 타입 체크 결과
+tsc --noEmit: 에러 없음
+
+## 다음에 해야 할 것
+- 브라우저에서 실제 테스트:
+  1. 3D Map 진입 → 나가기 → 재진입 → 에러 없는지 확인 (BUG-1)
+  2. "Image Node로 내보내기" 버튼 → 새 노드 생성 확인 (BUG-2)
+  3. 썸네일 자동 캡처 확인 (BUG-3)
+  4. 지명/POI 토글 동작 확인 (FEAT-4)
+  5. 첫 시점 45도 확인 (UX-6)
+
+## 주의사항
+- Fast Refresh 문제: 개발 서버에서 파일 저장 시 JS 모듈 리셋 → _map 변수 null → 
+  isDivInitialized()가 true이면 카메라만 이동 시도하나, _map이 null이면 moveCamera 무동작
+  → 개발 중 Fast Refresh 후에는 페이지 새로고침(F5) 필요할 수 있음
+  → 프로덕션 빌드에서는 이 문제 없음

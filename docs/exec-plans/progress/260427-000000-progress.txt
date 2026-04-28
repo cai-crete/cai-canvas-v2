@@ -1,0 +1,49 @@
+## 진행 상황 — 2026-04-27
+
+### 방금 무엇을 했는지
+Frontend_cadastral-map-artboard-260427.md 기준으로 TASK 1~6 전부 완료.
+
+TASK 1 — src/lib/gemini.ts
+  - import { fetchCadastralBoundary }, import type { CadastralGeoJson } 추가
+  - PreFetchedApiData.insightData 에 cadastralBoundary?, mapCenter? 필드 추가
+  - prefetchApiData() 함수 return 직전에 WFS 지적 경계 fetch 로직 삽입
+    (PNU 있을 때만, 실패 시 console.error 후 null 유지)
+
+TASK 2 — src/components/CadastralMiniMap.tsx (신규)
+  - 순수 React + SVG 렌더링 컴포넌트 (외부 지도 라이브러리 없음)
+  - GeoJSON Polygon/MultiPolygon → SVG path 변환, 10% padding viewBox
+  - TMS 배경 타일 <image> 삽입 (Base/Satellite/Hybrid 선택 가능)
+  - vectorEffect="non-scaling-stroke" + strokeWidth={2} 사용
+  - 타일 로드 실패 시 onError로 숨김(회색 배경 fallback)
+  - memo() 래핑, aria-label 포함
+
+TASK 3 — src/components/InsightPanel.tsx
+  - import type { CadastralGeoJson }, import { CadastralMiniMap } 추가
+  - SiteInfoSection 호출부에 cadastralBoundary, mapCenter props 추가
+  - SiteInfoSection 함수 시그니처에 2개 prop 추가
+  - <div className="p-3 space-y-3"> 바로 아래 조건부 미니맵 삽입 (width=256, height=160)
+
+TASK 4 — nodes.ts + MapNode.tsx + Canvas.tsx
+  - src/types/nodes.ts: CadastralGeoJson import, MapNodeData 인터페이스, AllNodeData 유니온 추가, isMapNode() 타입가드 추가
+  - src/components/nodes/MapNode.tsx 신규 생성 (ImageNode 패턴 준수)
+    헤더(MapPin 아이콘), 주소, CadastralMiniMap 본문, Base/Satellite/Hybrid 하단 컨트롤
+  - src/components/Canvas.tsx: MapNode import + nodeTypes에 mapNode: MapNode 등록
+
+TASK 5 — src/store/useStore.ts
+  - reGenerateFromPrompt() 함수 내, setApiInsightData() 직후 ~ Promise.all 직전에 삽입
+  - 동일 PNU MapNode 중복 방지(existingMapNode 체크)
+  - 위치: promptNode.position.x - 500, y = promptNode.position.y
+
+TASK 6 — TypeScript 컴파일
+  - npx tsc --noEmit 에러 없음 확인
+
+### 어디까지 완료됐는지
+모든 TASK 완료. 코드 변경 완료, TypeScript 에러 없음.
+
+### 다음에 무엇을 해야 하는지
+1. 실제 주소가 포함된 안건으로 토론 생성 테스트
+   - InsightPanel 미니맵 표시 여부 확인
+   - Canvas MapNode 자동 생성 여부 확인
+   - Base/Satellite/Hybrid 버튼 동작 확인
+2. VWorld API 키 설정 여부 확인 (키 없으면 지적 경계 fetch 실패 → console.error만 출력, 기능 정상)
+3. exec-plan completed/ 이동 필요
