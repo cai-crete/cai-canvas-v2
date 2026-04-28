@@ -1,0 +1,32 @@
+작업: ExpandedView 생성 이미지 높이 맞춤 + 원본 교체 버그 수정
+
+완료된 작업:
+
+1. project_canvas/components/SketchCanvas.tsx
+   - Props에 `referenceImageUrl?: string` 추가
+   - 렌더에 z=0 참조 이미지 오버레이 추가 (height:100%, width:auto, opacity:0.35)
+   - 기존 canvasW 미사용 변수 정리 (fitCanvas 분기에서 제거)
+
+2. project_canvas/sketch-to-image/ExpandedView.tsx
+   - `refImage` state 추가
+   - load effect 수정:
+     * sketchData → loadImage(fitCanvas=true) [이전과 동일]
+     * generatedImageData → setRefImage() [캔버스 로드 안 함, 오버레이만]
+     * thumbnailData → loadImage(fitCanvas=true) [이전과 동일]
+   - SketchCanvas에 `referenceImageUrl={refImage ?? undefined}` 전달
+
+3. project_canvas/sketch-to-plan/ExpandedView.tsx
+   - 동일한 refImage state + load effect 수정
+   - thumbnailData: `loadImage(node.thumbnailData)` → `loadImage(node.thumbnailData, false, true)` (fitCanvas 추가)
+   - SketchCanvas에 `referenceImageUrl={refImage ?? undefined}` 전달
+
+해결된 이슈:
+- Issue 1: generatedImageData는 이제 height:100% CSS 오버레이로 표시 → 높이 꽉 참
+- Issue 2: generatedImageData가 캔버스에 로드되지 않아 exportAsBase64()에 포함 안됨 →
+  Generate 후 sketchData에 생성 이미지가 오염되지 않음
+
+다음 할 일:
+- 브라우저에서 검증:
+  1. 생성된 이미지 노드를 ExpandedView로 열었을 때 높이에 맞는 반투명 참조 이미지 확인
+  2. 참조 이미지 위에 스케치 → Generate → 다시 ExpandedView 열었을 때 스케치만 로드되는지 확인
+  3. sketchData가 있는 노드는 이전과 동일하게 동작하는지 확인

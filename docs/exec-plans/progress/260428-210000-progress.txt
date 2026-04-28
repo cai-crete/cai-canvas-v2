@@ -1,0 +1,28 @@
+작업: ExpandedView 3가지 버그 수정
+
+방금 완료한 작업:
+
+1. [Issue 1] SketchCanvas.tsx — referenceImageUrl 오버레이 opacity 0.35 → 1.0
+   - Plan/Image ExpandedView에서 생성된 이미지가 희미하게 보이던 문제 수정
+   - z-index 순서는 이미 올바름(z=0 image → z=2 grid → z=3 sketch), opacity만 수정
+
+2. [Issue 2] NodeCard.tsx — thumbnailData 표시 objectFit: 'cover' → 'contain' (2개소)
+   - artboardType=image 케이스(line 271)와 hasThumbnail 케이스(line 283) 모두 수정
+   - 썸네일에서 이미지 전체가 보이도록 크롭 제거
+
+3. [Issue 3] page.tsx — 원본 노드 교체 버그 수정 (치명적)
+   - handleCollapseWithSketch: artboardType=image 노드는 thumbnailData/sketchData 업데이트 스킵
+   - handleCollapseWithPlanSketch: 동일 적용
+   - handleGenerateComplete: updatedOrigin 제거 → 새 자식 노드만 추가 (원본 노드 불변)
+   - handleGeneratePlanComplete: 동일 적용
+
+완료된 이슈:
+- 모든 3개 이슈 수정 완료
+- exec-plan 체크리스트 완료 → completed 폴더로 이동
+
+다음에 할 일:
+- 브라우저에서 검증 필요:
+  1. Plan/Image ExpandedView에서 생성 이미지가 선명하게 표시되는지 확인
+  2. 썸네일에서 이미지 전체가 보이는지(크롭 없음) 확인
+  3. Generate 후 원본 노드가 변경되지 않고 새 자식 노드만 생성되는지 확인
+  4. 스케치 노드의 경우 thumbnail이 스케치 캔버스 출력으로 유지되는지 확인

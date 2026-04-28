@@ -1,0 +1,38 @@
+작업: 이미지 노드에서 PLAN 버튼 활성화 + Plan ExpandedView 진입
+
+완료된 작업:
+
+1. project_canvas/types/canvas.ts L193
+   - ARTBOARD_COMPATIBLE_NODES['image']에 'plan' 추가
+   - 이전: ['elevation', 'viewpoint', 'diagram', 'print']
+   - 이후: ['elevation', 'viewpoint', 'plan', 'diagram', 'print']
+   - 효과: 생성된 평면도(type=plan) 및 업로드 사진(type=image) 선택 시 PLAN 버튼 활성화
+
+2. project_canvas/app/page.tsx L160
+   - expandedViewMode 타입: 'image' | 'default' → 'image' | 'plan' | 'default'
+
+3. project_canvas/app/page.tsx L652 앞
+   - handleNodeTabSelect에 PLAN 핸들러 추가
+   - type === 'plan' && artboardType === 'image' && (plan/image/viewpoint) 조건
+   - setExpandedViewMode('plan') + setExpandedNodeId → Plan ExpandedView 진입
+
+4. project_canvas/components/ExpandedView.tsx L17
+   - Props viewMode 타입: 'image' | 'default' → 'image' | 'plan' | 'default'
+
+5. project_canvas/components/ExpandedView.tsx L150-154
+   - isSketchImageMode: (image/viewpoint) && viewMode !== 'plan' 가드 추가
+   - isSketchPlanMode: image/viewpoint 노드 + viewMode==='plan' 조건 추가
+   - 효과: PLAN 클릭 시 image 노드도 SketchToPlanExpandedView로 라우팅
+
+6. project_canvas/sketch-to-plan/ExpandedView.tsx L162-170
+   - thumbnailData fallback 추가 (sketchData → generatedImageData → thumbnailData 순)
+   - 효과: 업로드한 사진(thumbnailData 보유) 노드로 진입 시 캔버스에 사진 로드
+
+다음 할 일 (동작 검증 필요):
+  1. 생성된 평면도 선택 → PLAN 버튼 활성화 확인
+  2. 생성된 평면도 PLAN 버튼 클릭 → Plan ExpandedView 진입 확인
+  3. 업로드한 사진 선택 → PLAN 버튼 활성화 확인
+  4. 업로드한 사진 PLAN 버튼 클릭 → Plan ExpandedView 진입 확인
+  5. 업로드한 사진 PLAN ExpandedView에서 사진이 스케치 캔버스에 로드되는지 확인
+  6. 회귀 검증: IMAGE 버튼 클릭 → SketchToImageExpandedView 정상 진입
+  7. 회귀 검증: 스케치 노드 PLAN 버튼 → 기존 동작 유지

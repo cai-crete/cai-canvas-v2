@@ -1,0 +1,26 @@
+작업: ExpandedView 이미지 업로드 꽉채움 + Grid z-index 조정
+
+완료된 작업:
+
+1. project_canvas/components/SketchCanvas.tsx
+   - Props에 `fitOnUpload?: boolean` 추가
+   - handleUpload 함수 내 `fitCanvasNextLoadRef.current = fitOnUpload` 설정
+     → +버튼 업로드 시 cover scale(Math.max) 적용 → 뷰 꽉 참
+   - z-index 순서 변경:
+     이전: grid(z=1) < image(z=2) < sketch(z=3)
+     이후: image(z=1) < grid(z=2) < sketch(z=3)
+     → 그리드가 이미지 위에 오버레이, 스케치 획이 최상단
+
+2. project_canvas/sketch-to-image/ExpandedView.tsx
+   - SketchCanvas에 `fitOnUpload` prop 추가
+
+3. project_canvas/sketch-to-plan/ExpandedView.tsx
+   - SketchCanvas에 `fitOnUpload` prop 추가 (기존 removeWhiteOnUpload와 함께)
+
+다음 할 일:
+  - 브라우저에서 직접 검증 필요:
+    1. IMAGE ExpandedView → +버튼 → 이미지 꽉차는지 확인
+    2. PLAN ExpandedView → +버튼 → 이미지 꽉차는지 확인
+    3. 업로드된 이미지 위에 그리드가 표시되는지 확인
+    4. 스케치 획이 그리드 위에 그려지는지 확인
+    5. 회귀: 기존 동작(loadImage, undo/redo, 이미지 transform) 정상 작동 확인

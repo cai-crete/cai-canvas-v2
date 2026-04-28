@@ -155,18 +155,24 @@ export default function SketchToPlanExpandedView({
   const [gridModIdx,  setGridModIdx]  = useState(initGridIdx < 0 ? defaultGridIdx : initGridIdx);
 
   const sketchCanvasRef = useRef<SketchCanvasHandle>(null);
+  const [refImage, setRefImage] = useState<string | null>(null);
 
   const { isLoading, error, generate } = usePlanGeneration();
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 sketchData 우선 로드 (흰 배경 제거), 없으면 generatedImageData, 없으면 thumbnailData */
+  /* Expand 시 sketchData 우선 로드. generatedImageData는 캔버스에 로드하지 않고
+     참조 오버레이로만 표시 (exportAsBase64에 포함되지 않아 sketch 오염 방지). */
   useEffect(() => {
+    setRefImage(null);
     if (node.sketchData) {
       sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
     } else if (node.generatedImageData) {
-      sketchCanvasRef.current?.loadImage(node.generatedImageData);
+      const src = node.generatedImageData.startsWith('data:')
+        ? node.generatedImageData
+        : `data:image/png;base64,${node.generatedImageData}`;
+      setRefImage(src);
     } else if (node.thumbnailData) {
-      sketchCanvasRef.current?.loadImage(node.thumbnailData);
+      sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
@@ -293,6 +299,8 @@ export default function SketchToPlanExpandedView({
           onInternalZoomChange={setInternalZoom}
           onInternalOffsetChange={setInternalOffset}
           removeWhiteOnUpload
+          fitOnUpload
+          referenceImageUrl={refImage ?? undefined}
         />
       </div>
 

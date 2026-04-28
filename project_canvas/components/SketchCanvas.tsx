@@ -59,6 +59,8 @@ interface Props {
   onInternalZoomChange: (z: number) => void;
   onInternalOffsetChange: (o: { x: number; y: number }) => void;
   removeWhiteOnUpload?: boolean;
+  fitOnUpload?: boolean;
+  referenceImageUrl?: string;
 }
 
 /* ── Stroke widths ──────────────────────────────────────────────── */
@@ -154,6 +156,8 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     internalZoom, internalOffset,
     onInternalZoomChange, onInternalOffsetChange,
     removeWhiteOnUpload = false,
+    fitOnUpload = false,
+    referenceImageUrl,
   },
   ref
 ) {
@@ -262,11 +266,10 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       let newTransform: ImageTransform;
       if (fitCanvasNextLoadRef.current) {
         fitCanvasNextLoadRef.current = false;
-        const canvasW = canvasRef.current?.width  || containerRef.current?.clientWidth  || 800;
         const canvasH = canvasRef.current?.height || containerRef.current?.clientHeight || 600;
-        const coverScale = Math.max(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
-        const w = img.naturalWidth  * coverScale;
-        const h = img.naturalHeight * coverScale;
+        const heightScale = canvasH / img.naturalHeight;
+        const w = img.naturalWidth  * heightScale;
+        const h = img.naturalHeight * heightScale;
         newTransform = { x: -w / 2, y: -h / 2, width: w, height: h, rotation: 0 };
       } else {
         const canvasW = canvasRef.current?.width  || containerRef.current?.clientWidth  || 800;
@@ -864,11 +867,12 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     reader.onload = async (ev) => {
       const raw    = ev.target?.result as string;
       const base64 = removeWhiteOnUpload ? await removeWhiteBackground(raw) : raw;
+      fitCanvasNextLoadRef.current = fitOnUpload;
       pushSnapshot(pathsRef.current, base64);
       setUploadedImageData(base64);
     };
     reader.readAsDataURL(file);
-  }, [pushSnapshot, removeWhiteOnUpload]);
+  }, [pushSnapshot, removeWhiteOnUpload, fitOnUpload]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
   useImperativeHandle(ref, () => ({
@@ -1016,14 +1020,26 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       ref={containerRef}
       style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'none', background: 'var(--color-app-bg)' }}
     >
-      {/* z=1 Grid */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-        <InfiniteGrid zoom={internalZoom} offset={internalOffset} />
-      </div>
+      {/* z=0 참조 이미지 오버레이 (exportAsBase64에 포함되지 않는 read-only 레이어) */}
+      {referenceImageUrl && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', overflow: 'hidden' }}>
+          <img
+            src={referenceImageUrl}
+            alt=""
+            draggable={false}
+            style={{
+              height: '100%', width: 'auto',
+              opacity: 1, userSelect: 'none', pointerEvents: 'none',
+              transform: `translate(${internalOffset.x}px, ${internalOffset.y}px) scale(${internalZoom / 100})`,
+              transformOrigin: 'center center',
+            }}
+          />
+        </div>
+      )}
 
-      {/* z=2 업로드 이미지 DOM 레이어 (CSS rotate 지원) */}
+      {/* z=1 업로드 이미지 DOM 레이어 (CSS rotate 지원) */}
       {uploadedImageData && imageTransform && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 2, overflow: 'visible', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
           <img
             src={uploadedImageData}
             alt=""
@@ -1042,6 +1058,11 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
           />
         </div>
       )}
+
+      {/* z=2 Grid */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
+        <InfiniteGrid zoom={internalZoom} offset={internalOffset} />
+      </div>
 
       {/* z=3 드로잉 캔버스 */}
       <canvas

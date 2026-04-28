@@ -180,6 +180,7 @@ export default function RightSidebar({
     (e.currentTarget.style.backgroundColor = 'transparent');
 
   const isTabDisabled = (type: NodeType): boolean => {
+    if (type === 'planners') return false;
     if (!selectedArtboardType) return false;
     if (selectedArtboardType === 'blank') return NODES_NAVIGATE_DISABLED.includes(type);
     const compatible = ARTBOARD_COMPATIBLE_NODES[selectedArtboardType as Exclude<typeof selectedArtboardType, 'blank'>];

@@ -1,0 +1,18 @@
+작업: 업로드 이미지 꽉채움 — 높이 기준으로 수정
+
+완료된 작업:
+
+1. project_canvas/components/SketchCanvas.tsx L269
+   - fitCanvas=true 경로의 scale 계산 변경
+   - 이전: coverScale = Math.max(canvasW/imgW, canvasH/imgH) → cover (폭 기준, 위아래 crop 발생)
+   - 이후: heightScale = canvasH / imgH → 높이 기준, 좌우 여백 허용, crop 없음
+
+결과:
+- 세로형(portrait) 이미지: 높이=캔버스 높이로 맞춤, 좌우에 여백 발생 (crop 없음)
+- 가로형(landscape) 이미지: 높이=캔버스 높이로 맞춤, 좌우 약간 오버플로 가능
+
+다음 할 일:
+  - 브라우저에서 검증:
+    1. portrait 이미지 업로드 → 위아래 crop 없이 꽉차는지 확인
+    2. landscape 이미지 업로드 → 높이 기준으로 맞춰지는지 확인
+    3. 기존 loadImage(fitCanvas=true) 경로도 동일 적용 확인 (ExpandedView 진입 시)

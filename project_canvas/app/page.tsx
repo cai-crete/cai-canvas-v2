@@ -481,7 +481,8 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
-      if (sketchBase64) {
+      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
+      if (sketchBase64 && n.artboardType !== 'image') {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
@@ -497,7 +498,8 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
-      if (sketchBase64) {
+      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
+      if (sketchBase64 && n.artboardType !== 'image') {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
@@ -508,7 +510,7 @@ export default function CanvasPage() {
 
   /* ── sketch-plan GENERATE 완료 ─────────────────────────────────────── */
   const handleGeneratePlanComplete = useCallback(({
-    sketchBase64, thumbnailBase64: _thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
@@ -517,14 +519,7 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      const updatedOrigin = {
-        ...origin,
-        hasThumbnail: true,
-        thumbnailData: generatedPlanBase64,
-        generatedImageData: generatedPlanBase64,
-        sketchData: sketchBase64,
-      };
-
+      /* 원본 노드는 변경하지 않음 — handleCollapseWithPlanSketch에서 이미 저장 완료 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -545,7 +540,7 @@ export default function CanvasPage() {
         autoPlaced: true,
       };
 
-      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
+      const next = [...prev, newNode];
 
       const newEdge: CanvasEdge = {
         id: generateId(),
@@ -669,6 +664,17 @@ export default function CanvasPage() {
       ) {
         setExpandedViewMode('image');
         setExpandedNodeId(selectedNode.id);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
+      /* planners: 선택 노드가 planners면 expand, 그 외에는 새 planners 자식 노드 생성 */
+      if (type === 'planners') {
+        if (selectedNode.type === 'planners') {
+          setExpandedNodeId(selectedNode.id);
+        } else {
+          createAndExpandNode('planners');
+        }
         setActiveSidebarNodeType(null);
         return;
       }
@@ -815,25 +821,16 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
     setNodes(prev => {
-      /* 원본 노드: sketchData + 생성 이미지로 썸네일 업데이트 */
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      const updatedOrigin = {
-        ...origin,
-        hasThumbnail: true,
-        thumbnailData: generatedBase64,
-        generatedImageData: generatedBase64,
-        sketchData: sketchBase64,
-      };
-
-      /* 새 노드: 생성 이미지 */
+      /* 원본 노드는 변경하지 않음 — handleCollapseWithSketch에서 이미 저장 완료 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -853,9 +850,8 @@ export default function CanvasPage() {
         autoPlaced: true,
       };
 
-      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
+      const next = [...prev, newNode];
 
-      /* edge 생성 */
       const newEdge: CanvasEdge = {
         id: generateId(),
         sourceId: nodeId,
