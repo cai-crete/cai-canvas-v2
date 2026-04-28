@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 const PRINT_API_URL     = process.env.PRINT_API_URL;
 const CANVAS_API_SECRET = process.env.CANVAS_API_SECRET;

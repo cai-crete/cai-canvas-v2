@@ -1,7 +1,4 @@
 import type { NextConfig } from 'next';
-import path from 'path';
-
-const PRINT_PKG = path.resolve('./node_modules/@cai-crete/print-components');
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
@@ -9,7 +6,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@cai-crete/print-components'],
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb', // BFF proxy route handler도 적용 (Next.js 15.1+)
+      // Next.js action-handler가 multipart/form-data POST를 인터셉트할 때의 크기 제한.
+      // 이 값이 없으면 기본 1MB → 이미지 업로드 시 413 발생 후 BFF route handler가 실행조차 안 됨.
+      bodySizeLimit: '50mb',
     },
   },
   webpack: (config, { dev }) => {
@@ -17,19 +16,6 @@ const nextConfig: NextConfig = {
     if (dev) {
       config.cache = false;
     }
-    // print-components 패키지 내부의 @/ 경로를 패키지 내부로 리디렉션
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@/app':                `${PRINT_PKG}/app`,
-      '@/types/print-canvas': `${PRINT_PKG}/types/print-canvas`,
-      '@/lib/types':          `${PRINT_PKG}/lib/types`,
-      '@/lib/export':         `${PRINT_PKG}/lib/export`,
-      '@/lib/saves':          `${PRINT_PKG}/lib/saves`,
-      '@/lib/imageUtils':     `${PRINT_PKG}/lib/imageUtils`,
-      '@/lib/thumbnailUtils': `${PRINT_PKG}/lib/thumbnailUtils`,
-      '@/lib/htmlUtils':      `${PRINT_PKG}/lib/htmlUtils`,
-      '@/lib/agentErrors':    `${PRINT_PKG}/lib/agentErrors`,
-    };
     return config;
   },
 };

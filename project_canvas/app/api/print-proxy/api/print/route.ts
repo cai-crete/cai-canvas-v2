@@ -51,11 +51,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   forwardHeaders.set('x-canvas-api-secret', CANVAS_API_SECRET);
   forwardHeaders.set('host', new URL(TARGET_URL).host);
 
+  const UPSTREAM_TIMEOUT_MS = 120_000;
+
   try {
     const upstream = await fetch(TARGET_URL, {
       method:  'POST',
       headers: forwardHeaders,
       body:    buffer,
+      signal:  AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
     const elapsed   = Date.now() - startTime;
@@ -71,6 +74,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     const elapsed = Date.now() - startTime;
+    const isTimeout = err instanceof Error && err.name === 'TimeoutError';
+    if (isTimeout) {
+      console.error(`[print-bff] ✕ TIMEOUT (${elapsed}ms): upstream did not respond`);
+      return NextResponse.json({ error: 'Print 서버 응답 시간 초과' }, { status: 504 });
+    }
     console.error(`[print-bff] ✕ FETCH FAILED (${elapsed}ms):`, err);
     return NextResponse.json(
       { error: `Print 서버 연결 실패: ${err instanceof Error ? err.message : String(err)}` },

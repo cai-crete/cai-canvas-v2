@@ -1,0 +1,33 @@
+작업: 이미지 슬롯 복원 한계 파악 + 최선 canvas-side 수정 적용
+
+아키텍처 분석 결론:
+- 삽입 이미지는 패키지 내부 useState<File[]> 로컬 상태에만 존재
+- 닫는 순간 메모리에서 소멸 → canvas node에 저장된 것이 없음
+- PrintSaveResult에는 {html, thumbnail, mode, metadata}만 포함 — 원본 이미지 없음
+- PrintExpandedViewProps에 onCurrentImagesChange 콜백이 없어 canvas가 이미지 수신 불가
+
+최선 canvas-side 수정 완료 (page.tsx):
+- 수정: generatedImageData = n.generatedImageData ?? n.thumbnailData (저장 전 원본 스냅샷)
+- 효과: canvas 이미지 아트보드 → print 노드의 경우 원본 canvas 이미지 보존 후 재진입 시 슬롯에 표시
+
+print/ExpandedView.tsx 유지:
+- sourceImage = node.generatedImageData (thumbnailData fallback 제거)
+- 이유: 저장 후 thumbnailData = print 썸네일이 되므로 fallback하면 슬롯에 잘못된 이미지 주입됨
+
+현재 동작 (수정 후):
+- canvas 이미지 → print: 재진입 시 원본 canvas 이미지 슬롯에 표시 ✓
+- fresh print + 사용자 직접 업로드: 재진입 시 슬롯 빈 상태 (피할 수 없는 한계)
+
+print 팀 협업 필요 사항:
+- PrintExpandedViewProps에 onCurrentImagesChange?: (images: SelectedImage[]) => void 추가
+- Print_ExpandedView.tsx에서 images state 변경 시 콜백 호출
+- 그러면 canvas가 이미지를 받아 CanvasNode에 저장 → 재진입 시 selectedImages로 복원 가능
+
+수정 파일 목록 (최종):
+- project_canvas/app/page.tsx: generatedImageData = n.generatedImageData ?? n.thumbnailData (스냅샷)
+- project_canvas/print/ExpandedView.tsx: sourceImage = node.generatedImageData 만 사용
+- project_canvas/components/NodeCard.tsx: startsWith('data:') 체크 추가 (썸네일 깨짐 수정)
+
+다음 해야 할 일:
+1. 브라우저 테스트: GENERATE → SAVE → 썸네일 표시 확인, 재진입 시 슬롯 확인
+2. print 팀에 onCurrentImagesChange 콜백 추가 요청 (fresh 노드 이미지 복원 완성을 위해)

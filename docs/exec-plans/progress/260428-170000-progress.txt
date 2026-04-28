@@ -1,0 +1,37 @@
+작업: Canvas ↔ Print SAVE 후 발생한 두 가지 버그 원인 분석 완료
+
+완료된 작업:
+1. Phase 8 브라우저 테스트 결과 수령 (사용자 직접 확인):
+   - ExpandedView 열림 ✅
+   - GENERATE → 문서 생성 ✅ (품질 개선은 추후)
+   - SAVE 후 두 가지 버그 발견:
+     a. 이미지 슬롯에 삽입 이미지 대신 print 썸네일이 채워짐
+     b. Canvas 카드의 썸네일이 깨져 보임
+
+2. 버그 원인 분석 완료 및 계획서에 §7 + Phase 10 추가:
+
+   [버그 ❶] 이미지 슬롯 덮어씀
+   - 원인: page.tsx handleGeneratePrintComplete에서 generatedImageData를 print 썸네일로 덮어씀
+   - 재진입 시 print/ExpandedView.tsx가 generatedImageData를 이미지 슬롯 초기값으로 주입
+   - 수정 3줄: page.tsx에서 generatedImageData 업데이트 제거 + print/ExpandedView.tsx에서 thumbnailData fallback 제거
+
+   [버그 ❷] 썸네일 깨짐
+   - 원인: NodeCard.tsx hasThumbnail 브랜치가 항상 'data:image/png;base64,' 접두사를 붙임
+   - print 썸네일은 이미 완전한 data URL('data:image/jpeg;base64,...')이라 이중 중첩으로 깨짐
+   - 수정 1줄: startsWith('data:') 체크 추가 (artboardType=image 브랜치와 동일하게)
+
+아직 완료되지 않은 작업:
+- Phase 10: 버그 수정 구현 (3개 파일, 총 4줄 수정)
+  a. project_canvas/app/page.tsx (line ~569) — generatedImageData 업데이트 제거
+  b. project_canvas/print/ExpandedView.tsx (line ~45) — thumbnailData fallback 제거
+  c. project_canvas/components/NodeCard.tsx (line ~278) — startsWith('data:') 체크 추가
+- Phase 9: Vercel 환경변수 설정 (배포 시)
+
+현재 상태:
+- 계획서 updated: docs/exec-plans/active/260428-print-canvas-connection-fix.md
+- 수정 대상 파일과 정확한 위치 파악 완료
+- 사용자 승인 후 구현 가능 상태
+
+다음에 해야 할 일:
+1. 사용자 승인 시 Phase 10 수정 즉시 구현 (20분 내 완료 예상)
+2. 수정 후 브라우저에서 SAVE → 썸네일/슬롯 동작 재확인

@@ -1,0 +1,43 @@
+작업: Canvas-Print 연동 구현 전체 검토 및 리뷰 보고서 작성
+
+완료된 작업:
+
+1. 검토 대상 파일 전체 분석
+   - project_canvas/app/api/print-proxy/api/print/route.ts (BFF)
+   - project_canvas/app/api/print-proxy/api/library/route.ts (BFF)
+   - project_canvas/print/ExpandedView.tsx
+   - project_canvas/components/NodeCard.tsx
+   - project_canvas/app/page.tsx (handleGeneratePrintComplete, handlePrintNodeUpdate)
+   - project_canvas/next.config.ts
+   - project_canvas/tsconfig.json
+   - project_canvas/types/canvas.ts
+   - project_canvas/package.json
+   - project_canvas/.npmrc
+   - project_canvas/.env.local.example
+   - project_canvas/app/layout.tsx
+
+2. 이슈 9건 식별 및 분류
+   - Critical 1건: package.json file: 로컬 경로 (배포 불가)
+   - High 3건: @/app alias 충돌 위험, CanvasNode 타입 중복 정의, printSavedState.mode 하드코딩
+   - Medium 3건: fetch 타임아웃 없음, library maxDuration 미설정, bodySizeLimit 주석 오류
+   - Low 2건: reactStrictMode false, content-length 중복 설정
+
+3. 검토 보고서 + 개선 계획서 작성
+   - 경로: docs/exec-plans/active/Review/260428-canvas-print-integration-review.md
+   - Phase A (배포 전 필수): package.json 교체, 타입 정리
+   - Phase B (릴리즈 전 권장): fetch 타임아웃, maxDuration, 주석 수정
+   - Phase C (장기): Strict Mode, content-length, 에러 언어
+
+현재 상태:
+- 모든 기능은 로컬에서 정상 동작 중
+- 검토 보고서 생성 완료
+- 수정 작업은 사용자 확인 후 진행 예정
+
+즉시 수정 가능한 항목 (Print 팀 협의 불필요):
+- B-2: print/route.ts fetch 타임아웃 추가 (AbortSignal.timeout)
+- B-3: library/route.ts maxDuration 추가
+- B-4: next.config.ts 주석 수정
+
+Print 팀 패키지 배포 대기 항목:
+- A-1: package.json file: → @cai-crete/print-components@0.1.1
+- A-2: types/canvas.ts SelectedImage 직접 import

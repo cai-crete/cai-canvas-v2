@@ -37,6 +37,7 @@ interface Props {
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
   onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
+  onPrintNodeUpdate?: (updates: Partial<CanvasNode>) => void;
   onGenerateElevationComplete?: (params: ElevationGenerateResult) => void;
   onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
   onInsightDataChange?: (data: FetchLawsResult | null) => void;
@@ -143,6 +144,7 @@ export default function ExpandedView({
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
   isGenerating = false,
   onGeneratePrintComplete,
+  onPrintNodeUpdate,
   onGenerateElevationComplete,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
@@ -218,6 +220,7 @@ export default function ExpandedView({
         onCollapse={onCollapse}
         onGeneratingChange={onGeneratingChange}
         onGeneratePrintComplete={onGeneratePrintComplete}
+        onPrintNodeUpdate={onPrintNodeUpdate}
       />
     );
   }

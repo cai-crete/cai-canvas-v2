@@ -255,9 +255,10 @@ SSRF(서버사이드 요청 위조) 위험이 있음.
 - [x] GET 차단: `/api/print-proxy/api/print` GET → 405
 - [x] 임의 경로 차단: `/api/print-proxy/other-path` → 404
 - [x] trailing slash 버그 수정: `PRINT_API_URL` 말미 `/` 제거 처리 추가
-- [ ] 브라우저에서 Print 노드 클릭 → ExpandedView 열림 확인 (사용자 직접 테스트)
-- [ ] GENERATE 버튼 클릭 → 실제 이미지로 문서 생성 확인 (사용자 직접 테스트)
-- [ ] 생성 완료 후 SAVE → Canvas 썸네일 업데이트 확인
+- [x] 브라우저에서 Print 노드 클릭 → ExpandedView 열림 확인 ✅
+- [x] GENERATE 버튼 클릭 → 실제 이미지로 문서 생성 확인 ✅ (품질 개선은 추후)
+- [ ] SAVE 후 이미지 슬롯 및 썸네일 버그 수정 (Phase 10 참조)
+- [ ] 생성 완료 후 SAVE → Canvas 썸네일 정상 표시 확인
 
 ### Phase 9 — Vercel 환경변수 설정 (배포 시)
 
@@ -265,6 +266,126 @@ SSRF(서버사이드 요청 위조) 위험이 있음.
   - `PRINT_API_URL=https://cai-print-v3.vercel.app`
   - `CANVAS_API_SECRET=<실제 값>`
   - `GITHUB_TOKEN=<packages:read 권한>`
+
+---
+
+## 7. SAVE 후 발생한 신규 버그 (2026-04-28 발견)
+
+### 버그 ❶ — SAVE 후 이미지 슬롯 내용이 print 썸네일로 대체됨
+
+**증상**: Print ExpandedView에서 이미지를 삽입 후 GENERATE → SAVE 하면, Canvas로 돌아와 Print 노드를 다시 열었을 때 INSERT IMAGE 슬롯에 원본 삽입 이미지가 아닌 print 문서 썸네일이 채워짐.
+
+**원인 추적**:
+
+```
+SAVE 클릭
+  └→ Print_ExpandedView.tsx: handleSave()
+       └→ generateThumbnail(firstPageHtml) → "data:image/jpeg;base64,..."
+       └→ props.onSave({ thumbnail: "data:image/jpeg;base64,..." })
+            └→ print/ExpandedView.tsx: handleSave()
+                 └→ onGeneratePrintComplete({ thumbnailBase64: result.thumbnail })
+                      └→ page.tsx: handleGeneratePrintComplete()
+                           └→ setNodes: { thumbnailData: thumbnailBase64,
+                                          generatedImageData: thumbnailBase64 }  ← ❌ 문제!
+
+다음 재진입 시:
+  └→ print/ExpandedView.tsx line 45:
+       sourceImage = node.generatedImageData ?? node.thumbnailData
+       = "data:image/jpeg;base64,...(print 썸네일)"  ← 원본 이미지 아님!
+  └→ selectedImages = [parseNodeImage("..print 썸네일..")] → 패키지에 전달
+  └→ Print_ExpandedView.tsx useEffect: setImages([File(print썸네일)])  ← ❌
+```
+
+**결론**: `handleGeneratePrintComplete`가 `generatedImageData`를 print 문서 썸네일로 덮어쓰는 것이 원인. `generatedImageData`는 canvas 이미지 원본 참조용 필드인데, print 출력물 썸네일을 저장하는 데 오용됨.
+
+**수정 방향**:
+
+| 필드 | 역할 구분 (수정 후) |
+|------|-------------------|
+| `thumbnailData` | Canvas 카드(NodeCard)에 표시할 썸네일 — print 저장 시 업데이트 |
+| `generatedImageData` | 원본 소스 이미지 (편집 재진입 시 슬롯 복원용) — **print 저장 시 건드리지 않음** |
+
+**수정 파일 2개**:
+
+1. **`project_canvas/app/page.tsx`** — `handleGeneratePrintComplete` (line ~569):
+   ```typescript
+   // 수정 전
+   ? { ...n, hasThumbnail: true, thumbnailData: thumbnailBase64, generatedImageData: thumbnailBase64 }
+   // 수정 후 — thumbnailData 덮어쓰기 전에 원본 소스를 generatedImageData에 보존
+   ? {
+       ...n, hasThumbnail: true, thumbnailData: thumbnailBase64,
+       generatedImageData: n.generatedImageData ?? n.thumbnailData,
+     }
+   ```
+
+2. **`project_canvas/print/ExpandedView.tsx`** — `sourceImage` (line ~45):
+   ```typescript
+   // 수정 전 — 저장 후 thumbnailData = print 썸네일이라 슬롯에 잘못 주입됨
+   const sourceImage = node.generatedImageData ?? node.thumbnailData;
+   // 수정 후 — generatedImageData만 사용 (저장 후 print 썸네일 오주입 방지)
+   const sourceImage = node.generatedImageData;
+   ```
+
+**⚠️ 아키텍처 한계 (print 팀 협업 필요)**:
+
+| 케이스 | canvas-side 수정 후 동작 |
+|--------|------------------------|
+| canvas 이미지 아트보드 → print 노드 (`thumbnailData` 있음) | 저장 전 원본 이미지가 `generatedImageData`에 보존 → 재진입 시 슬롯에 원본 표시 ✓ |
+| fresh print 노드 (blank → print, 사용자가 직접 업로드) | `File[]` 객체는 패키지 로컬 상태에만 존재 → 닫는 순간 소멸 → 재진입 시 슬롯 빈 상태 ✗ |
+
+**fresh 노드 슬롯 복원을 위해 print 패키지 업데이트 필요**:
+- `PrintExpandedViewProps`에 `onCurrentImagesChange?: (images: SelectedImage[]) => void` 콜백 추가
+- `Print_ExpandedView.tsx`에서 `images` state 변경 시 이 콜백 호출
+- Canvas에서 수신 → `CanvasNode.generatedImageData`에 저장 → 재진입 시 `selectedImages`로 주입
+
+---
+
+### 버그 ❷ — Canvas 카드에 print 썸네일이 깨져서 표시됨
+
+**증상**: SAVE 후 Canvas 화면으로 돌아오면 Print 노드 카드의 썸네일이 심하게 깨져(픽셀화) 보임.
+
+**원인 추적**:
+
+```
+generateThumbnail() 반환값:
+  = thumbCanvas.toDataURL('image/jpeg', 0.65)
+  = "data:image/jpeg;base64,/9j/4AA..."   ← 완전한 data URL
+
+handleGeneratePrintComplete:
+  thumbnailData = "data:image/jpeg;base64,..."  ← 완전한 data URL 저장됨
+
+NodeCard.tsx hasThumbnail 브랜치 (line ~278):
+  <img src={`data:image/png;base64,${node.thumbnailData}`} />
+  = <img src="data:image/png;base64,data:image/jpeg;base64,/9j/4AA..." />  ← ❌ 이중 중첩!
+```
+
+**결론**: `NodeCard.tsx`의 `hasThumbnail` 브랜치가 `thumbnailData`를 항상 raw base64로 가정하고 `data:image/png;base64,` prefix를 덧붙임. 그러나 print thumbnail은 이미 완전한 data URL이므로 이중 중첩이 발생해 이미지 로드 실패 또는 깨진 표시.
+
+> `artboardType === 'image'` 브랜치(line 263~270)에는 이미 `startsWith('data:')` 체크가 있으나, `hasThumbnail` 브랜치(print/planners용)에는 없어서 발생하는 불일치.
+
+**부차적 원인**: `generateThumbnail`의 출력 해상도가 320×240 (65% JPEG)으로 고정되어 있어 Retina 환경에서 흐리게 보일 수 있음. 이 부분은 print 패키지(`thumbnailUtils.ts`) 내부이므로 현재 Sprint에서는 data URL 버그만 수정.
+
+**수정 파일 1개**:
+
+**`project_canvas/components/NodeCard.tsx`** — `hasThumbnail` 브랜치 (line ~278):
+```typescript
+// 수정 전
+src={`data:image/png;base64,${node.thumbnailData}`}
+
+// 수정 후 — data URL 중복 방지 (artboardType=image 브랜치와 동일한 처리)
+src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : `data:image/png;base64,${node.thumbnailData}`}
+```
+
+---
+
+### Phase 10 — 버그 수정 (즉시 가능)
+
+- [x] `project_canvas/app/page.tsx` `handleGeneratePrintComplete`: `generatedImageData` 업데이트 제거
+- [x] `project_canvas/print/ExpandedView.tsx` `sourceImage`: `thumbnailData` fallback 제거
+- [x] `project_canvas/components/NodeCard.tsx` `hasThumbnail` 브랜치: `startsWith('data:')` 체크 추가
+- [ ] 수정 후 테스트:
+  - GENERATE → SAVE → Canvas 복귀 → 썸네일 정상 표시 확인
+  - Print 노드 재진입 → 이미지 슬롯에 print 썸네일 미표시 확인
 
 ---
 
@@ -281,6 +402,9 @@ SSRF(서버사이드 요청 위조) 위험이 있음.
 | `project_canvas/print/ExpandedView.tsx` | 자체 구현 (API 불일치) | 패키지 설치 후 교체 | 6 |
 | `project_canvas/package.json` | `@cai-crete/print-components` 없음 | 패키지 설치 시 자동 업데이트 | 7 |
 | `project_canvas/.env.local` | `PRINT_API_URL`, `CANVAS_API_SECRET` 없음 | Phase 0 완료 후 수동 추가 | 1 |
+| `project_canvas/app/page.tsx` | `generatedImageData` 잘못 덮어씀 | Phase 10에서 수정 | 10 |
+| `project_canvas/print/ExpandedView.tsx` | `thumbnailData` fallback 제거 필요 | Phase 10에서 수정 | 10 |
+| `project_canvas/components/NodeCard.tsx` | data URL 이중 prefix 버그 | Phase 10에서 수정 | 10 |
 
 ---
 

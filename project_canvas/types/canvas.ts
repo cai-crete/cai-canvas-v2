@@ -1,3 +1,5 @@
+import type { SelectedImage, PrintSavedState } from '@cai-crete/print-components';
+
 /* 노드 카드 규격 (rem → px @ 16px base) */
 export const CARD_W_PX  = 280; // 17.5rem
 export const CARD_H_PX  = 198; // 12.375rem
@@ -164,6 +166,8 @@ export interface CanvasNode {
   elevationPanelSettings?: ElevationPanelSettings;
   elevationImages?: ElevationImages;
   elevationAeplData?: ElevationAeplData;
+  printSavedState?: PrintSavedState;
+  printSelectedImages?: SelectedImage[];
 }
 
 export interface CanvasViewport {

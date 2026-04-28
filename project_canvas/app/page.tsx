@@ -561,12 +561,26 @@ export default function CanvasPage() {
     });
   }, [pushHistory]);
 
+  /* ── print 노드 부분 업데이트 (savedState, selectedImages 등) ──────── */
+  const handlePrintNodeUpdate = useCallback((updates: Partial<CanvasNode>) => {
+    if (!expandedNodeId) return;
+    setNodes(prev => prev.map(n =>
+      n.id === expandedNodeId ? { ...n, ...updates } : n
+    ));
+  }, [expandedNodeId]);
+
   /* ── print GENERATE 완료 → 노드 썸네일 업데이트 ────────────────────── */
   const handleGeneratePrintComplete = useCallback(({ thumbnailBase64 }: { thumbnailBase64: string }) => {
     if (!expandedNodeId) return;
     setNodes(prev => prev.map(n =>
       n.id === expandedNodeId
-        ? { ...n, hasThumbnail: true, thumbnailData: thumbnailBase64, generatedImageData: thumbnailBase64 }
+        ? {
+            ...n,
+            hasThumbnail: true,
+            thumbnailData: thumbnailBase64,
+            // thumbnailData를 덮어쓰기 전에 원본 소스 이미지를 generatedImageData에 보존
+            generatedImageData: n.generatedImageData ?? n.thumbnailData,
+          }
         : n
     ));
   }, [expandedNodeId]);
@@ -1070,6 +1084,7 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
+          onPrintNodeUpdate={handlePrintNodeUpdate}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
