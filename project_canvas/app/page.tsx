@@ -157,7 +157,7 @@ export default function CanvasPage() {
   /* ── 선택 / 확장 상태 ────────────────────────────────────────────── */
   const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
   const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
-  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'default'>('default');
+  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'plan' | 'default'>('default');
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -483,8 +483,7 @@ export default function CanvasPage() {
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
       if (sketchBase64) {
         updates.hasThumbnail  = true;
-        /* generatedImageData가 있으면 원본 AI 이미지를 썸네일로 유지, 없으면 100% zoom 썸네일 */
-        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
+        updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -500,7 +499,7 @@ export default function CanvasPage() {
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
       if (sketchBase64) {
         updates.hasThumbnail  = true;
-        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
+        updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -509,7 +508,7 @@ export default function CanvasPage() {
 
   /* ── sketch-plan GENERATE 완료 ─────────────────────────────────────── */
   const handleGeneratePlanComplete = useCallback(({
-    sketchBase64, thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
+    sketchBase64, thumbnailBase64: _thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
@@ -521,7 +520,8 @@ export default function CanvasPage() {
       const updatedOrigin = {
         ...origin,
         hasThumbnail: true,
-        thumbnailData: thumbnailBase64,
+        thumbnailData: generatedPlanBase64,
+        generatedImageData: generatedPlanBase64,
         sketchData: sketchBase64,
       };
 
@@ -539,7 +539,6 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedPlanBase64,
-        sketchData: generatedPlanBase64,
         generatedImageData: generatedPlanBase64,
         roomAnalysis,
         parentId: nodeId,
@@ -650,6 +649,18 @@ export default function CanvasPage() {
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
+      /* PLAN 탭 + image 아트보드 노드(plan/image/viewpoint) → Plan ExpandedView */
+      if (
+        type === 'plan' &&
+        selectedNode.artboardType === 'image' &&
+        (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
+      ) {
+        setExpandedViewMode('plan');
+        setExpandedNodeId(selectedNode.id);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
       /* IMAGE 탭 + plan/image/viewpoint 노드(artboardType=image) → Image ExpandedView */
       if (
         type === 'image' &&
@@ -804,20 +815,21 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64, thumbnailBase64, generatedBase64, nodeId,
+    sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
     setNodes(prev => {
-      /* 원본 노드: sketchData + thumbnailData(100% zoom) 업데이트 */
+      /* 원본 노드: sketchData + 생성 이미지로 썸네일 업데이트 */
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
       const updatedOrigin = {
         ...origin,
         hasThumbnail: true,
-        thumbnailData: thumbnailBase64,
+        thumbnailData: generatedBase64,
+        generatedImageData: generatedBase64,
         sketchData: sketchBase64,
       };
 
@@ -836,7 +848,6 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedBase64,
-        sketchData: generatedBase64,
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,

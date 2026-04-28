@@ -1,0 +1,32 @@
+작업: 스케치 썸네일 반영 & ExpandedView 원본 크기 로드 (260428-sketch-thumbnail-and-fitcanvas.md)
+
+완료된 작업:
+
+1. Issue A — ExpandedView 스케치 내용을 썸네일에 반영
+   - page.tsx handleCollapseWithSketch: thumbnailData = thumbnailBase64 (generatedImageData 우선순위 제거)
+   - page.tsx handleCollapseWithPlanSketch: 동일 변경
+   - 이전: generatedImageData가 있으면 AI 이미지를 썸네일로 유지 (스케치 내용 미반영)
+   - 이후: 항상 스케치 썸네일(exportThumbnail 결과)을 thumbnailData로 설정
+
+2. Issue B — ExpandedView 진입 시 이미지 원본 크기 표시
+   - SketchCanvas.tsx: SketchCanvasHandle.loadImage 타입에 fitCanvas?: boolean 파라미터 추가
+   - SketchCanvas.tsx: fitCanvasNextLoadRef = useRef(false) 추가
+   - SketchCanvas.tsx: uploadedImageData effect에서 fitCanvas=true이면 자연 크기(1:1) transform 적용
+     (x = -naturalWidth/2, y = -naturalHeight/2, width = naturalWidth, height = naturalHeight)
+   - SketchCanvas.tsx: loadImage 구현에 fitCanvas 파라미터 처리 추가
+   - sketch-to-image/ExpandedView.tsx: sketchData → loadImage(..., true, true), thumbnailData → loadImage(..., false, true)
+   - sketch-to-plan/ExpandedView.tsx: sketchData → loadImage(..., true, true)
+   - generatedImageData 로드는 기존 80% 스케일 유지
+
+수정 파일:
+- project_canvas/components/SketchCanvas.tsx
+- project_canvas/sketch-to-image/ExpandedView.tsx
+- project_canvas/sketch-to-plan/ExpandedView.tsx
+- project_canvas/app/page.tsx
+
+다음 할 일:
+- 동작 검증 필요:
+  1. 스케치 후 닫기 → 노드 카드 썸네일에 스케치 내용이 표시되는지 확인
+  2. 썸네일 있는 노드 → ExpandedView 열기 → 이미지가 원본 크기(1:1)로 표시되는지 확인
+  3. 기존 업로드 이미지 기능(ExpandedView 내 + 버튼) 80% 스케일 동작 유지 확인
+- exec-plan active → completed 이동 완료

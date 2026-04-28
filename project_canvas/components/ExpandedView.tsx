@@ -14,7 +14,7 @@ import ElevationExpandedView, { type ElevationGenerateResult } from '@/elevation
 
 interface Props {
   node: CanvasNode;
-  viewMode?: 'image' | 'default';
+  viewMode?: 'image' | 'plan' | 'default';
   onCollapse: () => void;
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings) => void;
   onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings) => void;
@@ -148,9 +148,11 @@ export default function ExpandedView({
 }: Props) {
   const def = NODE_DEFINITIONS[node.type];
   const isSketchImageMode =
-    node.type === 'image' || node.type === 'viewpoint' ||
+    (node.type === 'image' || node.type === 'viewpoint') && viewMode !== 'plan' ||
     (viewMode === 'image' && node.artboardType === 'image');
-  const isSketchPlanMode  = node.type === 'plan' && viewMode !== 'image';
+  const isSketchPlanMode =
+    (node.type === 'plan' && viewMode !== 'image') ||
+    ((node.type === 'image' || node.type === 'viewpoint') && viewMode === 'plan');
   const isSketchMode      = node.artboardType === 'sketch' || node.artboardType === 'blank';
 
   const [insightData, setInsightData] = useState<FetchLawsResult | null>(

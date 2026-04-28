@@ -1,0 +1,36 @@
+작업: 캔버스 5개 버그 수정 (260428-canvas-bugfix-5issues.md)
+
+완료된 작업:
+
+1. Issue 1 — 흰 배경 제거는 Plan ExpandedView 업로드에서만
+   - SketchCanvas.tsx Props에 removeWhiteOnUpload?: boolean 추가
+   - handleUpload에서 removeWhiteOnUpload 값에 따라 조건부 removeWhiteBackground 적용
+   - sketch-to-plan/ExpandedView.tsx SketchCanvas에 removeWhiteOnUpload 전달
+
+2. Issue 2 — GENERATE 없이 닫을 때 스케치 스트로크 보존
+   - sketch-to-image/ExpandedView.tsx 로드 순서 변경: sketchData → generatedImageData → thumbnailData
+   - sketch-to-plan/ExpandedView.tsx 로드 순서 변경: sketchData → generatedImageData (둘 다 removeBackground=true)
+   - page.tsx handleGenerateComplete: 새 이미지 노드에서 sketchData 필드 제거
+   - page.tsx handleGeneratePlanComplete: 새 플랜 노드에서 sketchData 필드 제거
+
+3. Issue 3 — 태블릿 핀치 줌 시 이미지 찌그러짐
+   - SketchCanvas.tsx 핀치 줌 핸들러에 pinch midpoint 기반 offset 보정 추가
+   - mouse wheel zoom과 동일한 방식으로 중심점 기준 zoom/offset 동시 갱신
+
+4. Issue 4 — ExpandedView 진입 시 흰색 배경 현상
+   - Issue 2에서 sketchData 로드 시 removeBackground=true 적용으로 함께 처리됨
+
+5. Issue 5 — Generate 후 원본 노드 썸네일에 이미지가 가득 차지 않는 현상
+   - page.tsx handleGenerateComplete: 원본 노드 thumbnailData = generatedBase64, generatedImageData = generatedBase64
+   - page.tsx handleGeneratePlanComplete: 원본 노드 thumbnailData = generatedPlanBase64, generatedImageData = generatedPlanBase64
+   - 미사용 thumbnailBase64 파라미터 _thumbnailBase64로 rename
+
+수정 파일:
+- project_canvas/components/SketchCanvas.tsx
+- project_canvas/sketch-to-image/ExpandedView.tsx
+- project_canvas/sketch-to-plan/ExpandedView.tsx
+- project_canvas/app/page.tsx
+
+다음 할 일:
+- 동작 검증 필요 (태블릿 핀치 줌, Generate 후 썸네일, ExpandedView 흰 배경 등)
+- exec-plan completed로 이동 완료

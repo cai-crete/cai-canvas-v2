@@ -126,11 +126,14 @@ export default function SketchToImageExpandedView({
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 generatedImageData 우선 로드, 없으면 sketchData */
+  /* Expand 시 sketchData 우선 로드 (흰 배경 제거), 없으면 generatedImageData, 없으면 thumbnailData */
   useEffect(() => {
-    const toLoad = node.generatedImageData ?? node.sketchData ?? node.thumbnailData;
-    if (toLoad) {
-      sketchCanvasRef.current?.loadImage(toLoad);
+    if (node.sketchData) {
+      sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
+    } else if (node.generatedImageData) {
+      sketchCanvasRef.current?.loadImage(node.generatedImageData);
+    } else if (node.thumbnailData) {
+      sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);

@@ -159,12 +159,14 @@ export default function SketchToPlanExpandedView({
   const { isLoading, error, generate } = usePlanGeneration();
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 generatedImageData 우선 로드 (배경 제거), 없으면 sketchData (원본 유지) */
+  /* Expand 시 sketchData 우선 로드 (흰 배경 제거), 없으면 generatedImageData, 없으면 thumbnailData */
   useEffect(() => {
-    if (node.generatedImageData) {
-      sketchCanvasRef.current?.loadImage(node.generatedImageData, true);
-    } else if (node.sketchData) {
-      sketchCanvasRef.current?.loadImage(node.sketchData, false);
+    if (node.sketchData) {
+      sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
+    } else if (node.generatedImageData) {
+      sketchCanvasRef.current?.loadImage(node.generatedImageData);
+    } else if (node.thumbnailData) {
+      sketchCanvasRef.current?.loadImage(node.thumbnailData);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
@@ -290,6 +292,7 @@ export default function SketchToPlanExpandedView({
           internalOffset={internalOffset}
           onInternalZoomChange={setInternalZoom}
           onInternalOffsetChange={setInternalOffset}
+          removeWhiteOnUpload
         />
       </div>
 
