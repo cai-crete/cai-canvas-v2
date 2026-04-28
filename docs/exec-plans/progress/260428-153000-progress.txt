@@ -1,0 +1,31 @@
+날짜: 2026-04-28
+세션: Print ↔ Canvas 완전 통합 계획 수립
+
+== 방금 한 일 ==
+- 코드베이스 전체 분석 완료 (page.tsx, RightSidebar, ExpandedView, print/ExpandedView, PkgPrintExpandedView, PrintCanvasSidebarPanel, PrintSidebarPanel, ExpandedSidebar)
+- 요구사항 3가지에 대한 구현 계획서 작성
+- 계획서 저장: docs/exec-plans/active/260428-print-canvas-integration.md
+
+== 현재 상태 ==
+계획서 작성 완료, 사용자 검토 대기 중. 구현 미착수.
+
+== 다음 세션에서 할 일 ==
+사용자 승인 후 다음 순서로 구현:
+
+1. [Phase 1] print/ExpandedView.tsx 수정
+   - renderToolbarWrapper에서 'X' 버튼 제거
+   - renderSidebarWrapper 추가 → ExpandedSidebar 스타일 (←버튼 + PRINT 탭)
+
+2. [Phase 2] RightSidebar.tsx + page.tsx 수정
+   - print 탭 클릭 시 NodePanel 대신 PrintCanvasSidebarPanel 렌더링
+   - page.tsx에 handlePrintSidebarAction 추가
+
+3. [Phase 3] Expanded 자동 생성 연동
+   - print/ExpandedView.tsx에 autoGenerate prop 추가
+
+4. [Phase 4-B] 이미지 다중 선택 → Expanded 자동 삽입 (Canvas 사이드바 슬롯 표시는 옵션)
+
+== 핵심 위험 ==
+- PrintCanvasSidebarPanel이 node_modules에 있어 직접 수정 불가 → 로컬 래퍼로 해결
+- renderSidebarWrapper 레이아웃 충돌 가능성 → CSS 변수 통일로 해결
+- File[] 직렬화 불가 → session state로만 유지

@@ -1,43 +1,38 @@
-작업: Print 팀 배포 완료 후 Canvas 측 최종 연동 작업 (A-1, A-2, B-1)
+날짜: 2026-04-28
+세션: Print ↔ Canvas 완전 통합 — Phase 5 완료
 
-완료된 작업:
+== 방금 한 일 ==
 
-1. A-1 — package.json file: 경로 → GitHub Packages 교체
-   - 사용자가 GITHUB_TOKEN 설정 후 npm install @cai-crete/print-components@0.1.1 직접 실행
-   - package.json: "file:../../cai-harness-print/project.10_print" → "^0.1.1" 교체됨
-   - added 27 packages, changed 1 package
+[Phase 5] 이미지 다중 선택 → Print 자동 삽입 + 엣지 연결
 
-2. A-2a — types/canvas.ts 패키지 타입 직접 참조
-   - 상단에 import type { SelectedImage, PrintSavedState } from '@cai-crete/print-components' 추가
-   - printSavedState?: { html, mode, prompt, savedAt, metadata } 인라인 → printSavedState?: PrintSavedState 교체
-   - printSelectedImages?: Array<{...}> 인라인 → printSelectedImages?: SelectedImage[] 교체
+lib/printUtils.ts:
+- nodeImageToSelectedImage(raw, id) 함수 추가
+  - data URL (data:image/jpeg;base64,...) 또는 순수 base64 → SelectedImage 변환
 
-3. A-2b — print/ExpandedView.tsx as 캐스팅 제거
-   - (node.printSelectedImages as SelectedImage[]) → node.printSelectedImages 로 변경
-   - types/canvas.ts가 SelectedImage[]로 이미 타입 지정되므로 캐스팅 불필요
+app/page.tsx:
+- import { selectedImagesToFiles, nodeImageToSelectedImage } from '@/lib/printUtils' 추가
+- handleNodeTabSelect 상단에 print + image 아트보드 감지 블록 추가:
+  - type === 'print' 이고 selectedNodeIds 중 artboardType === 'image' 인 노드가 1개 이상이면 Phase 5 진입
+  - showToast('이미지를 준비하는 중입니다...', 'success')
+  - async IIFE: nodeImageToSelectedImage → selectedImagesToFiles 변환
+  - 새 print 노드 생성 (artboardType: 'thumbnail', parentId: imageNodes[0].id)
+  - 각 image 노드 → print 노드 엣지 생성 (image1→print, image2→print, ...)
+  - PrintDraftState 구성 (mode:'REPORT', orientation:'LANDSCAPE', prompt:'', images:files, ...)
+  - setPrintDraftState, setPrintAutoGenerate(true), setExpandedNodeId(newId)
+- handleNodeTabSelect 의존성 배열에 selectedNodeIds, showToast 추가
 
-4. B-1a — next.config.ts webpack alias 8개 제거
-   - '@/app', '@/types/print-canvas', '@/lib/types', '@/lib/export', '@/lib/saves',
-     '@/lib/imageUtils', '@/lib/thumbnailUtils', '@/lib/htmlUtils', '@/lib/agentErrors' 제거
-   - print-components 패키지 내부가 상대 경로만 사용하므로 alias 불필요 (Print 팀 확인)
-   - 'path' import 및 PRINT_PKG 변수도 함께 제거
-   - transpilePackages, webpack dev cache 비활성화는 유지
+== 현재 상태 ==
+Phase 0~5 모두 완료. tsc --noEmit 오류 없음.
 
-5. B-1b — tsconfig.json paths alias 8개 제거
-   - 동일 8개 항목 제거, "@/*": ["./*"] 유지
+== 동작 흐름 ==
+1. 캔버스에서 image 아트보드 1개 이상 선택
+2. 우측 사이드바에서 PRINT 탭 클릭
+3. '이미지를 준비하는 중입니다...' 토스트 표시
+4. 선택된 image 노드의 generatedImageData(또는 thumbnailData)를 File[]로 변환
+5. 새 print 노드 생성 (image 노드 아래 자동 배치)
+6. 각 image → print 엣지 생성
+7. PrintDraftState에 images 세팅 후 expanded + autoGenerate 진입
+8. GENERATE 버튼 자동 클릭 → 해당 이미지로 자동 생성
 
-6. tsc --noEmit — 오류 0건 확인
-
-현재 상태:
-- 검토 계획서(260428-canvas-print-integration-review.md) 전 항목 완료
-  - A-1 ✅, A-2 ✅, B-1 ✅, B-2 ✅, B-3 ✅, B-4 ✅, B-5 ✅
-- 보류 항목 없음 (C-1, C-2는 장기 선택 항목으로 배포 안정화 후 판단)
-
-잔여 선택 항목 (우선순위 낮음):
-- C-1: reactStrictMode: true 검증 (별도 브랜치, 안정화 후)
-- C-2: content-length 헤더 제거 (print/route.ts, 선택)
-
-다음에 해야 할 일:
-- Vercel 배포 시 환경변수 3개 설정 필요:
-  GITHUB_TOKEN (packages:read), PRINT_API_URL, CANVAS_API_SECRET
-- 배포 후 Print 노드 ExpandedView 정상 동작 확인
+== 다음에 할 일 ==
+없음. 전체 통합 완료.
