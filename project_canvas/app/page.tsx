@@ -894,6 +894,7 @@ export default function CanvasPage() {
         selectedNode.artboardType === 'image' &&
         (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
       ) {
+        setElevationSourceNodeId(null);
         setExpandedViewMode('image');
         setExpandedNodeId(selectedNode.id);
         setActiveSidebarNodeType(null);
@@ -1344,7 +1345,7 @@ export default function CanvasPage() {
             onNodeSelect={handleNodeCardSelect}
             onNodeDeselect={handleNodeDeselect}
             onNodesSelect={handleNodesSelect}
-            onNodeExpand={(id) => { setExpandedViewMode('default'); setExpandedNodeId(id); }}
+            onNodeExpand={(id) => { setElevationSourceNodeId(null); setExpandedViewMode('default'); setExpandedNodeId(id); }}
             onNodeDuplicate={duplicateNode}
             onNodeDelete={deleteNode}
           />

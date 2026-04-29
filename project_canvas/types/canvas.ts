@@ -235,7 +235,7 @@ export const NODE_ORDER: NodeType[] = [
 /* 아트보드 유형별 호환 노드 탭 */
 export const ARTBOARD_COMPATIBLE_NODES: Record<Exclude<ArtboardType, 'blank'>, NodeType[]> = {
   sketch:    ['image', 'plan', 'print'],
-  image:     ['elevation', 'viewpoint', 'plan', 'diagram', 'print'],
+  image:     ['image', 'elevation', 'viewpoint', 'plan', 'diagram', 'print'],
   thumbnail: ['planners', 'print'],
 };
 
