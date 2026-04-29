@@ -7,14 +7,7 @@ const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinec
 
 const IconChevronUp   = () => <svg viewBox="0 0 20 20" {...IC}><polyline points="4,13 10,7 16,13" /></svg>;
 const IconChevronDown = () => <svg viewBox="0 0 20 20" {...IC}><polyline points="4,7 10,13 16,7" /></svg>;
-export const IconCollapse = () => (
-  <svg viewBox="0 0 20 20" {...IC}>
-    <polyline points="17,9 11,9 11,3" />
-    <polyline points="3,11 9,11 9,17" />
-    <line x1="11" y1="9" x2="17" y2="3" />
-    <line x1="9" y1="11" x2="3" y2="17" />
-  </svg>
-);
+export const IconCollapse = () => <svg viewBox="0 0 20 20" {...IC}><path d="M16 10H4M9 5L4 10L9 15" /></svg>;
 
 export default function ExpandedSidebar({ currentNodeType, onCollapse, children }: {
   currentNodeType: NodeType;
