@@ -481,13 +481,21 @@ export default function CanvasPage() {
     // 비동기 도로 분석 → 3D 노드 heading 업데이트
     if (map3dId && mapCenter && geoJson) {
       const m3dIdCapture = map3dId;
+      // Planners 노드에서 대지면적 읽기 (브이월드 API)
+      const plannersNode = currentNodes.find(n => n.id === expandedNodeId);
+      const rawLandArea = plannersNode?.plannerInsightData?.landCharacteristics?.landArea;
+      const parsed = rawLandArea ? Number(String(rawLandArea).replace(/,/g, '')) : NaN;
+      const landAreaNum = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      console.log('[page] 3D Map 도로분석 시작 — rawLandArea:', rawLandArea, 'parsed:', parsed, 'landAreaNum:', landAreaNum);
+
       import('@/planners/lib/roadApi').then(async ({ fetchRoads, calculateFacade }) => {
         try {
           const roads = await fetchRoads(mapCenter);
-          const facade = calculateFacade(geoJson, roads);
+          const facade = calculateFacade(geoJson, roads, landAreaNum);
           useCanvasStore.getState().updateNode(m3dIdCapture, {
             map3dHeading: facade.heading,
             map3dHeight: facade.height,
+            map3dOffsetAngle: facade.offsetAngle,
             map3dRoadInfo: facade.roadInfo,
           });
         } catch (e) {

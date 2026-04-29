@@ -189,7 +189,8 @@ export interface CanvasNode {
   map3dBoundary?: CadastralGeoJson | null;           // 대지 경계 GeoJSON
   map3dCenter?: { lng: number; lat: number } | null;  // 대지 중심 좌표
   map3dHeading?: number | null;                       // 카메라 heading (도로 분석 결과)
-  map3dHeight?: number;                               // 카메라 높이 (m)
+  map3dHeight?: number;                               // 카메라 높이 (m) — 면적 기반 동적 계산
+  map3dOffsetAngle?: number;                          // 카메라 좌우 오프셋 (+45=우, -45=좌, 0=정면)
   map3dRoadInfo?: string;                             // 도로 접면 정보 텍스트
   map3dShowLabels?: boolean;                          // 지명/POI 레이블 표시 여부
   elevationPanelSettings?: ElevationPanelSettings;

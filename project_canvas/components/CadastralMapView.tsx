@@ -54,6 +54,7 @@ interface CadastralMapViewProps {
   isOffsetMode?: boolean;
   mapOffset?: { x: number; y: number };
   onChangeOffset?: (offset: { x: number; y: number }) => void;
+  zoomPadding?: number;
 }
 
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ export const CadastralMapView = memo(forwardRef<CadastralMapViewRef, CadastralMa
     isOffsetMode = false,
     mapOffset = { x: 0, y: 0 },
     onChangeOffset,
+    zoomPadding = 2.5,
   }, ref) => {
     const [tmsType, setTmsType] = useState(tmsTypeProp);
     useEffect(() => {
@@ -389,9 +391,9 @@ export const CadastralMapView = memo(forwardRef<CadastralMapViewRef, CadastralMa
       const minY = Math.min(...ys);
       const maxY = Math.max(...ys);
 
-      // viewBox: 필지 크기 기준 여백 (2.5배)
+      // viewBox: 필지 크기 기준 여백 (zoomPadding 배)
       const extentPx = Math.max(maxX - minX, maxY - minY, 200);
-      const pad = extentPx * 2.5;
+      const pad = extentPx * zoomPadding;
       const vMinX = minX - pad;
       const vMaxX = maxX + pad;
       const vMinY = minY - pad;

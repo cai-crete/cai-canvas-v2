@@ -365,6 +365,7 @@ export default function ExpandedView({
     const center3d = node.map3dCenter;
     const heading3d = node.map3dHeading ?? null;
     const height3d = node.map3dHeight ?? 800;
+    const offsetAngle3d = node.map3dOffsetAngle ?? 45;
     const showLabels3d = node.map3dShowLabels ?? true;
 
     return (
@@ -377,6 +378,7 @@ export default function ExpandedView({
               center={center3d}
               heading={heading3d}
               height={height3d}
+              offsetAngle={offsetAngle3d}
               showLabels={showLabels3d}
             />
           ) : (

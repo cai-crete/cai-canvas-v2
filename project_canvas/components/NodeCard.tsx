@@ -351,12 +351,16 @@ export default function NodeCard({
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <CadastralMapView 
-                boundary={node.cadastralGeoJson} 
-                center={node.cadastralMapCenter} 
-                tmsType={node.cadastralTmsType ?? 'Base'}
-                hideControls={true} 
-                className="w-full h-full" 
+              <CadastralMapView
+                boundary={node.cadastralGeoJson}
+                center={node.cadastralMapCenter}
+                tmsType="Vector"
+                showSurrounding={true}
+                showLotNumbers={false}
+                fillSelected={false}
+                zoomPadding={0.5}
+                hideControls={true}
+                className="w-full h-full"
                 onThumbnailCaptured={(base64Url) => {
                   if (!node.thumbnailData) {
                     useCanvasStore.getState().updateNode(node.id, { thumbnailData: base64Url });

@@ -49,17 +49,20 @@ function calcCamera(
   center: { lng: number; lat: number },
   heading: number,
   height: number,
+  offsetAngle: number = 45,
 ) {
-  const camDeg = (heading + 45 + 360) % 360;
+  const camDeg = (heading + offsetAngle + 360) % 360;
   const camRad = (camDeg * Math.PI) / 180;
   const off = height / 111000;
-  return {
+  const result = {
     lng: center.lng + Math.sin(camRad) * off,
     lat: center.lat + Math.cos(camRad) * off,
     alt: height,
     dir: (camDeg + 180) % 360,
     tilt: 45,
   };
+  console.log('[Map3D calcCamera] inputs:', { center, heading, height, offsetAngle }, '→ cam:', JSON.stringify(result));
+  return result;
 }
 
 /* ── 캡처: 동기 render → toDataURL (preserveDrawingBuffer 무관) ───────── */
@@ -192,6 +195,7 @@ interface Map3DViewProps {
   center: { lng: number; lat: number };
   heading: number | null;
   height?: number;
+  offsetAngle?: number;
   showLabels?: boolean;
 }
 
@@ -201,6 +205,7 @@ export const Map3DView = memo(forwardRef<Map3DViewRef, Map3DViewProps>(({
   center,
   heading,
   height = 800,
+  offsetAngle = 45,
   showLabels = true,
 }, ref) => {
   const placeholderRef = useRef<HTMLDivElement>(null);
@@ -243,29 +248,36 @@ export const Map3DView = memo(forwardRef<Map3DViewRef, Map3DViewProps>(({
   /* ── 카메라 이동 ── */
   const moveCamera = useCallback((h: number) => {
     const map = getMap();
-    if (!map) return;
+    if (!map) { console.warn('[Map3D moveCamera] map 없음'); return; }
     try {
-      const cam = calcCamera(center, h, height);
+      const cam = calcCamera(center, h, height, offsetAngle);
       const cesium = map.getMap?.();
-      if (cesium?.camera?.setView) {
-        const C = (window as any).Cesium;
+      const C = (window as any).Cesium;
+      console.log('[Map3D moveCamera] cesium:', !!cesium, 'cesium.camera.setView:', !!cesium?.camera?.setView, 'window.Cesium:', !!C, 'map.setCamera:', !!map.setCamera);
+
+      if (cesium?.camera?.setView && C?.Cartesian3?.fromDegrees) {
+        const dest = C.Cartesian3.fromDegrees(cam.lng, cam.lat, cam.alt);
+        console.log('[Map3D moveCamera] Cesium path — dest:', dest);
         cesium.camera.setView({
-          destination: C?.Cartesian3?.fromDegrees?.(cam.lng, cam.lat, cam.alt),
+          destination: dest,
           orientation: {
-            heading: C?.Math?.toRadians?.(cam.dir) ?? 0,
-            pitch: C?.Math?.toRadians?.(-(90 - cam.tilt)) ?? -0.785,
+            heading: C.Math.toRadians(cam.dir),
+            pitch: C.Math.toRadians(-(90 - cam.tilt)),
             roll: 0,
           },
         });
       } else if (map.setCamera) {
+        console.log('[Map3D moveCamera] VWorld path');
         map.setCamera(
           new window.vw.CoordZ(cam.lng, cam.lat, cam.alt),
           new window.vw.Direction(cam.dir, cam.tilt, 0),
         );
+      } else {
+        console.error('[Map3D moveCamera] 카메라 설정 방법 없음!');
       }
-    } catch { /* 무시 */ }
+    } catch (e) { console.error('[Map3D moveCamera] 에러:', e); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center.lng, center.lat, height]);
+  }, [center.lng, center.lat, height, offsetAngle]);
 
   /* ── SDK 준비 대기 ── */
   const waitForSDK = useCallback((cb: () => void) => {
@@ -288,7 +300,7 @@ export const Map3DView = memo(forwardRef<Map3DViewRef, Map3DViewProps>(({
     const div = ensureDiv();
     div.dataset.initialized = 'true'; // 동기 세팅 → race condition 방지
 
-    const cam = calcCamera(center, h, height);
+    const cam = calcCamera(center, h, height, offsetAngle);
     try {
       const map = new window.vw.Map();
       map.setOption({
@@ -307,7 +319,7 @@ export const Map3DView = memo(forwardRef<Map3DViewRef, Map3DViewProps>(({
       div.dataset.initialized = 'false';
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center.lng, center.lat, height]);
+  }, [center.lng, center.lat, height, offsetAngle]);
 
   /* ── 마운트 ── */
   useEffect(() => {
@@ -328,6 +340,7 @@ export const Map3DView = memo(forwardRef<Map3DViewRef, Map3DViewProps>(({
   /* ── heading 확정 시 초기화 or 카메라 이동 ── */
   useEffect(() => {
     if (heading === null) return;
+    console.log('[Map3D effect] heading:', heading, 'isDivInitialized:', isDivInitialized(), 'getMap:', !!getMap());
     if (isDivInitialized()) {
       syncPosition();
       moveCamera(heading);

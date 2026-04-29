@@ -8,14 +8,43 @@ interface Props {
   onExportImage?: () => void;
 }
 
+const sectionLabel: React.CSSProperties = {
+  fontFamily: 'var(--font-family-bebas)',
+  fontSize: '0.75rem',
+  color: 'var(--color-gray-400)',
+  letterSpacing: '0.1em',
+  display: 'block',
+  marginBottom: '0.5rem',
+};
+
+const toggleBase: React.CSSProperties = {
+  flex: 1, height: '2.75rem',
+  border: '1px solid var(--color-gray-200)',
+  borderRadius: '0.75rem',
+  fontFamily: 'var(--font-family-bebas)',
+  fontSize: '0.875rem',
+  letterSpacing: '0.08em',
+  cursor: 'pointer',
+  transition: 'background-color 100ms ease, color 100ms ease',
+};
+
+const activeStyle: React.CSSProperties = {
+  background: 'rgba(0,0,0,0.05)',
+  color: 'var(--color-black)',
+};
+
+const inactiveStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: 'var(--color-gray-500)',
+};
+
 export function CadastralPanel({ node, onExportImage }: Props) {
   const updateNode = useCanvasStore(state => state.updateNode);
-  
+
   const currentTms = node.cadastralTmsType ?? 'Base';
   const showSurrounding = node.cadastralShowSurrounding ?? true;
   const showLotNumbers = node.cadastralShowLotNumbers ?? true;
   const fillSelected = node.cadastralFillSelected ?? true;
-  const isOffsetMode = node.cadastralIsOffsetMode ?? false;
 
   const handleTmsChange = (val: 'None' | 'Base' | 'Satellite' | 'Vector') => {
     updateNode(node.id, { cadastralTmsType: val });
@@ -24,95 +53,115 @@ export function CadastralPanel({ node, onExportImage }: Props) {
   const toggleSurrounding = () => updateNode(node.id, { cadastralShowSurrounding: !showSurrounding });
   const toggleLotNumbers = () => updateNode(node.id, { cadastralShowLotNumbers: !showLotNumbers });
   const toggleFillSelected = () => updateNode(node.id, { cadastralFillSelected: !fillSelected });
-  const toggleOffsetMode = () => updateNode(node.id, { cadastralIsOffsetMode: !isOffsetMode });
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="h-[3.25rem] border-b border-gray-100 flex items-center px-4 shrink-0">
-        <h2 className="text-[0.75rem] font-bold tracking-wider text-black">지적도 설정</h2>
-      </div>
+    <div style={{
+      height: '100%', width: '100%',
+      display: 'flex', flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      {/* Scrollable content */}
+      <div style={{
+        flex: 1, overflowY: 'auto', overflowX: 'hidden',
+        padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem',
+        minHeight: 0,
+      }}>
 
-      <div className="p-4 flex flex-col gap-6 overflow-y-auto">
-        <div className="flex flex-col gap-3">
-          <label className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">배경 레이어</label>
-          <div className="flex flex-col gap-2">
+        {/* BACKGROUND LAYER */}
+        <div>
+          <span style={sectionLabel}>Background Layer</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.375rem' }}>
             {(['None', 'Base', 'Satellite', 'Vector'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => handleTmsChange(t)}
-                className={`text-left px-3 py-2 rounded-lg text-[0.75rem] transition-colors border ${
-                  currentTms === t 
-                  ? 'border-black bg-black text-white font-bold' 
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                style={{
+                  ...toggleBase,
+                  flex: 'none',
+                  ...(currentTms === t ? activeStyle : inactiveStyle),
+                }}
               >
-                {t === 'None' ? '배경 숨기기 (Layoff)' : 
-                 t === 'Base' ? '일반 지도' : 
-                 t === 'Satellite' ? '위성 지도' : '벡터 지도'}
+                {t === 'None' ? 'NONE' :
+                 t === 'Base' ? 'BASE' :
+                 t === 'Satellite' ? 'SATELLITE' : 'VECTOR'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* [HIDDEN] 미세조정 모드 — 향후 재활성화 예정 */}
-        <div className="hidden">
-          <label className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">지도 미세조정</label>
-          <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-            <div className={`relative w-8 h-4 rounded-full transition-colors ${isOffsetMode ? 'bg-blue-500' : 'bg-gray-200'}`}>
-              <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${isOffsetMode ? 'translate-x-4' : ''}`} />
+        {/* DISPLAY OPTIONS */}
+        <div>
+          <span style={sectionLabel}>Display Options</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+            {[
+              { label: 'SURROUNDING', active: showSurrounding, toggle: toggleSurrounding },
+              { label: 'LOT NUMBER', active: showLotNumbers, toggle: toggleLotNumbers },
+              { label: 'FILL SELECTED', active: fillSelected, toggle: toggleFillSelected },
+            ].map(opt => (
+              <button
+                key={opt.label}
+                onClick={opt.toggle}
+                style={{
+                  ...toggleBase,
+                  flex: 'none',
+                  ...(opt.active ? activeStyle : inactiveStyle),
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* CONTROLS */}
+        <div>
+          <span style={sectionLabel}>Controls</span>
+          <div style={{
+            borderRadius: '0.75rem',
+            border: '1px solid var(--color-gray-200)',
+            background: 'rgba(0,0,0,0.02)',
+            padding: '0.75rem',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-family-pretendard)',
+              fontSize: '0.6875rem',
+              color: 'var(--color-gray-500)',
+              lineHeight: 1.6,
+            }}>
+              <b>Drag</b> to pan the map<br />
+              <b>Scroll</b> to zoom in/out<br />
+              <b>Alt + Drag</b> to rotate
             </div>
-            <span className="text-[0.75rem] font-medium text-gray-700">배경 지도 미세조정 모드</span>
-            <input type="checkbox" className="hidden" checked={isOffsetMode} onChange={toggleOffsetMode} />
-          </label>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <label className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">표시 옵션</label>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-              <div className={`relative w-8 h-4 rounded-full transition-colors ${showSurrounding ? 'bg-black' : 'bg-gray-200'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showSurrounding ? 'translate-x-4' : ''}`} />
-              </div>
-              <span className="text-[0.75rem] font-medium text-gray-700">주변 지적선 표시</span>
-              <input type="checkbox" className="hidden" checked={showSurrounding} onChange={toggleSurrounding} />
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-              <div className={`relative w-8 h-4 rounded-full transition-colors ${showLotNumbers ? 'bg-black' : 'bg-gray-200'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showLotNumbers ? 'translate-x-4' : ''}`} />
-              </div>
-              <span className="text-[0.75rem] font-medium text-gray-700">지번 표시</span>
-              <input type="checkbox" className="hidden" checked={showLotNumbers} onChange={toggleLotNumbers} />
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-              <div className={`relative w-8 h-4 rounded-full transition-colors ${fillSelected ? 'bg-black' : 'bg-gray-200'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${fillSelected ? 'translate-x-4' : ''}`} />
-              </div>
-              <span className="text-[0.75rem] font-medium text-gray-700">선택 대지 내부 색칠</span>
-              <input type="checkbox" className="hidden" checked={fillSelected} onChange={toggleFillSelected} />
-            </label>
           </div>
         </div>
+      </div>
 
-        <div className="flex flex-col gap-3">
-          <label className="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">지도 조작</label>
-          <div className="text-[0.7rem] text-gray-500 leading-relaxed bg-gray-50 p-3 rounded-lg">
-            • <b>마우스 드래그</b>로 지도를 이동(Pan)할 수 있습니다.<br/>
-            • <b>마우스 휠</b>을 돌려 지도를 확대/축소할 수 있습니다.<br/>
-            • <b>Alt + 클릭 드래그</b>로 지도를 회전시킬 수 있습니다.<br/>
-            • <b>미세조정 모드</b>에서는 배경 지도만 단독으로 움직입니다.
-          </div>
-        </div>
+      {/* EXPORT button (fixed at bottom) */}
+      <div style={{ padding: '0.75rem 1rem 1rem', flexShrink: 0 }}>
+        <button
+          onClick={onExportImage}
+          style={{
+            width: '100%', height: '2.75rem',
+            borderRadius: '9999px',
+            border: '1px solid var(--color-gray-200)',
+            background: 'var(--color-black)',
+            color: 'var(--color-white)',
+            fontFamily: 'var(--font-family-bebas)',
+            fontSize: '1rem',
+            letterSpacing: '0.1em',
+            cursor: 'pointer',
+            transition: 'opacity 150ms ease, background-color 150ms ease',
+          }}
+        >
+          EXPORT TO IMAGE NODE
+        </button>
+      </div>
 
-        {/* 내보내기 버튼 */}
-        <div className="mt-auto pt-4 border-t border-gray-100">
-          <button
-            onClick={onExportImage}
-            className="w-full py-3 bg-black text-white text-[0.75rem] font-bold tracking-wider rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            Image Node로 내보내기
-          </button>
-        </div>
+      {/* Footer */}
+      <div style={{ paddingBottom: '0.75rem', textAlign: 'center' }}>
+        <span style={{ fontSize: '0.5625rem', color: 'var(--color-gray-300)', fontFamily: 'var(--font-family-pretendard)', letterSpacing: '0.04em' }}>
+          © CRETE CO.,LTD. 2026
+        </span>
       </div>
     </div>
   );
