@@ -175,6 +175,7 @@ export default function CanvasPage() {
   const [expandedNodeId,         setExpandedNodeId]         = useState<string | null>(null);
   const [expandedViewMode,       setExpandedViewMode]       = useState<'image' | 'plan' | 'default'>('default');
   const [elevationSourceNodeId,  setElevationSourceNodeId]  = useState<string | null>(null);
+  const [plannerInitialImages,   setPlannerInitialImages]   = useState<string[]>([]);
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -471,30 +472,9 @@ export default function CanvasPage() {
       cadastralMapCenter: mapCenter,
     };
 
-    // 3D 버드아이 뷰 노드 (mapCenter가 있을 때만)
+    // 3D 버드아이 뷰 노드 — 현재 비활성화 (VWorld 3D SDK 안정화 후 복원 예정)
     const map3dNodes: CanvasNode[] = [];
     const map3dEdges: CanvasEdge[] = [];
-    let map3dId: string | null = null;
-    if (mapCenter && geoJson) {
-      const m3dExisting = currentNodes.filter(n => n.type === 'map3d');
-      const m3dNum = m3dExisting.length + 1;
-      map3dId = generateId();
-      const nodesWithCad = [...currentNodes, cadNode];
-      const edgesWithCad = [...currentEdges, { id: generateId(), sourceId: expandedNodeId, targetId: cadId }];
-      const { position: m3dPos } = placeNewChild(expandedNodeId, nodesWithCad, edgesWithCad);
-      const m3dNode: CanvasNode = {
-        id: map3dId, type: 'map3d',
-        title: `3D 버드아이 #${m3dNum}`,
-        position: m3dPos, instanceNumber: m3dNum, hasThumbnail: true, artboardType: 'image',
-        parentId: expandedNodeId, autoPlaced: true,
-        map3dBoundary: geoJson,
-        map3dCenter: mapCenter,
-        map3dHeading: null,
-        map3dHeight: 500,
-      };
-      map3dNodes.push(m3dNode);
-      map3dEdges.push({ id: generateId(), sourceId: expandedNodeId, targetId: map3dId });
-    }
 
     let nextNodes = [...currentNodes, cadNode, ...map3dNodes];
     if (cadPushdowns.size > 0) {
@@ -506,28 +486,7 @@ export default function CanvasPage() {
     const cadEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: cadId };
     pushHistory(nextNodes, [...currentEdges, cadEdge, ...map3dEdges]);
 
-    // 비동기 도로 분석 → 3D 노드 heading 업데이트
-    if (map3dId && mapCenter && geoJson) {
-      const m3dIdCapture = map3dId;
-      const plannersNode = currentNodes.find(n => n.id === expandedNodeId);
-      const rawLandArea = plannersNode?.plannerInsightData?.landCharacteristics?.landArea;
-      const parsed = rawLandArea ? Number(String(rawLandArea).replace(/,/g, '')) : NaN;
-      const landAreaNum = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-      import('@/planners/lib/roadApi').then(async ({ fetchRoads, calculateFacade }) => {
-        try {
-          const roads = await fetchRoads(mapCenter);
-          const facade = calculateFacade(geoJson, roads, landAreaNum);
-          useCanvasStore.getState().updateNode(m3dIdCapture, {
-            map3dHeading: facade.heading,
-            map3dHeight: facade.height,
-            map3dOffsetAngle: facade.offsetAngle,
-            map3dRoadInfo: facade.roadInfo,
-          });
-        } catch (e) {
-          console.error('[3D Map] 도로 분석 실패:', e);
-        }
-      });
-    }
+    // 비동기 도로 분석 → 3D 노드 heading 업데이트 — 현재 비활성화
   }, [expandedNodeId, nodes, pushHistory]);
 
   /* ── planners: 지적도 이미지 익스포트 → 새 이미지 노드 생성 ──── */
@@ -555,6 +514,7 @@ export default function CanvasPage() {
     }
     const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
     pushHistory(nextNodes, [...currentEdges, newEdge]);
+    setExpandedNodeId(null);
   }, [expandedNodeId, nodes, pushHistory]);
 
   /* ── planners: 3D 맵 이미지 익스포트 → 새 이미지 노드 생성 ──── */
@@ -901,7 +861,17 @@ export default function CanvasPage() {
       }
 
       /* planners: 선택 노드가 planners면 expand, 그 외에는 새 planners 자식 노드 생성 */
+      /* 다중선택 시 이미지 노드가 있으면 이미지를 수집하여 Planners에 전달 */
       if (type === 'planners') {
+        const imageNodes = selectedNodeIds
+          .map(id => nodes.find(n => n.id === id))
+          .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch'));
+        const collectedImages = imageNodes.flatMap(n => {
+          const raw = n.generatedImageData ?? n.thumbnailData;
+          return raw ? [raw] : [];
+        });
+        setPlannerInitialImages(collectedImages);
+
         if (selectedNode.type === 'planners') {
           setExpandedNodeId(selectedNode.id);
         } else {
@@ -1326,6 +1296,7 @@ export default function CanvasPage() {
           onCadastralDataReceived={handleCadastralDataReceived}
           onExportCadastralImage={handleExportCadastralImage}
           onExportMap3dImage={handleExportMap3dImage}
+          plannerInitialImages={plannerInitialImages}
         />
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

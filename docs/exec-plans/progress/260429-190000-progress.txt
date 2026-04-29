@@ -1,0 +1,29 @@
+== Planners 이미지 다중 첨부 기능 구현 완료 ==
+
+작업 계획서: docs/exec-plans/active/260429-planners-image-attach.md
+
+## 완료 항목
+
+### Phase 4: 유틸리티 (완료)
+- planners/lib/imageUtils.ts 신규 생성
+- resizeImageLocal + resizeBase64Image
+
+### Phase 1: PlannersPanel UI + 상태 (완료)
+- initialImages prop, chatImages 상태, fileInputRef
+- handleFileChange: 다중 파일 -> resizeImageLocal -> chatImages
+- + 버튼 파일입력 연결, 썸네일 미리보기 UI, X 삭제
+- handleChatSubmit: images 포함 전송, UserBubble 이미지 표시
+
+### Phase 2: API 프록시 (완료)
+- route.ts: 변경 불필요 (body 그대로 전달)
+- Harness api/planners.ts: images -> Gemini inlineData 변환
+
+### Phase 3: 캔버스 다중선택 -> Planners (완료)
+- page.tsx: plannerInitialImages 상태, 이미지 노드 수집
+- ExpandedView: plannerInitialImages prop 전달
+
+### Phase 5: 빌드 통과, 브라우저 테스트 대기
+
+## 다음 단계
+- 브라우저 경로 A/B 테스트
+- Harness backend 별도 배포 필요

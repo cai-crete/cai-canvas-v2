@@ -54,6 +54,7 @@ interface Props {
   ) => void;
   onExportCadastralImage?: (base64: string) => void;
   onExportMap3dImage?: (base64: string) => void;
+  plannerInitialImages?: string[];
 }
 
 /* ── SketchInfiniteGrid (sketch/blank 아트보드용) ───────────────── */
@@ -159,6 +160,7 @@ export default function ExpandedView({
   elevationSourceNodeId,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived, onExportCadastralImage,
   onExportMap3dImage,
+  plannerInitialImages,
 }: Props) {
   const mapRef = useRef<CadastralMapViewRef>(null);
   const map3dRef = useRef<Map3DViewRef>(null);
@@ -220,7 +222,7 @@ export default function ExpandedView({
   if (node.type === 'planners') {
     return (
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
-        <div style={{ position: 'absolute', inset: 0 }}>
+        <div style={{ position: 'absolute', inset: 0, right: 'calc(var(--sidebar-w) + 2rem)' }}>
           <PlannersPanel
             initialMessages={node.plannerMessages as never}
             onMessagesChange={(msgs) => onPlannerMessagesChange?.(msgs as PlannerMessage[])}
@@ -229,6 +231,7 @@ export default function ExpandedView({
               onInsightDataChange?.(data);
             }}
             onCadastralDataReceived={onCadastralDataReceived}
+            initialImages={plannerInitialImages}
           />
         </div>
         <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse}>
