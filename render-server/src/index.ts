@@ -11,12 +11,12 @@ const app = express();
 
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = [
-      'https://cai-canvas-v2-jw.vercel.app',
-      'http://localhost:3000',
-    ];
-    if (!origin || allowed.includes(origin)) callback(null, true);
-    else callback(new Error('Not allowed by CORS'));
+    if (!origin) { callback(null, true); return; }
+    if (origin.endsWith('.vercel.app') || origin === 'http://localhost:3000') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
 }));
 
