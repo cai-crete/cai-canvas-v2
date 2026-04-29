@@ -35,4 +35,17 @@ app.use('/api/image-to-elevation', imageToElevationRouter);
 app.use('/api/change-viewpoint',   changeViewpointRouter);
 
 const PORT = process.env.PORT ?? 3001;
-app.listen(PORT, () => console.log(`[render-server] listening on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`[render-server] listening on port ${PORT}`);
+
+  // Print 서버를 10분마다 ping — 두 서버 모두 슬립 방지
+  const PRINT_API_URL = process.env.PRINT_API_URL?.replace(/\/+$/, '');
+  const CANVAS_API_SECRET = process.env.CANVAS_API_SECRET ?? '';
+  if (PRINT_API_URL) {
+    setInterval(() => {
+      fetch(`${PRINT_API_URL}/api/library`, {
+        headers: { 'x-canvas-api-secret': CANVAS_API_SECRET },
+      }).catch(() => {});
+    }, 10 * 60 * 1000);
+  }
+});

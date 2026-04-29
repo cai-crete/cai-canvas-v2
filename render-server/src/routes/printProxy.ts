@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
-const RETRY_DELAYS_MS = [20_000, 20_000]; // 최대 2회 재시도 (Render 웨이크업 대기)
+// Render 무료 티어 웨이크업(~50s) 대기: 3회 × 30s = 최대 90s
+const RETRY_DELAYS_MS = [30_000, 30_000, 30_000];
 
 async function proxyToPrint(req: Request, res: Response): Promise<void> {
   const PRINT_API_URL    = process.env.PRINT_API_URL?.replace(/\/+$/, '');
@@ -32,7 +33,6 @@ async function proxyToPrint(req: Request, res: Response): Promise<void> {
     try {
       const upstream = await fetch(targetUrl, { method: req.method, headers, body });
 
-      // Render 무료 티어 웨이크업 중 반환하는 502/503: 재시도
       if ((upstream.status === 502 || upstream.status === 503) && attempt < RETRY_DELAYS_MS.length) {
         console.log(`[print-proxy] upstream ${upstream.status}, retrying in ${RETRY_DELAYS_MS[attempt]}ms (attempt ${attempt + 1})`);
         await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
