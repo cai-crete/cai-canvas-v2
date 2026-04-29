@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import https from 'https';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,19 +6,32 @@ export const dynamic = 'force-dynamic';
 const VWORLD_KEY = process.env.VWORLD_API_KEY || '2A63345D-557F-32C5-89D5-DE55A65CF23B';
 const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app/';
 
-/* Vercel undici fetch의 UND_ERR_SOCKET 문제를 우회하기 위해
-   Node.js https 모듈로 직접 요청한다. */
-function vworldFetch(url: string, timeoutMs = 15000): Promise<{ status: number; body: string }> {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, { timeout: timeoutMs }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode ?? 500, body: data }));
-      res.on('error', reject);
-    });
-    req.on('timeout', () => { req.destroy(); reject(new Error('VWorld 요청 타임아웃')); });
-    req.on('error', reject);
-  });
+/* Planners 서버와 동일한 패턴: AbortController + 표준 fetch + 재시도
+   UND_ERR_SOCKET은 Vercel undici의 간헐적 소켓 에러이므로 재시도로 해결 */
+async function vworldFetch(url: string, timeoutMs = 12000, retries = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timer);
+      return res;
+    } catch (e: unknown) {
+      clearTimeout(timer);
+      lastError = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`[VWorld API] fetch 시도 ${attempt}/${retries} 실패: ${msg}`);
+      if (attempt < retries) {
+        // 재시도 전 짧은 대기
+        await new Promise(r => setTimeout(r, 300 * attempt));
+      }
+    }
+  }
+  throw lastError;
 }
 
 export async function POST(request: Request) {
@@ -27,7 +39,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { action, pnu, bbox } = body;
 
-    console.log('[VWorld API] 직통 호출 시작 — action:', action, 'pnu:', pnu ?? 'none', 'bbox:', bbox ?? 'none');
+    console.log('[VWorld API] 호출 — action:', action, 'pnu:', pnu ?? 'none', 'bbox:', bbox ?? 'none');
 
     if (!['wfs', 'wfs-bbox', 'proxy-image', 'road-wfs'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action', data: { features: [] } }, { status: 400 });
@@ -51,16 +63,28 @@ export async function POST(request: Request) {
     // ── 도로 중심선 WFS (3D 버드아이 뷰용) ──
     if (action === 'road-wfs') {
       if (!bbox || !Array.isArray(bbox) || bbox.length !== 4) {
-        return NextResponse.json({ error: 'road-wfs 요청에는 bbox [minLng, minLat, maxLng, maxLat]가 필요합니다.', data: { features: [] } }, { status: 400 });
+        return NextResponse.json({ error: 'road-wfs requires bbox', data: { features: [] } }, { status: 400 });
       }
-      const bboxVal = `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`;
-      const roadUrl = `https://api.vworld.kr/req/wfs?SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lt_l_roa_lnm&VERSION=1.1.0&SRSNAME=EPSG:4326&OUTPUT=application/json&MAXFEATURES=50&BBOX=${encodeURIComponent(bboxVal)}&KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}`;
+      const roadParams = new URLSearchParams({
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lt_l_roa_lnm',
+        VERSION: '1.1.0',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        MAXFEATURES: '50',
+        BBOX: `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`,
+        KEY: VWORLD_KEY,
+        DOMAIN: VWORLD_DOMAIN,
+      });
+      const roadUrl = `https://api.vworld.kr/req/wfs?${roadParams.toString()}`;
       try {
         const roadRes = await vworldFetch(roadUrl);
-        if (roadRes.status < 200 || roadRes.status >= 300) {
+        if (!roadRes.ok) {
+          console.error(`[VWorld API] 도로 WFS 실패: ${roadRes.status}`);
           return NextResponse.json({ data: { type: 'FeatureCollection', features: [] }, note: '도로 WFS 실패' });
         }
-        const roadData = JSON.parse(roadRes.body);
+        const roadData = await roadRes.json();
         const count = roadData?.features?.length ?? 0;
         console.log(`[VWorld API] 도로 WFS — ${count}건 조회`);
         if (!roadData || roadData.type !== 'FeatureCollection' || !Array.isArray(roadData.features)) {
@@ -74,33 +98,57 @@ export async function POST(request: Request) {
       }
     }
 
+    // ── WFS 지적도 요청 URL 구성 ──
     let wfsUrl = '';
 
     if (action === 'wfs') {
       if (!pnu) return NextResponse.json({ error: 'pnu required', data: { features: [] } }, { status: 400 });
-      // XML Filter — lp_pa_cbnd_bubun 레이어는 CQL_FILTER 미지원, XML ogc:Filter 필수
+      // lp_pa_cbnd_bubun 레이어는 CQL_FILTER 미지원 → XML ogc:Filter 필수
       const xmlFilter = `<ogc:Filter><ogc:PropertyIsEqualTo matchCase="true"><ogc:PropertyName>pnu</ogc:PropertyName><ogc:Literal>${pnu}</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>`;
-      // encodeURIComponent 사용 — URLSearchParams는 XML 특수문자를 VWorld가 해석 못하는 방식으로 인코딩
-      wfsUrl = `https://api.vworld.kr/req/wfs?KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=40&SRSNAME=EPSG:4326&OUTPUT=application/json&FILTER=${encodeURIComponent(xmlFilter)}`;
+      const params = new URLSearchParams({
+        KEY: VWORLD_KEY,
+        DOMAIN: VWORLD_DOMAIN,
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lp_pa_cbnd_bubun',
+        VERSION: '1.1.0',
+        MAXFEATURES: '40',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        FILTER: xmlFilter,
+      });
+      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     } else if (action === 'wfs-bbox') {
       if (!bbox) return NextResponse.json({ error: 'bbox required', data: { features: [] } }, { status: 400 });
-      const bboxVal = `${bbox},EPSG:4326`;
-      wfsUrl = `https://api.vworld.kr/req/wfs?KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=1000&SRSNAME=EPSG:4326&OUTPUT=application/json&BBOX=${encodeURIComponent(bboxVal)}`;
+      const params = new URLSearchParams({
+        KEY: VWORLD_KEY,
+        DOMAIN: VWORLD_DOMAIN,
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lp_pa_cbnd_bubun',
+        VERSION: '1.1.0',
+        MAXFEATURES: '1000',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        BBOX: `${bbox},EPSG:4326`,
+      });
+      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     }
 
-    console.log(`[VWorld API] WFS Fetch 요청 — URL Length: ${wfsUrl.length}, URL prefix: ${wfsUrl.slice(0, 120)}`);
+    console.log(`[VWorld API] WFS URL Length: ${wfsUrl.length}`);
 
     const res = await vworldFetch(wfsUrl);
 
-    if (res.status < 200 || res.status >= 300) {
-      console.error('[VWorld API] 통신 오류:', res.status, res.body.slice(0, 300));
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error('[VWorld API] 통신 오류:', res.status, errBody.slice(0, 300));
       return NextResponse.json(
-        { error: `VWorld API 오류 (${res.status})`, data: { features: [] }, note: res.body.slice(0, 300) },
+        { error: `VWorld API 오류 (${res.status})`, data: { features: [] }, note: errBody.slice(0, 300) },
         { status: 502 }
       );
     }
 
-    const data = JSON.parse(res.body);
+    const data = await res.json();
     const featureCount = data?.features?.length ?? 0;
 
     console.log(`[VWorld API] GeoJSON 응답 성공 — features: ${featureCount}건`);
