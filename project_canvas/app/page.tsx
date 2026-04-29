@@ -495,6 +495,7 @@ export default function CanvasPage() {
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
     const srcNode = currentNodes.find(n => n.id === expandedNodeId);
+    const rawBase64 = base64Url.replace(/^data:[^;]+;base64,/, '');
     const num = currentNodes.filter(n => n.type === 'cadastral').length + 1;
     const newId = generateId();
     const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
@@ -503,7 +504,7 @@ export default function CanvasPage() {
       title: `지적도 #${num}`,
       position, instanceNumber: num, hasThumbnail: true, artboardType: 'sketch',
       parentId: expandedNodeId, autoPlaced: true,
-      thumbnailData: base64Url,
+      thumbnailData: rawBase64,
       cadastralPnu: srcNode?.cadastralPnu,
       cadastralGeoJson: srcNode?.cadastralGeoJson,
       cadastralMapCenter: srcNode?.cadastralMapCenter,
@@ -530,6 +531,7 @@ export default function CanvasPage() {
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
     const srcNode = currentNodes.find(n => n.id === expandedNodeId);
+    const rawBase64 = base64Url.replace(/^data:[^;]+;base64,/, '');
     const num = currentNodes.filter(n => n.type === 'map3d').length + 1;
     const newId = generateId();
     const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
@@ -538,7 +540,7 @@ export default function CanvasPage() {
       title: `3D 버드아이 뷰 #${num}`,
       position, instanceNumber: num, hasThumbnail: true, artboardType: 'sketch',
       parentId: expandedNodeId, autoPlaced: true,
-      thumbnailData: base64Url,
+      thumbnailData: rawBase64,
       map3dCenter: srcNode?.map3dCenter,
       map3dHeading: srcNode?.map3dHeading,
       map3dHeight: srcNode?.map3dHeight,

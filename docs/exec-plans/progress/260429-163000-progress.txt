@@ -1,0 +1,12 @@
+## 방금 한 것
+NodeCard.tsx (line 349) 수정:
+- cadastral 썸네일 img src에서 `data:` prefix 유무 처리 추가
+- `src={node.thumbnailData}` → `src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : \`data:image/png;base64,${node.thumbnailData}\`}`
+- 수정 원인: handleExportCadastralImage (page.tsx)가 thumbnailData를 raw base64(prefix 없음)로 저장하지만 NodeCard는 prefix 없이 src에 직접 사용 → 액박
+
+## 완료된 것
+- [x] NodeCard.tsx cadastral 썸네일 img src prefix 처리 수정
+
+## 다음 할 것
+- 브라우저에서 EXPORT TO IMAGE NODE 동작 확인 (사용자가 직접 확인)
+- 기존 지적도 노드 썸네일 라이브 렌더(onThumbnailCaptured 경로) 정상 여부 확인
