@@ -1,0 +1,34 @@
+작업: 업로드 이미지 줌 동기화 & 크기 영속성 수정
+
+방금 완료한 작업:
+
+[Bug 1] SketchCanvas.tsx — 업로드 이미지 CSS transform wrapper 방식으로 변경
+  - 기존: left: x*zs+ox, width: w*zs, height: h*zs (직접 px 계산)
+  - 변경: wrapper div에 translate(ox, oy) scale(zs) CSS transform 적용
+           inner <img>는 world 좌표 (left: x, top: y, width: w, height: h)
+  - rotate는 inner img에 유지 (transformOrigin: center center)
+  - cw > 0 조건 추가 (참조 이미지 wrapper와 동일)
+  - 효과: stroke/grid와 동일한 transform 방식 → 줌 배율 무관하게 정확한 위치/크기
+
+[Bug 2] SketchCanvas.tsx — loadState 시 imageTransform 보존
+  - keepTransformNextLoadRef = useRef(false) 추가
+  - loadState: uploadedImageData 설정 전 keepTransformNextLoadRef.current = true
+  - useEffect([uploadedImageData]) 내부: 플래그 true이면 transform 재계산 건너뜀
+    (undo stack의 imageTransform만 갱신 후 return)
+  - 효과: collapse → re-expand 시 저장된 imageTransform 정확히 복원
+
+TypeScript: 오류 없음 확인
+
+완료 상태:
+  [x] Bug 1 수정 (CSS transform wrapper)
+  [x] Bug 2 수정 (keepTransformNextLoadRef 플래그)
+  [x] TS 오류 없음
+  [x] exec plan → completed/ 이동
+
+다음에 할 일:
+  - iPad/browser에서 두 버그 모두 테스트 후 커밋 요청 시 진행
+  - 테스트 항목:
+    1. 이미지 업로드 후 177%+ 줌에서 stroke/grid와 이미지 위치 동기화 확인
+    2. 업로드 이미지 비율 찌그러짐 없는지 확인
+    3. collapse → re-expand 후 이미지 크기 동일한지 확인
+    4. 회전(rotate) 핸들 정상 작동 확인

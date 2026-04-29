@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { CanvasNode, PlanPanelSettings } from '@/types/canvas';
+import { CanvasNode, PlanPanelSettings, SketchState } from '@/types/canvas';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchCanvas, { SketchCanvasHandle, SketchTool, PEN_STROKE_WIDTHS, ERASER_STROKE_WIDTHS, DOT_VISUAL_SIZES } from '@/components/SketchCanvas';
 import { usePlanGeneration } from '@/hooks/usePlanGeneration';
@@ -30,7 +30,7 @@ function formatGridLabel(mm: number): string {
 export interface SketchToPlanExpandedViewProps {
   node: CanvasNode;
   onCollapse: () => void;
-  onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings) => void;
+  onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings, sketchPaths?: SketchState) => void;
   onGeneratePlanComplete?: (params: {
     sketchBase64: string;
     thumbnailBase64: string;
@@ -160,18 +160,23 @@ export default function SketchToPlanExpandedView({
   const { isLoading, error, generate } = usePlanGeneration();
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 sketchData 우선 로드. generatedImageData는 캔버스에 로드하지 않고
-     참조 오버레이로만 표시 (exportAsBase64에 포함되지 않아 sketch 오염 방지). */
+  /* Expand 시 sketchPaths(벡터) 우선 복원. 없으면 sketchData(flat PNG) 로드.
+     generatedImageData는 참조 오버레이로만 표시 (exportAsBase64에 포함 안 됨). */
   useEffect(() => {
     setRefImage(null);
-    if (node.sketchData) {
-      sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
-    } else if (node.generatedImageData) {
+    
+    if (node.generatedImageData) {
       const src = node.generatedImageData.startsWith('data:')
         ? node.generatedImageData
         : `data:image/png;base64,${node.generatedImageData}`;
       setRefImage(src);
-    } else if (node.thumbnailData) {
+    }
+
+    if (node.sketchPaths) {
+      sketchCanvasRef.current?.loadState(node.sketchPaths);
+    } else if (node.sketchData) {
+      sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
+    } else if (node.thumbnailData && !node.generatedImageData) {
       sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,7 +212,8 @@ export default function SketchToPlanExpandedView({
   const handlePlanCollapse = useCallback(() => {
     const sketchBase64    = sketchCanvasRef.current?.exportAsBase64()  ?? '';
     const thumbnailBase64 = sketchCanvasRef.current?.exportThumbnail() ?? '';
-    onCollapseWithPlanSketch?.(sketchBase64, thumbnailBase64, collectPlanSettings());
+    const sketchPaths     = sketchCanvasRef.current?.exportState();
+    onCollapseWithPlanSketch?.(sketchBase64, thumbnailBase64, collectPlanSettings(), sketchPaths);
     onCollapse();
   }, [onCollapse, onCollapseWithPlanSketch, collectPlanSettings]);
 

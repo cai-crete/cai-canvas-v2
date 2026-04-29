@@ -172,16 +172,21 @@ export default function LeftToolbar({
       gap: '0.5rem',
       zIndex: 1000,
     }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '2px',
-        background: 'var(--color-white)',
-        borderRadius: 'var(--radius-pill)',
-        padding: '6px',
-        boxShadow: 'var(--shadow-float)',
-      }}>
+      <div
+        onContextMenu={e => e.preventDefault()}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '2px',
+          background: 'var(--color-white)',
+          borderRadius: 'var(--radius-pill)',
+          padding: '6px',
+          boxShadow: 'var(--shadow-float)',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          touchAction: 'none',
+        }}>
         {mkBtn(
           () => onToolChange('cursor'),
           <IconCursor />,

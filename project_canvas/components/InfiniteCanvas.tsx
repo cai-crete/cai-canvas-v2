@@ -86,6 +86,9 @@ export default function InfiniteCanvas({
   /* ── 터치 포인터 카운트 (멀티터치 충돌 방지) ────────────────────── */
   const activeTouchCount = useRef(0);
 
+  /* ── 펜(Apple Pencil) 활성 추적 (palm rejection) ────────────────── */
+  const penActiveRef = useRef(false);
+
   /* ── 두 손가락 핀치 줌 상태 ──────────────────────────────────────── */
   const lastTouchDist   = useRef(0);
   const lastTouchCenter = useRef({ x: 0, y: 0 });
@@ -109,7 +112,7 @@ export default function InfiniteCanvas({
   const dragSelectEndRef   = useRef<{ x: number; y: number } | null>(null);
   const isDragSelectingRef = useRef(false);
 
-  /* ── 휠 줌 ──────────────────────────────────────────────────────── */
+  /* ── 휠 줌 + palm rejection (native touch 차단) ─────────────────── */
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -124,8 +127,17 @@ export default function InfiniteCanvas({
       onScaleChange(next);
       onOffsetChange({ x: mx - (mx - off.x) * (next / prev), y: my - (my - off.y) * (next / prev) });
     };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    /* pen 활성 중 palm touch → Safari 웹 드래그/선택 방지 */
+    const onTouchStart = (e: TouchEvent) => { if (penActiveRef.current) e.preventDefault(); };
+    const onTouchMove  = (e: TouchEvent) => { if (penActiveRef.current) e.preventDefault(); };
+    el.addEventListener('wheel',      onWheel,      { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    return () => {
+      el.removeEventListener('wheel',      onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove',  onTouchMove);
+    };
   }, [onScaleChange, onOffsetChange]);
 
   /* ── 전역 pointermove / pointerup (캔버스 밖 나가도 처리) ──────── */
@@ -197,6 +209,10 @@ export default function InfiniteCanvas({
     };
 
     const onUp = (e: PointerEvent) => {
+      /* pen 해제 */
+      if (e.pointerType === 'pen') {
+        penActiveRef.current = false;
+      }
       /* touch 카운트 감소 */
       if (e.pointerType === 'touch') {
         activeTouchCount.current = Math.max(0, activeTouchCount.current - 1);
@@ -266,6 +282,9 @@ export default function InfiniteCanvas({
 
   /* ── 캔버스 배경 pointerdown → 선택 해제 / 팬 / rubber band ────── */
   const handleWrapperPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'pen') {
+      penActiveRef.current = true;
+    }
     /* 미들 버튼 팬 — 툴 모드 무관 */
     if (e.button === 1) {
       e.preventDefault();
@@ -360,6 +379,10 @@ export default function InfiniteCanvas({
   /* ── 노드 pointerdown 위임 ──────────────────────────────────────── */
   const handleNodeMouseDown = useCallback((id: string, e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    /* pen 활성 표시 */
+    if (e.pointerType === 'pen') {
+      penActiveRef.current = true;
+    }
     /* 터치: activeTool에 따라 분기 */
     if (e.pointerType === 'touch') {
       activeTouchCount.current += 1;

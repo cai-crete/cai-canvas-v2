@@ -7,7 +7,7 @@ import {
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
   NODE_DEFINITIONS, COL_GAP_PX, SketchPanelSettings, PlanPanelSettings, ViewpointPanelSettings,
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
-  PlannerMessage, SavedInsightData, ElevationImages,
+  PlannerMessage, SavedInsightData, ElevationImages, SketchState,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
 import type { PrintDraftState } from '@cai-crete/print-components';
@@ -498,7 +498,7 @@ export default function CanvasPage() {
   }, [expandedNodeId, nodes, historyIndex]);
 
   /* ── sketch-image [<-]: 스케치 + 패널 설정 저장 ─────────────────── */
-  const handleCollapseWithSketch = useCallback((sketchBase64: string, thumbnailBase64: string, panelSettings?: SketchPanelSettings) => {
+  const handleCollapseWithSketch = useCallback((sketchBase64: string, thumbnailBase64: string, panelSettings?: SketchPanelSettings, sketchPaths?: SketchState) => {
     if (!expandedNodeId) return;
     setGeneratingLabel('IMAGE GENERATING');
     setNodes(prev => prev.map(n => {
@@ -509,13 +509,14 @@ export default function CanvasPage() {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
+        updates.sketchPaths   = sketchPaths;
       }
       return { ...n, ...updates };
     }));
   }, [expandedNodeId]);
 
   /* ── sketch-plan [<-]: 스케치 + 패널 설정 저장 ────────────────────── */
-  const handleCollapseWithPlanSketch = useCallback((sketchBase64: string, thumbnailBase64: string, planSettings?: PlanPanelSettings) => {
+  const handleCollapseWithPlanSketch = useCallback((sketchBase64: string, thumbnailBase64: string, planSettings?: PlanPanelSettings, sketchPaths?: SketchState) => {
     if (!expandedNodeId) return;
     setGeneratingLabel('PLAN GENERATING');
     setNodes(prev => prev.map(n => {
@@ -526,6 +527,7 @@ export default function CanvasPage() {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
+        updates.sketchPaths   = sketchPaths;
       }
       return { ...n, ...updates };
     }));
