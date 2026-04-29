@@ -38,14 +38,15 @@ const PORT = process.env.PORT ?? 3001;
 app.listen(PORT, () => {
   console.log(`[render-server] listening on port ${PORT}`);
 
-  // Print 서버를 10분마다 ping — 두 서버 모두 슬립 방지
   const PRINT_API_URL = process.env.PRINT_API_URL?.replace(/\/+$/, '');
   const CANVAS_API_SECRET = process.env.CANVAS_API_SECRET ?? '';
   if (PRINT_API_URL) {
-    setInterval(() => {
+    const pingPrint = () => {
       fetch(`${PRINT_API_URL}/api/library`, {
         headers: { 'x-canvas-api-secret': CANVAS_API_SECRET },
       }).catch(() => {});
-    }, 10 * 60 * 1000);
+    };
+    pingPrint();                          // 시작 즉시 Render B 웨이크업
+    setInterval(pingPrint, 8 * 60 * 1000); // 이후 8분마다
   }
 });
