@@ -179,9 +179,10 @@ export default function SketchToImageExpandedView({
 
   /* ── [<-] 버튼: 스케치 + 패널 설정 저장 후 collapse ────────────── */
   const handleSketchCollapse = useCallback(() => {
-    const sketchBase64    = sketchCanvasRef.current?.exportAsBase64()  ?? '';
-    const thumbnailBase64 = sketchCanvasRef.current?.exportThumbnail() ?? '';
-    const sketchPaths     = sketchCanvasRef.current?.exportState();
+    const sketchBase64 = sketchCanvasRef.current?.exportAsBase64() ?? '';
+    const sketchPaths  = sketchCanvasRef.current?.exportState();
+    const hasContent   = !!(sketchPaths?.paths.length || sketchPaths?.uploadedImageData || sketchPaths?.textItems?.length);
+    const thumbnailBase64 = hasContent ? (sketchCanvasRef.current?.exportThumbnail() ?? '') : '';
     onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings(), sketchPaths);
     onCollapse();
   }, [onCollapse, onCollapseWithSketch, collectPanelSettings]);
