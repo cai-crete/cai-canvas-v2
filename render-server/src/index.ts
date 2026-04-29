@@ -42,9 +42,7 @@ app.listen(PORT, () => {
   const CANVAS_API_SECRET = process.env.CANVAS_API_SECRET ?? '';
   if (PRINT_API_URL) {
     const pingPrint = () => {
-      fetch(`${PRINT_API_URL}/api/library`, {
-        headers: { 'x-canvas-api-secret': CANVAS_API_SECRET },
-      }).catch(() => {});
+      fetch(`${PRINT_API_URL}/api/health`).catch(() => {});
     };
     pingPrint();                          // 시작 즉시 Render B 웨이크업
     setInterval(pingPrint, 8 * 60 * 1000); // 이후 8분마다
