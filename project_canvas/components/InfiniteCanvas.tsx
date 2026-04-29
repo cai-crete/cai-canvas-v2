@@ -97,6 +97,10 @@ export default function InfiniteCanvas({
   const dragStartNodePos = useRef({ x: 0, y: 0 });
   const dragMoved        = useRef(false);
 
+  /* ── RAF 쓰로틀 (펜슬 240Hz → 60Hz) ────────────────────────────── */
+  const dragRafRef     = useRef<number | null>(null);
+  const dragPendingPos = useRef<{ id: string; pos: { x: number; y: number } } | null>(null);
+
   /* ── rubber band 선택 상태 ───────────────────────────────────────── */
   const [dragSelectRect, setDragSelectRect] = useState<{
     startX: number; startY: number; endX: number; endY: number;
@@ -152,10 +156,22 @@ export default function InfiniteCanvas({
           dragMoved.current = true;
         }
         if (draggingNodeId.current) {
-          onNodePositionChange(draggingNodeId.current, {
-            x: dragStartNodePos.current.x + dx / scaleRef.current,
-            y: dragStartNodePos.current.y + dy / scaleRef.current,
-          });
+          dragPendingPos.current = {
+            id: draggingNodeId.current,
+            pos: {
+              x: dragStartNodePos.current.x + dx / scaleRef.current,
+              y: dragStartNodePos.current.y + dy / scaleRef.current,
+            },
+          };
+          if (dragRafRef.current === null) {
+            dragRafRef.current = requestAnimationFrame(() => {
+              if (dragPendingPos.current) {
+                onNodePositionChange(dragPendingPos.current.id, dragPendingPos.current.pos);
+                dragPendingPos.current = null;
+              }
+              dragRafRef.current = null;
+            });
+          }
         }
         return;
       }
@@ -201,6 +217,15 @@ export default function InfiniteCanvas({
         if (draggingNodeId.current) {
           const committedId = draggingNodeId.current;
           draggingNodeId.current = null;
+          /* RAF pending 중 pointerup: 즉시 플러시 후 commit */
+          if (dragRafRef.current !== null) {
+            cancelAnimationFrame(dragRafRef.current);
+            dragRafRef.current = null;
+            if (dragPendingPos.current) {
+              onNodePositionChange(dragPendingPos.current.id, dragPendingPos.current.pos);
+              dragPendingPos.current = null;
+            }
+          }
           onNodePositionCommit(committedId);
         } else {
           onNodeSelect(pendingNodeId.current);

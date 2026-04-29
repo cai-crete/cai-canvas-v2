@@ -150,6 +150,9 @@ export default function CanvasPage() {
   /* ── localStorage 복원 완료 플래그 (persist effect 선실행 방지) ─── */
   const isRestoredRef = useRef(false);
 
+  /* ── 드래그 중 IndexedDB 저장 억제 플래그 ─────────────────────── */
+  const isDraggingNodeRef = useRef(false);
+
   /* ── 줌 배율 버튼 사이클 상태 (0: idle, 1: fit-all, 2: focus-latest) */
   const zoomCycleStateRef = useRef(0);
   const savedViewRef      = useRef<{ scale: number; offset: { x: number; y: number } } | null>(null);
@@ -256,9 +259,9 @@ export default function CanvasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undo, redo, expandedNodeId]);
 
-  /* ── persist: nodes → IndexedDB (복원 완료 후에만) ─────────────── */
+  /* ── persist: nodes → IndexedDB (복원 완료 후, 드래그 중 제외) ── */
   useEffect(() => {
-    if (!isRestoredRef.current) return;
+    if (!isRestoredRef.current || isDraggingNodeRef.current) return;
     lfSaveNodes(nodes);
   }, [nodes]);
 
@@ -273,6 +276,20 @@ export default function CanvasPage() {
     if (!isRestoredRef.current) return;
     lsSaveView(scale, offset);
   }, [scale, offset]);
+
+  /* ── 드래그 중 포커스 상실 시 저장 억제 플래그 복구 ──────────── */
+  useEffect(() => {
+    const onBlur = () => {
+      if (isDraggingNodeRef.current) {
+        isDraggingNodeRef.current = false;
+        lfSaveNodes(nodes);
+      }
+    };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  // nodes 최신값 필요 — 의도적 의존성
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes]);
 
   /* ── mount: IndexedDB 복원 → isRestoredRef = true ──────────────── */
   useEffect(() => {
@@ -626,10 +643,12 @@ export default function CanvasPage() {
 
   /* ── node position ───────────────────────────────────────────────── */
   const updateNodePosition = useCallback((id: string, pos: { x: number; y: number }) => {
+    isDraggingNodeRef.current = true;
     setNodes(prev => prev.map(n => n.id === id ? { ...n, position: pos } : n));
   }, []);
 
   const commitNodePosition = useCallback((id: string) => {
+    isDraggingNodeRef.current = false;
     setNodes(prev => {
       const next = prev.map(n => n.id === id ? { ...n, autoPlaced: false } : n);
       setHistory(h => [...h.slice(0, historyIndex + 1), { nodes: next, edges: edgesRef.current }]);
