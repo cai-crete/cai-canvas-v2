@@ -1,0 +1,32 @@
+# artboardType=Image 노드 버튼 ExpandedView 분기 라우팅
+
+## 무엇을 했는가
+
+### 문제
+artboardType=Image 노드에서 [PLAN] / [IMAGE] 버튼 클릭 시 모두 기존 이미지 뷰어로 진입하고 있었음.
+page.tsx에 expandedViewMode 상태가 이미 존재했으나 ExpandedView 컴포넌트에 전달되지 않는 상태였음.
+
+### 수정 1: components/ExpandedView.tsx — Props + 라우팅 분기
+- Props 인터페이스에 `expandedViewMode?: 'image' | 'plan' | 'default'` 추가
+- 함수 시그니처에 `expandedViewMode = 'default'` 기본값으로 구조분해
+- artboardType=image 분기 앞에 두 분기 삽입:
+  - expandedViewMode='plan' → SketchToPlanExpandedView
+  - expandedViewMode='image' 또는 'default' → SketchToImageExpandedView
+
+### 수정 2: app/page.tsx — prop 전달
+- `<ExpandedView>` 렌더링에 `expandedViewMode={expandedViewMode}` 추가
+
+## 완료 범위
+- 코드 수정 2파일 완료
+- 동작 확인은 사용자가 직접 테스트 필요
+
+## 라우팅 결과
+| 진입 경로 | expandedViewMode | 진입 화면 |
+|-----------|-----------------|-----------|
+| [PLAN] 클릭 | 'plan' | SketchToPlanExpandedView |
+| [IMAGE] 클릭 | 'image' | SketchToImageExpandedView |
+| 더블클릭 | 'default' | SketchToImageExpandedView |
+
+## 다음 할 일
+- 사용자가 브라우저에서 동작 확인
+- 이상 없으면 완료

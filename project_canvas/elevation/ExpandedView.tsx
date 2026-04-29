@@ -205,7 +205,7 @@ export default function ElevationExpandedView({
       </div>
 
       {/* ── 사이드바 ── */}
-      <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse}>
+      <ExpandedSidebar currentNodeType={sourceNodeId ? 'elevation' : node.type} onCollapse={onCollapse}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
           {/* 스크롤 가능 패널 */}
