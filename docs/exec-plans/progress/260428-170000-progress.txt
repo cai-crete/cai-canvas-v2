@@ -1,0 +1,20 @@
+날짜: 2026-04-28
+세션: Print ↔ Canvas 완전 통합 — Phase 0 완료
+
+== 방금 한 일 ==
+- 계획서 재구조화: Phase 0~5로 재편 (각 Phase = 단일 파일 원칙)
+- Phase 0 구현 완료: page.tsx handleNodeCardSelect 버그 수정
+  - 수정 파일: project_canvas/app/page.tsx (L777)
+  - 내용: artboardType === 'thumbnail' 분기에서 node.type === 'print'일 때 'print' 사이드바 표시
+  - 수정 전: setActiveSidebarNodeType('planners')
+  - 수정 후: setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners')
+
+== 현재 상태 ==
+Phase 0 완료. 사용자 승인 대기 후 Phase 1 진행 예정.
+
+== 다음에 할 일 (Phase 1) ==
+파일: project_canvas/print/ExpandedView.tsx
+- renderToolbarWrapper에서 'X' 닫기 버튼 제거
+- sidebarOpen 상태 추가
+- renderSidebarWrapper 콜백 구현 (← 버튼 + PRINT 탭 + 본문 white box)
+- PkgPrintExpandedView에 renderSidebarWrapper 전달

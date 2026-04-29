@@ -1,0 +1,38 @@
+날짜: 2026-04-28
+세션: Print ↔ Canvas 완전 통합 — Phase 5 완료
+
+== 방금 한 일 ==
+
+[Phase 5] 이미지 다중 선택 → Print 자동 삽입 + 엣지 연결
+
+lib/printUtils.ts:
+- nodeImageToSelectedImage(raw, id) 함수 추가
+  - data URL (data:image/jpeg;base64,...) 또는 순수 base64 → SelectedImage 변환
+
+app/page.tsx:
+- import { selectedImagesToFiles, nodeImageToSelectedImage } from '@/lib/printUtils' 추가
+- handleNodeTabSelect 상단에 print + image 아트보드 감지 블록 추가:
+  - type === 'print' 이고 selectedNodeIds 중 artboardType === 'image' 인 노드가 1개 이상이면 Phase 5 진입
+  - showToast('이미지를 준비하는 중입니다...', 'success')
+  - async IIFE: nodeImageToSelectedImage → selectedImagesToFiles 변환
+  - 새 print 노드 생성 (artboardType: 'thumbnail', parentId: imageNodes[0].id)
+  - 각 image 노드 → print 노드 엣지 생성 (image1→print, image2→print, ...)
+  - PrintDraftState 구성 (mode:'REPORT', orientation:'LANDSCAPE', prompt:'', images:files, ...)
+  - setPrintDraftState, setPrintAutoGenerate(true), setExpandedNodeId(newId)
+- handleNodeTabSelect 의존성 배열에 selectedNodeIds, showToast 추가
+
+== 현재 상태 ==
+Phase 0~5 모두 완료. tsc --noEmit 오류 없음.
+
+== 동작 흐름 ==
+1. 캔버스에서 image 아트보드 1개 이상 선택
+2. 우측 사이드바에서 PRINT 탭 클릭
+3. '이미지를 준비하는 중입니다...' 토스트 표시
+4. 선택된 image 노드의 generatedImageData(또는 thumbnailData)를 File[]로 변환
+5. 새 print 노드 생성 (image 노드 아래 자동 배치)
+6. 각 image → print 엣지 생성
+7. PrintDraftState에 images 세팅 후 expanded + autoGenerate 진입
+8. GENERATE 버튼 자동 클릭 → 해당 이미지로 자동 생성
+
+== 다음에 할 일 ==
+없음. 전체 통합 완료.

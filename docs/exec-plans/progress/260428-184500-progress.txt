@@ -1,0 +1,45 @@
+작업: print 패키지 0.1.1 업데이트 및 ExpandedView 재작성
+
+완료된 작업:
+
+1. 계획서 정리
+   - 260426-generated-node-artboard-type.md → completed/ 이동 (전 항목 체크됨)
+   - 260426-ui-fix-dropdown-sketch-tab.md → completed/ 이동
+     (코드 확인: 드롭다운 top:'50%', left:'calc(100% + 0.5rem)' 적용됨, NODE_ORDER에 sketch 없음)
+
+2. print 패키지 0.1.1 로컬 설치
+   - GitHub 인증 없이 cai-harness-print/project.10_print에서 직접 설치 성공
+   - npm install "c:/Users/USER01/Downloads/cai-harness-print/project.10_print"
+   - 설치 후 node_modules/@cai-crete/print-components: 0.1.0 → 0.1.1
+
+3. 0.1.1에서 추가된 인터페이스 변경사항 대응
+   A. PrintSavedState: metadata?: Record<string, unknown> 추가 → 직접 호환 (타입 캐스트 불필요)
+   B. PrintExpandedViewProps: onCurrentImagesChange 추가 → as any 스프레드 → 직접 props 전달로 변경
+   C. PrintToolbarTools: ReactNode 기반 → callback 기반으로 완전 교체 (BREAKING CHANGE)
+
+4. project_canvas/print/ExpandedView.tsx 재작성
+   - PrintSavedState 임포트 제거 (더 이상 캐스트 불필요)
+   - IconUndo, IconRedo, IconLibrary, IconSave SVG 아이콘 추가
+   - renderToolbarWrapper: tools.undo/redo/library/saves(ReactNode) → callback 기반으로 완전 재작성
+     - Undo 버튼: canUndo/onUndo (비활성화 시 opacity 0.35)
+     - Redo 버튼: canRedo/onRedo (비활성화 시 opacity 0.35)
+     - Library 버튼: onOpenLibrary
+     - Save 버튼: tools.onSave (검정 원형 버튼)
+   - onCurrentImagesChange: 직접 prop 전달 (as any 불필요)
+   - savedState: 직접 node.printSavedState 전달 (타입 캐스트 불필요)
+
+5. TypeScript 검증
+   - npx tsc --noEmit → 오류 0건
+
+남은 사항:
+- 브라우저 테스트:
+  a. Print 노드 열기 → 저장(SAVE) → Canvas 복귀 → 썸네일 확인
+  b. Print 노드 재진입 → 이미지 슬롯 복원 확인 (printSelectedImages)
+  c. Print 노드 재진입 → 문서 내용 복원 확인 (printSavedState)
+  d. Undo/Redo/Library/Save 버튼 동작 확인
+- 413 오류 수정 (260428-generate-413-fix.md): 서버 재시작 필요
+- Phase 9: Vercel 환경변수 설정 (배포 시)
+
+active 계획서 현황:
+- 260428-print-canvas-connection-fix.md: Phase 10 브라우저 테스트만 남음
+- 260428-generate-413-fix.md: 서버 재시작 + 브라우저 테스트 필요

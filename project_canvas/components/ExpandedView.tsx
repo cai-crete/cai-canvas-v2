@@ -10,6 +10,7 @@ import PlannersPanel from '@/planners/PlannersPanel';
 import { PlannersInsightPanel } from '@/components/panels/PlannersInsightPanel';
 import type { FetchLawsResult } from '@/planners/lib/lawApi';
 import PrintExpandedView, { type PrintGenerateResult } from '@/print/ExpandedView';
+import type { PrintDraftState } from '@cai-crete/print-components';
 import ElevationExpandedView, { type ElevationGenerateResult } from '@/elevation/ExpandedView';
 
 interface Props {
@@ -37,6 +38,9 @@ interface Props {
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
   onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
+  onPrintNodeUpdate?: (updates: Partial<CanvasNode>) => void;
+  autoGeneratePrint?: boolean;
+  printDraftState?: PrintDraftState | null;
   onGenerateElevationComplete?: (params: ElevationGenerateResult) => void;
   onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
   onInsightDataChange?: (data: FetchLawsResult | null) => void;
@@ -143,6 +147,9 @@ export default function ExpandedView({
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
   isGenerating = false,
   onGeneratePrintComplete,
+  onPrintNodeUpdate,
+  autoGeneratePrint,
+  printDraftState,
   onGenerateElevationComplete,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived,
 }: Props) {
@@ -220,6 +227,9 @@ export default function ExpandedView({
         onCollapse={onCollapse}
         onGeneratingChange={onGeneratingChange}
         onGeneratePrintComplete={onGeneratePrintComplete}
+        onPrintNodeUpdate={onPrintNodeUpdate}
+        autoGenerate={autoGeneratePrint}
+        initialDraftState={printDraftState}
       />
     );
   }

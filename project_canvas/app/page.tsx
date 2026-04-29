@@ -10,6 +10,8 @@ import {
   PlannerMessage, SavedInsightData, ElevationImages,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
+import type { PrintDraftState } from '@cai-crete/print-components';
+import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
 import InfiniteCanvas    from '@/components/InfiniteCanvas';
@@ -182,6 +184,8 @@ export default function CanvasPage() {
 
   /* ── 통합 사이드바 상태 ──────────────────────────────────────────── */
   const [activeSidebarNodeType, setActiveSidebarNodeType] = useState<NodeType | null>(null);
+  const [printDraftState,       setPrintDraftState]       = useState<PrintDraftState | null>(null);
+  const [printAutoGenerate,     setPrintAutoGenerate]     = useState(false);
 
   /* ── Toast 시스템 ─────────────────────────────────────────────── */
   type ToastType = 'warning' | 'success';
@@ -488,6 +492,8 @@ export default function CanvasPage() {
 
     plannerMessagesRef.current    = [];
     plannerInsightDataRef.current = null;
+    setPrintDraftState(null);
+    setPrintAutoGenerate(false);
     setExpandedNodeId(null);
   }, [expandedNodeId, nodes, historyIndex]);
 
@@ -572,12 +578,26 @@ export default function CanvasPage() {
     });
   }, [pushHistory]);
 
+  /* ── print 노드 부분 업데이트 (savedState, selectedImages 등) ──────── */
+  const handlePrintNodeUpdate = useCallback((updates: Partial<CanvasNode>) => {
+    if (!expandedNodeId) return;
+    setNodes(prev => prev.map(n =>
+      n.id === expandedNodeId ? { ...n, ...updates } : n
+    ));
+  }, [expandedNodeId]);
+
   /* ── print GENERATE 완료 → 노드 썸네일 업데이트 ────────────────────── */
   const handleGeneratePrintComplete = useCallback(({ thumbnailBase64 }: { thumbnailBase64: string }) => {
     if (!expandedNodeId) return;
     setNodes(prev => prev.map(n =>
       n.id === expandedNodeId
-        ? { ...n, hasThumbnail: true, thumbnailData: thumbnailBase64, generatedImageData: thumbnailBase64 }
+        ? {
+            ...n,
+            hasThumbnail: true,
+            thumbnailData: thumbnailBase64,
+            // thumbnailData를 덮어쓰기 전에 원본 소스 이미지를 generatedImageData에 보존
+            generatedImageData: n.generatedImageData ?? n.thumbnailData,
+          }
         : n
     ));
   }, [expandedNodeId]);
@@ -660,6 +680,52 @@ export default function CanvasPage() {
   /* ── 사이드바 노드 탭 선택 ────────────────────────────────────────── */
   const handleNodeTabSelect = useCallback((type: NodeType) => {
     const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
+
+    /* print + image 아트보드 선택(단일/다중) → print 노드 생성 + expanded 진입 (이미지 사전 로드) */
+    if (type === 'print') {
+      const imageNodes = selectedNodeIds
+        .map(id => nodes.find(n => n.id === id))
+        .filter((n): n is CanvasNode => !!n && n.artboardType === 'image');
+
+      if (imageNodes.length > 0) {
+        const currentNodes = nodes;
+        const currentEdges = edgesRef.current;
+        const num = currentNodes.filter(n => n.type === 'print').length + 1;
+        const newId = generateId();
+        const { position, pushdowns } = placeNewChild(imageNodes[0].id, currentNodes, currentEdges);
+
+        const preloadedImages = imageNodes.flatMap(n => {
+          const raw = n.generatedImageData ?? n.thumbnailData;
+          return raw ? [nodeImageToSelectedImage(raw, n.id)] : [];
+        });
+
+        const printNode: CanvasNode = {
+          id: newId, type: 'print',
+          title: `${NODE_DEFINITIONS['print'].caption} #${num}`,
+          position, instanceNumber: num, hasThumbnail: false,
+          artboardType: 'thumbnail',
+          parentId: imageNodes[0].id, autoPlaced: true,
+          printSelectedImages: preloadedImages,
+        };
+
+        let nextNodes = [...currentNodes, printNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        const newEdges: CanvasEdge[] = imageNodes.map(imgNode => ({
+          id: generateId(), sourceId: imgNode.id, targetId: newId,
+        }));
+
+        pushHistory(nextNodes, [...currentEdges, ...newEdges]);
+        setExpandedNodeId(newId);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+    }
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
@@ -766,7 +832,7 @@ export default function CanvasPage() {
       return;
     }
     setActiveSidebarNodeType(prev => prev === type ? null : type);
-  }, [selectedNodeId, nodes, pushHistory, createAndExpandNode, createChildNode]);
+  }, [selectedNodeId, selectedNodeIds, nodes, pushHistory, createAndExpandNode, createChildNode, showToast]);
 
   /* ── "→" 버튼: 사이드바 패널에서 expand 진입 ──────────────────────── */
   const handleNavigateToExpand = useCallback((type: NodeType) => {
@@ -790,14 +856,27 @@ export default function CanvasPage() {
     createAndExpandNode(type);
   }, [selectedNodeId, nodes, createAndExpandNode]);
 
+  /* ── print 사이드바 액션 (generate / export) ─────────────────────── */
+  const handlePrintSidebarAction = useCallback((action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => {
+    if (!selectedNodeId) return;
+    if (action === 'generate') {
+      setPrintDraftState(draft);
+      setPrintAutoGenerate(true);
+    } else {
+      setPrintAutoGenerate(false);
+    }
+    setExpandedNodeId(selectedNodeId);
+    setActiveSidebarNodeType(null);
+  }, [selectedNodeId]);
+
   /* ── 썸네일 단일 클릭 → 선택 + 패널 열기 ───────────────────────── */
   const handleNodeCardSelect = useCallback((id: string) => {
     const node = nodes.find(n => n.id === id);
     if (!node) return;
     setSelectedNodeIds([id]);
-    /* thumbnail 아트보드: 자동으로 PLANNERS 패널 표시 */
+    /* thumbnail 아트보드: 노드 종류별 패널 표시 (print와 planners 구분) */
     if (node.artboardType === 'thumbnail') {
-      setActiveSidebarNodeType('planners');
+      setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
     } else {
       setActiveSidebarNodeType(null);
     }
@@ -1096,6 +1175,9 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
+          onPrintNodeUpdate={handlePrintNodeUpdate}
+          autoGeneratePrint={printAutoGenerate}
+          printDraftState={printDraftState}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
@@ -1153,6 +1235,8 @@ export default function CanvasPage() {
             isViewpointGenerating={isGenerating}
             viewpointReport={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.viewpointReport : undefined}
             plannerMessages={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.plannerMessages : undefined}
+            printSavedState={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.printSavedState : undefined}
+            onPrintAction={handlePrintSidebarAction}
           />
         </div>
       )}

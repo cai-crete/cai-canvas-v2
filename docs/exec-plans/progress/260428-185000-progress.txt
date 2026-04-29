@@ -1,0 +1,43 @@
+날짜: 2026-04-28
+세션: Print ↔ Canvas 완전 통합 — Phase 2~4 완료
+
+== 방금 한 일 ==
+
+[Phase 2] RightSidebar.tsx
+- PrintCanvasSidebarPanel, PrintSavedState, PrintDraftState import 추가
+- Props에 printSavedState, onPrintAction 추가
+- isPrint 분기 추가 → activeSidebarNodeType === 'print'일 때 PrintCanvasSidebarPanel 렌더링
+- 패널 본문 컨테이너에 overflow: hidden 추가 (PrintCanvasSidebarPanel 내부 스크롤 지원)
+
+[Phase 3] page.tsx
+- PrintDraftState import 추가
+- printDraftState, printAutoGenerate 상태 추가
+- handlePrintSidebarAction 구현:
+  - generate: printDraftState + printAutoGenerate=true 저장 후 expanded 진입
+  - export: printAutoGenerate=false 후 expanded 진입
+- handleReturnFromExpand에 printDraftState/printAutoGenerate 리셋 추가
+- RightSidebar에 printSavedState, onPrintAction 전달
+- ExpandedView에 autoGeneratePrint, printDraftState 전달
+
+[Phase 4] 신규 파일 + 기존 파일 수정
+- lib/printUtils.ts 신규 생성: selectedImagesToFiles 함수 (SelectedImage[] → File[])
+- print/ExpandedView.tsx:
+  - PrintDraftState import 추가
+  - autoGenerate, initialDraftState props 추가
+  - PkgPrintExpandedView에 initialAction={autoGenerate ? 'generate' : undefined} + initialDraftState 전달
+- components/ExpandedView.tsx:
+  - PrintDraftState import 추가
+  - autoGeneratePrint, printDraftState props 추가
+  - PrintExpandedView에 autoGenerate, initialDraftState 전달
+
+== 현재 상태 ==
+Phase 0~4 완료. Phase 5 (이미지 다중 선택 → Print 자동 삽입) 대기 중.
+
+== 다음에 할 일 (Phase 5) ==
+파일: project_canvas/app/page.tsx (단독)
+- print 탭 클릭 시 선택된 image 노드 감지
+- 비동기 피드백: showToast('이미지를 준비하는 중입니다...', 'success')
+- selectedImagesToFiles() 변환 → PrintDraftState.images에 세팅
+- expanded 진입 시 이미지 + autoGenerate: true 전달
+
+검증: image 아트보드 다중 선택 → print 탭 → GENERATE → 토스트 → Expanded에서 해당 이미지로 자동 생성

@@ -1,0 +1,42 @@
+작업: Canvas 팀 후속 구현 — print 팀 콜백 연동
+
+완료된 작업:
+
+1. project_canvas/types/canvas.ts — CanvasNode에 print 전용 필드 추가
+   - printSavedState?: { html, mode, prompt?, savedAt, metadata? }
+     → SAVE 시 문서 상태 저장, 재진입 시 savedState prop으로 복원
+   - printSelectedImages?: Array<{ id, base64, mimeType, filename? }>
+     → 이미지 변경 시 저장, 재진입 시 selectedImages prop으로 복원
+
+2. project_canvas/print/ExpandedView.tsx — 연동 로직 추가
+   - Props: onPrintNodeUpdate?: (updates: Partial<CanvasNode>) => void 추가
+   - selectedImages: node.printSelectedImages 우선 사용, 없으면 generatedImageData fallback
+   - handleSave: 썸네일 업데이트 외에 printSavedState도 onPrintNodeUpdate로 저장
+   - handleImagesChange: onCurrentImagesChange 콜백 수신 → printSelectedImages 저장
+   - PkgPrintExpandedView: savedState={node.printSavedState} 전달
+   - PkgPrintExpandedView: onCurrentImagesChange spread (패키지 타입 미업데이트 상태이므로 as any)
+
+3. project_canvas/components/ExpandedView.tsx
+   - Props에 onPrintNodeUpdate 추가
+   - PrintExpandedView에 onPrintNodeUpdate 전달
+
+4. project_canvas/app/page.tsx
+   - handlePrintNodeUpdate 콜백 추가 (expandedNodeId 노드의 필드를 부분 업데이트)
+   - ExpandedView에 onPrintNodeUpdate={handlePrintNodeUpdate} 전달
+
+완성된 흐름:
+- 재진입: printSelectedImages → selectedImages prop → 패키지 마운트 시 슬롯 복원
+- 재진입: printSavedState → savedState prop → 패키지 마운트 시 문서 복원
+- 이미지 편집: onCurrentImagesChange → printSelectedImages 갱신 (다음 재진입 대비)
+- SAVE: onSave → printSavedState 갱신 + thumbnailData 갱신
+
+남은 사항:
+- 브라우저 테스트: GENERATE → SAVE → 닫기 → 재진입 → 슬롯/문서 복원 확인
+- 패키지 배포 대기: print 팀이 0.1.1 배포 시 node_modules 업데이트 필요
+  → 현재 as any로 임시 처리한 onCurrentImagesChange 타입 오류가 자동 해소됨
+  → PrintSavedState에 metadata 필드가 추가되어 타입 정합성 완성
+
+TS 서버 진단:
+- types/canvas.ts 변경은 파일에 정상 저장됨 (Read로 확인)
+- TS 언어 서버가 캐시를 갱신하면 print/ExpandedView.tsx의 잔여 오류도 해소
+- VS Code에서 "TypeScript: Restart TS Server" 실행 시 즉시 해소

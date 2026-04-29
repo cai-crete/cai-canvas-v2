@@ -8,6 +8,8 @@ import {
   ViewpointAnalysisReport,
 } from '@/types/canvas';
 import ChangeViewpointPanel from '@/components/panels/ChangeViewpointPanel';
+import { PrintCanvasSidebarPanel } from '@cai-crete/print-components';
+import type { PrintSavedState, PrintDraftState } from '@cai-crete/print-components';
 
 interface Props {
   activeSidebarNodeType: NodeType | null;
@@ -25,6 +27,9 @@ interface Props {
   viewpointReport?: ViewpointAnalysisReport | null;
   // planners 전용
   plannerMessages?: PlannerMessage[];
+  // print 전용
+  printSavedState?: PrintSavedState;
+  onPrintAction?: (action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => void;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -157,6 +162,7 @@ export default function RightSidebar({
   onViewpointGenerate, isViewpointGenerating,
   viewpointReport,
   plannerMessages,
+  printSavedState, onPrintAction,
 }: Props) {
   const [accordionOpen, setAccordionOpen] = useState(true);
 
@@ -228,6 +234,7 @@ export default function RightSidebar({
   if (isPanelMode) {
     const isViewpoint = activeSidebarNodeType === 'viewpoint';
     const isPlanners  = activeSidebarNodeType === 'planners';
+    const isPrint     = activeSidebarNodeType === 'print';
 
     return (
       <div style={{ ...area, overflowY: 'hidden' }}>
@@ -280,6 +287,7 @@ export default function RightSidebar({
         <div style={{
           background: 'var(--color-white)', borderRadius: 'var(--radius-box)',
           boxShadow: 'var(--shadow-float)', flex: 1, minHeight: 0, pointerEvents: 'all',
+          overflow: 'hidden',
         }}>
           {isViewpoint ? (
             <ChangeViewpointPanel
@@ -306,6 +314,8 @@ export default function RightSidebar({
             />
           ) : isPlanners ? (
             <PlannerReportPanel messages={plannerMessages ?? []} />
+          ) : isPrint ? (
+            <PrintCanvasSidebarPanel savedState={printSavedState} onAction={onPrintAction!} />
           ) : (
             <NodePanel
               type={activeSidebarNodeType!}
