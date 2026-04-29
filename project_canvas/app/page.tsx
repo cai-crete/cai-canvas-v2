@@ -2,16 +2,16 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import localforage from 'localforage';
+import { useCanvasStore } from '@/store/canvas';
 import {
   CanvasNode, CanvasEdge, NodeType,
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
   NODE_DEFINITIONS, COL_GAP_PX, SketchPanelSettings, PlanPanelSettings, ViewpointPanelSettings,
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
   PlannerMessage, SavedInsightData, ElevationImages,
+  CadastralGeoJson,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
-import type { PrintDraftState } from '@cai-crete/print-components';
-import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
 import InfiniteCanvas    from '@/components/InfiniteCanvas';
@@ -137,6 +137,17 @@ export default function CanvasPage() {
   const [history,      setHistory]      = useState<{ nodes: CanvasNode[]; edges: CanvasEdge[] }[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  /* ── canvasStore 동기화 ──────────────────────────────────────────── */
+  // store가 updateNode를 호출할 때 React 상태로 역전파할 setter 등록
+  useEffect(() => {
+    useCanvasStore.getState().registerSetter(setNodes);
+    return () => { useCanvasStore.getState().registerSetter(null); };
+  }, []);
+  // nodes 변경 → store 동기화 (store→React 역전파 루프 없음)
+  useEffect(() => {
+    useCanvasStore.getState().syncNodes(nodes);
+  }, [nodes]);
+
   /* ── edges + 신규 엣지 애니메이션 ───────────────────────────────── */
   const [edges,      setEdges]      = useState<CanvasEdge[]>([]);
   const [newEdgeIds] = useState<Set<string>>(new Set());
@@ -152,9 +163,6 @@ export default function CanvasPage() {
   /* ── localStorage 복원 완료 플래그 (persist effect 선실행 방지) ─── */
   const isRestoredRef = useRef(false);
 
-  /* ── 드래그 중 IndexedDB 저장 억제 플래그 ─────────────────────── */
-  const isDraggingNodeRef = useRef(false);
-
   /* ── 줌 배율 버튼 사이클 상태 (0: idle, 1: fit-all, 2: focus-latest) */
   const zoomCycleStateRef = useRef(0);
   const savedViewRef      = useRef<{ scale: number; offset: { x: number; y: number } } | null>(null);
@@ -162,7 +170,6 @@ export default function CanvasPage() {
   /* ── 선택 / 확장 상태 ────────────────────────────────────────────── */
   const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
   const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
-  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'plan' | 'default'>('default');
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -184,8 +191,6 @@ export default function CanvasPage() {
 
   /* ── 통합 사이드바 상태 ──────────────────────────────────────────── */
   const [activeSidebarNodeType, setActiveSidebarNodeType] = useState<NodeType | null>(null);
-  const [printDraftState,       setPrintDraftState]       = useState<PrintDraftState | null>(null);
-  const [printAutoGenerate,     setPrintAutoGenerate]     = useState(false);
 
   /* ── Toast 시스템 ─────────────────────────────────────────────── */
   type ToastType = 'warning' | 'success';
@@ -208,18 +213,6 @@ export default function CanvasPage() {
   const selectedArtboardType: ArtboardType | null = selectedNodeId
     ? (nodes.find(n => n.id === selectedNodeId)?.artboardType ?? null)
     : null;
-
-  /* ── 선택 노드에 대응하는 활성 탭 힌트 (disabled 방지용, 시각 하이라이트 없음) */
-  const activeTabHint: NodeType | null = (() => {
-    if (!selectedNodeId) return null;
-    const node = nodes.find(n => n.id === selectedNodeId);
-    if (!node) return null;
-    if (
-      node.artboardType === 'image' &&
-      (node.type === 'plan' || node.type === 'image' || node.type === 'viewpoint')
-    ) return 'image';
-    return null;
-  })();
 
   /* ── history helpers ─────────────────────────────────────────────── */
   const pushHistory = useCallback((nextNodes: CanvasNode[], nextEdges?: CanvasEdge[]) => {
@@ -263,9 +256,9 @@ export default function CanvasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undo, redo, expandedNodeId]);
 
-  /* ── persist: nodes → IndexedDB (복원 완료 후, 드래그 중 제외) ── */
+  /* ── persist: nodes → IndexedDB (복원 완료 후에만) ─────────────── */
   useEffect(() => {
-    if (!isRestoredRef.current || isDraggingNodeRef.current) return;
+    if (!isRestoredRef.current) return;
     lfSaveNodes(nodes);
   }, [nodes]);
 
@@ -280,20 +273,6 @@ export default function CanvasPage() {
     if (!isRestoredRef.current) return;
     lsSaveView(scale, offset);
   }, [scale, offset]);
-
-  /* ── 드래그 중 포커스 상실 시 저장 억제 플래그 복구 ──────────── */
-  useEffect(() => {
-    const onBlur = () => {
-      if (isDraggingNodeRef.current) {
-        isDraggingNodeRef.current = false;
-        lfSaveNodes(nodes);
-      }
-    };
-    window.addEventListener('blur', onBlur);
-    return () => window.removeEventListener('blur', onBlur);
-  // nodes 최신값 필요 — 의도적 의존성
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes]);
 
   /* ── mount: IndexedDB 복원 → isRestoredRef = true ──────────────── */
   useEffect(() => {
@@ -434,22 +413,121 @@ export default function CanvasPage() {
     reader.readAsDataURL(file);
   }, [nodes, offset, scale, pushHistory]);
 
-  /* ── planners: 지적도 노드 자동 생성 ────────────────────────────── */
-  const handleCadastralDataReceived = useCallback((pnu: string | null, _landCount: number) => {
+  /* ── planners: 지적도 노드 + 3D 버드아이 뷰 노드 자동 생성 ──── */
+  const handleCadastralDataReceived = useCallback((
+    pnu: string | null,
+    geoJson: CadastralGeoJson | null,
+    mapCenter: { lng: number; lat: number } | null,
+  ) => {
     if (!expandedNodeId || !pnu) return;
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
-    const existing = currentNodes.filter(n => n.type === 'cadastral');
-    const num = existing.length + 1;
-    const newId = generateId();
-    const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
-    const newNode: CanvasNode = {
-      id: newId, type: 'cadastral',
-      title: `지적도 #${num}`,
-      position, instanceNumber: num, hasThumbnail: false, artboardType: 'image',
+
+    // 지적도 노드
+    const cadExisting = currentNodes.filter(n => n.type === 'cadastral');
+    const cadNum = cadExisting.length + 1;
+    const cadId = generateId();
+    const { position: cadPos, pushdowns: cadPushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+    const cadNode: CanvasNode = {
+      id: cadId, type: 'cadastral',
+      title: `지적도 #${cadNum}`,
+      position: cadPos, instanceNumber: cadNum, hasThumbnail: true, artboardType: 'image',
       parentId: expandedNodeId, autoPlaced: true,
       cadastralPnu: pnu,
+      cadastralGeoJson: geoJson,
+      cadastralMapCenter: mapCenter,
     };
+
+    // 3D 버드아이 뷰 노드 (mapCenter가 있을 때만)
+    const map3dNodes: CanvasNode[] = [];
+    const map3dEdges: CanvasEdge[] = [];
+    let map3dId: string | null = null;
+    if (mapCenter && geoJson) {
+      const m3dExisting = currentNodes.filter(n => n.type === 'map3d');
+      const m3dNum = m3dExisting.length + 1;
+      map3dId = generateId();
+      // cadNode를 포함한 노드 목록에서 다음 위치 계산
+      const nodesWithCad = [...currentNodes, cadNode];
+      const edgesWithCad = [...currentEdges, { id: generateId(), sourceId: expandedNodeId, targetId: cadId }];
+      const { position: m3dPos, pushdowns: m3dPushdowns } = placeNewChild(expandedNodeId, nodesWithCad, edgesWithCad);
+      const m3dNode: CanvasNode = {
+        id: map3dId, type: 'map3d',
+        title: `3D 버드아이 #${m3dNum}`,
+        position: m3dPos, instanceNumber: m3dNum, hasThumbnail: true, artboardType: 'image',
+        parentId: expandedNodeId, autoPlaced: true,
+        map3dBoundary: geoJson,
+        map3dCenter: mapCenter,
+        map3dHeading: null, // 도로 분석 완료 후 업데이트
+        map3dHeight: 500,
+      };
+      map3dNodes.push(m3dNode);
+      map3dEdges.push({ id: generateId(), sourceId: expandedNodeId, targetId: map3dId });
+      // m3dPushdowns 적용
+      if (m3dPushdowns.size > 0) {
+        // 나중에 전체 pushdown에서 처리
+      }
+    }
+
+    let nextNodes = [...currentNodes, cadNode, ...map3dNodes];
+    if (cadPushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = cadPushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+    const cadEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: cadId };
+    pushHistory(nextNodes, [...currentEdges, cadEdge, ...map3dEdges]);
+
+    // 비동기 도로 분석 → 3D 노드 heading 업데이트
+    if (map3dId && mapCenter && geoJson) {
+      const m3dIdCapture = map3dId;
+      // Planners 노드에서 대지면적 읽기 (브이월드 API)
+      const plannersNode = currentNodes.find(n => n.id === expandedNodeId);
+      const rawLandArea = plannersNode?.plannerInsightData?.landCharacteristics?.landArea;
+      const parsed = rawLandArea ? Number(String(rawLandArea).replace(/,/g, '')) : NaN;
+      const landAreaNum = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      console.log('[page] 3D Map 도로분석 시작 — rawLandArea:', rawLandArea, 'parsed:', parsed, 'landAreaNum:', landAreaNum);
+
+      import('@/planners/lib/roadApi').then(async ({ fetchRoads, calculateFacade }) => {
+        try {
+          const roads = await fetchRoads(mapCenter);
+          const facade = calculateFacade(geoJson, roads, landAreaNum);
+          useCanvasStore.getState().updateNode(m3dIdCapture, {
+            map3dHeading: facade.heading,
+            map3dHeight: facade.height,
+            map3dOffsetAngle: facade.offsetAngle,
+            map3dRoadInfo: facade.roadInfo,
+          });
+        } catch (e) {
+          console.error('[3D Map] 도로 분석 실패:', e);
+          // fallback — heading 0 (북쪽)
+          useCanvasStore.getState().updateNode(m3dIdCapture, { map3dHeading: 0, map3dRoadInfo: '도로 분석 실패' });
+        }
+      });
+    }
+  }, [expandedNodeId, nodes, pushHistory]);
+
+  /* ── 지적도 내보내기 (Export) ─────────────────────────────────────────── */
+  const handleExportCadastralImage = useCallback((base64Url: string) => {
+    if (!expandedNodeId) return;
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const origin = currentNodes.find(n => n.id === expandedNodeId);
+    if (!origin) return;
+
+    const num = currentNodes.filter(n => n.type === 'image').length + 1;
+    const newId = generateId();
+    const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+
+    const newNode: CanvasNode = {
+      id: newId, type: 'image',
+      title: `지적도 Export #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
+      parentId: expandedNodeId, autoPlaced: true,
+      thumbnailData: base64Url,
+      generatedImageData: base64Url,
+    };
+
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
       nextNodes = nextNodes.map(n => {
@@ -457,13 +535,48 @@ export default function CanvasPage() {
         return np ? { ...n, position: np } : n;
       });
     }
+
     const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
     pushHistory(nextNodes, [...currentEdges, newEdge]);
+    setExpandedNodeId(null);
+  }, [expandedNodeId, nodes, pushHistory]);
+
+  /* ── 3D 버드아이 내보내기 (Export → Image Node) ────────────────────────── */
+  const handleExportMap3dImage = useCallback((base64Url: string) => {
+    if (!expandedNodeId) return;
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const origin = currentNodes.find(n => n.id === expandedNodeId);
+    if (!origin) return;
+
+    const num = currentNodes.filter(n => n.type === 'image').length + 1;
+    const newId = generateId();
+    const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+
+    const newNode: CanvasNode = {
+      id: newId, type: 'image',
+      title: `3D View Export #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
+      parentId: expandedNodeId, autoPlaced: true,
+      thumbnailData: base64Url,
+      generatedImageData: base64Url,
+    };
+
+    let nextNodes = [...currentNodes, newNode];
+    if (pushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = pushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+
+    const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
+    pushHistory(nextNodes, [...currentEdges, newEdge]);
+    setExpandedNodeId(null);
   }, [expandedNodeId, nodes, pushHistory]);
 
   /* ── expand에서 돌아올 때 썸네일 생성 + planners 데이터 flush */
   const handleReturnFromExpand = useCallback(() => {
-    setExpandedViewMode('default');
     if (!expandedNodeId) { setExpandedNodeId(null); return; }
     const node = nodes.find(n => n.id === expandedNodeId);
     const isSketchImage = node?.artboardType === 'sketch' && node?.type === 'image';
@@ -492,8 +605,6 @@ export default function CanvasPage() {
 
     plannerMessagesRef.current    = [];
     plannerInsightDataRef.current = null;
-    setPrintDraftState(null);
-    setPrintAutoGenerate(false);
     setExpandedNodeId(null);
   }, [expandedNodeId, nodes, historyIndex]);
 
@@ -504,10 +615,10 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
-      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
-      if (sketchBase64 && n.artboardType !== 'image') {
+      if (sketchBase64) {
         updates.hasThumbnail  = true;
-        updates.thumbnailData = thumbnailBase64;
+        /* generatedImageData가 있으면 원본 AI 이미지를 썸네일로 유지, 없으면 100% zoom 썸네일 */
+        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -521,10 +632,9 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
-      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
-      if (sketchBase64 && n.artboardType !== 'image') {
+      if (sketchBase64) {
         updates.hasThumbnail  = true;
-        updates.thumbnailData = thumbnailBase64;
+        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -533,7 +643,7 @@ export default function CanvasPage() {
 
   /* ── sketch-plan GENERATE 완료 ─────────────────────────────────────── */
   const handleGeneratePlanComplete = useCallback(({
-    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
+    sketchBase64, thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
@@ -542,7 +652,13 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      /* 원본 노드는 변경하지 않음 — handleCollapseWithPlanSketch에서 이미 저장 완료 */
+      const updatedOrigin = {
+        ...origin,
+        hasThumbnail: true,
+        thumbnailData: thumbnailBase64,
+        sketchData: sketchBase64,
+      };
+
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -557,13 +673,14 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedPlanBase64,
+        sketchData: generatedPlanBase64,
         generatedImageData: generatedPlanBase64,
         roomAnalysis,
         parentId: nodeId,
         autoPlaced: true,
       };
 
-      const next = [...prev, newNode];
+      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
 
       const newEdge: CanvasEdge = {
         id: generateId(),
@@ -578,26 +695,12 @@ export default function CanvasPage() {
     });
   }, [pushHistory]);
 
-  /* ── print 노드 부분 업데이트 (savedState, selectedImages 등) ──────── */
-  const handlePrintNodeUpdate = useCallback((updates: Partial<CanvasNode>) => {
-    if (!expandedNodeId) return;
-    setNodes(prev => prev.map(n =>
-      n.id === expandedNodeId ? { ...n, ...updates } : n
-    ));
-  }, [expandedNodeId]);
-
   /* ── print GENERATE 완료 → 노드 썸네일 업데이트 ────────────────────── */
   const handleGeneratePrintComplete = useCallback(({ thumbnailBase64 }: { thumbnailBase64: string }) => {
     if (!expandedNodeId) return;
     setNodes(prev => prev.map(n =>
       n.id === expandedNodeId
-        ? {
-            ...n,
-            hasThumbnail: true,
-            thumbnailData: thumbnailBase64,
-            // thumbnailData를 덮어쓰기 전에 원본 소스 이미지를 generatedImageData에 보존
-            generatedImageData: n.generatedImageData ?? n.thumbnailData,
-          }
+        ? { ...n, hasThumbnail: true, thumbnailData: thumbnailBase64, generatedImageData: thumbnailBase64 }
         : n
     ));
   }, [expandedNodeId]);
@@ -663,12 +766,10 @@ export default function CanvasPage() {
 
   /* ── node position ───────────────────────────────────────────────── */
   const updateNodePosition = useCallback((id: string, pos: { x: number; y: number }) => {
-    isDraggingNodeRef.current = true;
     setNodes(prev => prev.map(n => n.id === id ? { ...n, position: pos } : n));
   }, []);
 
   const commitNodePosition = useCallback((id: string) => {
-    isDraggingNodeRef.current = false;
     setNodes(prev => {
       const next = prev.map(n => n.id === id ? { ...n, autoPlaced: false } : n);
       setHistory(h => [...h.slice(0, historyIndex + 1), { nodes: next, edges: edgesRef.current }]);
@@ -681,89 +782,8 @@ export default function CanvasPage() {
   const handleNodeTabSelect = useCallback((type: NodeType) => {
     const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
 
-    /* print + image 아트보드 선택(단일/다중) → print 노드 생성 + expanded 진입 (이미지 사전 로드) */
-    if (type === 'print') {
-      const imageNodes = selectedNodeIds
-        .map(id => nodes.find(n => n.id === id))
-        .filter((n): n is CanvasNode => !!n && n.artboardType === 'image');
-
-      if (imageNodes.length > 0) {
-        const currentNodes = nodes;
-        const currentEdges = edgesRef.current;
-        const num = currentNodes.filter(n => n.type === 'print').length + 1;
-        const newId = generateId();
-        const { position, pushdowns } = placeNewChild(imageNodes[0].id, currentNodes, currentEdges);
-
-        const preloadedImages = imageNodes.flatMap(n => {
-          const raw = n.generatedImageData ?? n.thumbnailData;
-          return raw ? [nodeImageToSelectedImage(raw, n.id)] : [];
-        });
-
-        const printNode: CanvasNode = {
-          id: newId, type: 'print',
-          title: `${NODE_DEFINITIONS['print'].caption} #${num}`,
-          position, instanceNumber: num, hasThumbnail: false,
-          artboardType: 'thumbnail',
-          parentId: imageNodes[0].id, autoPlaced: true,
-          printSelectedImages: preloadedImages,
-        };
-
-        let nextNodes = [...currentNodes, printNode];
-        if (pushdowns.size > 0) {
-          nextNodes = nextNodes.map(n => {
-            const np = pushdowns.get(n.id);
-            return np ? { ...n, position: np } : n;
-          });
-        }
-
-        const newEdges: CanvasEdge[] = imageNodes.map(imgNode => ({
-          id: generateId(), sourceId: imgNode.id, targetId: newId,
-        }));
-
-        pushHistory(nextNodes, [...currentEdges, ...newEdges]);
-        setExpandedNodeId(newId);
-        setActiveSidebarNodeType(null);
-        return;
-      }
-    }
-
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
-      /* PLAN 탭 + image 아트보드 노드(plan/image/viewpoint) → Plan ExpandedView */
-      if (
-        type === 'plan' &&
-        selectedNode.artboardType === 'image' &&
-        (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
-      ) {
-        setExpandedViewMode('plan');
-        setExpandedNodeId(selectedNode.id);
-        setActiveSidebarNodeType(null);
-        return;
-      }
-
-      /* IMAGE 탭 + plan/image/viewpoint 노드(artboardType=image) → Image ExpandedView */
-      if (
-        type === 'image' &&
-        selectedNode.artboardType === 'image' &&
-        (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
-      ) {
-        setExpandedViewMode('image');
-        setExpandedNodeId(selectedNode.id);
-        setActiveSidebarNodeType(null);
-        return;
-      }
-
-      /* planners: 선택 노드가 planners면 expand, 그 외에는 새 planners 자식 노드 생성 */
-      if (type === 'planners') {
-        if (selectedNode.type === 'planners') {
-          setExpandedNodeId(selectedNode.id);
-        } else {
-          createAndExpandNode('planners');
-        }
-        setActiveSidebarNodeType(null);
-        return;
-      }
-
       /* viewpoint: 사이드바 패널 토글 (ExpandedView 없음) */
       if (type === 'viewpoint') {
         if (selectedNode.artboardType === 'image') {
@@ -832,51 +852,30 @@ export default function CanvasPage() {
       return;
     }
     setActiveSidebarNodeType(prev => prev === type ? null : type);
-  }, [selectedNodeId, selectedNodeIds, nodes, pushHistory, createAndExpandNode, createChildNode, showToast]);
+  }, [selectedNodeId, nodes, pushHistory, createAndExpandNode, createChildNode]);
 
   /* ── "→" 버튼: 사이드바 패널에서 expand 진입 ──────────────────────── */
   const handleNavigateToExpand = useCallback((type: NodeType) => {
     if (NODES_NAVIGATE_DISABLED.includes(type)) return;
     if (selectedNodeId) {
       const selected = nodes.find(n => n.id === selectedNodeId);
-      if (selected) {
-        const isImageResultNode =
-          type === 'image' &&
-          selected.artboardType === 'image' &&
-          (selected.type === 'image' || selected.type === 'viewpoint' || selected.type === 'plan');
-        if (selected.type === type || isImageResultNode) {
-          setExpandedViewMode(type === 'image' ? 'image' : 'default');
-          setExpandedNodeId(selectedNodeId);
-          setActiveSidebarNodeType(null);
-          return;
-        }
+      if (selected && selected.type === type) {
+        setExpandedNodeId(selectedNodeId);
+        setActiveSidebarNodeType(null);
+        return;
       }
     }
-    setExpandedViewMode('default');
     createAndExpandNode(type);
   }, [selectedNodeId, nodes, createAndExpandNode]);
-
-  /* ── print 사이드바 액션 (generate / export) ─────────────────────── */
-  const handlePrintSidebarAction = useCallback((action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => {
-    if (!selectedNodeId) return;
-    if (action === 'generate') {
-      setPrintDraftState(draft);
-      setPrintAutoGenerate(true);
-    } else {
-      setPrintAutoGenerate(false);
-    }
-    setExpandedNodeId(selectedNodeId);
-    setActiveSidebarNodeType(null);
-  }, [selectedNodeId]);
 
   /* ── 썸네일 단일 클릭 → 선택 + 패널 열기 ───────────────────────── */
   const handleNodeCardSelect = useCallback((id: string) => {
     const node = nodes.find(n => n.id === id);
     if (!node) return;
     setSelectedNodeIds([id]);
-    /* thumbnail 아트보드: 노드 종류별 패널 표시 (print와 planners 구분) */
+    /* thumbnail 아트보드: 자동으로 PLANNERS 패널 표시 */
     if (node.artboardType === 'thumbnail') {
-      setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
+      setActiveSidebarNodeType('planners');
     } else {
       setActiveSidebarNodeType(null);
     }
@@ -919,16 +918,24 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
+    sketchBase64, thumbnailBase64, generatedBase64, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
     setNodes(prev => {
+      /* 원본 노드: sketchData + thumbnailData(100% zoom) 업데이트 */
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      /* 원본 노드는 변경하지 않음 — handleCollapseWithSketch에서 이미 저장 완료 */
+      const updatedOrigin = {
+        ...origin,
+        hasThumbnail: true,
+        thumbnailData: thumbnailBase64,
+        sketchData: sketchBase64,
+      };
+
+      /* 새 노드: 생성 이미지 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -943,13 +950,15 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedBase64,
+        sketchData: generatedBase64,
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,
       };
 
-      const next = [...prev, newNode];
+      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
 
+      /* edge 생성 */
       const newEdge: CanvasEdge = {
         id: generateId(),
         sourceId: nodeId,
@@ -1153,7 +1162,6 @@ export default function CanvasPage() {
       {expandedNode ? (
         <ExpandedView
           node={expandedNode}
-          viewMode={expandedViewMode}
           onCollapse={handleReturnFromExpand}
           onCollapseWithSketch={handleCollapseWithSketch}
           onGenerateError={handleGenerateError}
@@ -1175,14 +1183,13 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
-          onPrintNodeUpdate={handlePrintNodeUpdate}
-          autoGeneratePrint={printAutoGenerate}
-          printDraftState={printDraftState}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
           initialInsightData={expandedNode?.plannerInsightData}
           onCadastralDataReceived={handleCadastralDataReceived}
+          onExportCadastralImage={handleExportCadastralImage}
+          onExportMap3dImage={handleExportMap3dImage}
         />
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -1201,7 +1208,7 @@ export default function CanvasPage() {
             onNodeSelect={handleNodeCardSelect}
             onNodeDeselect={handleNodeDeselect}
             onNodesSelect={handleNodesSelect}
-            onNodeExpand={(id) => { setExpandedViewMode('default'); setExpandedNodeId(id); }}
+            onNodeExpand={setExpandedNodeId}
             onNodeDuplicate={duplicateNode}
             onNodeDelete={deleteNode}
           />
@@ -1224,7 +1231,6 @@ export default function CanvasPage() {
           <RightSidebar
             activeSidebarNodeType={activeSidebarNodeType}
             selectedArtboardType={selectedArtboardType}
-            activeTabHint={activeTabHint}
             onNodeTabSelect={handleNodeTabSelect}
             onNavigateToExpand={handleNavigateToExpand}
             hasSelectedArtboard={selectedNodeId !== null}
@@ -1235,8 +1241,6 @@ export default function CanvasPage() {
             isViewpointGenerating={isGenerating}
             viewpointReport={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.viewpointReport : undefined}
             plannerMessages={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.plannerMessages : undefined}
-            printSavedState={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.printSavedState : undefined}
-            onPrintAction={handlePrintSidebarAction}
           />
         </div>
       )}

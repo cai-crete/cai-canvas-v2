@@ -1,7 +1,9 @@
 'use client';
 
-import { memo, useRef } from 'react';
-import { CanvasNode, NODE_DEFINITIONS, PortShape, ArtboardType, ARTBOARD_LABEL, NODE_GENERATED_LABEL, NODE_TARGET_ARTBOARD_TYPE } from '@/types/canvas';
+import { useRef } from 'react';
+import { useCanvasStore } from '@/store/canvas';
+import { CanvasNode, NODE_DEFINITIONS, PortShape, ArtboardType, ARTBOARD_LABEL, NODE_GENERATED_LABEL, NODE_TARGET_ARTBOARD_TYPE, PlannerMessage } from '@/types/canvas';
+import { CadastralMapView } from './CadastralMapView';
 
 interface Props {
   node: CanvasNode;
@@ -15,6 +17,7 @@ interface Props {
   artboardType: ArtboardType;
   portLeft?: PortShape;
   portRight?: PortShape;
+  plannerMessages?: PlannerMessage[];
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -51,6 +54,83 @@ const IconExpand = () => (
   </svg>
 );
 
+/* shortFinalOutput 문자열 → bullet 배열 파싱 */
+function parseShortFinal(text: string): string[] {
+  const items = text.split(/(?=\[)/).map(s => s.trim()).filter(Boolean);
+  return items.slice(0, 4);
+}
+
+/* PLANNERS 썸네일 컴포넌트 */
+function PlannersThumbnail({ messages }: { messages: PlannerMessage[] }) {
+  const lastAi = [...messages].reverse().find(m => m.type === 'ai');
+  const lastUser = [...messages].reverse().find(m => m.type === 'user');
+  const data = lastAi?.type === 'ai' ? lastAi.data as Record<string, unknown> : null;
+  const shortFinal = data?.shortFinalOutput as string | undefined;
+  const bullets = shortFinal ? parseShortFinal(shortFinal) : [];
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      background: 'var(--color-white)',
+      overflow: 'hidden',
+    }}>
+      {/* 헤더 — PLANNERS 로고 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '7px 10px 6px',
+        borderBottom: '1px solid var(--color-gray-100)',
+        flexShrink: 0,
+      }}>
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gray-500)', flexShrink: 0 }}>
+          <rect x="2" y="3" width="12" height="10" rx="2" />
+          <path d="M5 3V2M11 3V2M5 8h6M5 11h4" />
+        </svg>
+        <span style={{ fontSize: '0.55rem', fontWeight: 900, letterSpacing: '0.1em', color: 'var(--color-gray-500)', textTransform: 'uppercase' }}>
+          Planners
+        </span>
+      </div>
+
+      {/* 바디 */}
+      <div style={{ flex: 1, padding: '7px 10px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {/* 마지막 질문 */}
+        {lastUser?.type === 'user' && (
+          <p style={{ fontSize: '0.5rem', color: 'var(--color-gray-400)', margin: 0, lineHeight: 1.4,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Q. {lastUser.text}
+          </p>
+        )}
+        {/* shortFinal 버렛 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {bullets.map((b, i) => {
+            const bracket = b.match(/^\[([^\]]+)\]/);
+            const label = bracket?.[1] ?? '';
+            const rest  = bracket ? b.slice(bracket[0].length).trim() : b;
+            return (
+              <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.45rem', fontWeight: 900, color: 'var(--color-black)',
+                  background: 'var(--color-gray-100)', borderRadius: 2, padding: '1px 3px',
+                  lineHeight: 1.4, flexShrink: 0, maxWidth: 60, whiteSpace: 'nowrap',
+                  overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {label}
+                </span>
+                <span style={{ fontSize: '0.45rem', color: 'var(--color-gray-500)', lineHeight: 1.5,
+                  overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical' as const }}>
+                  {rest}
+                </span>
+              </div>
+            );
+          })}
+          {bullets.length === 0 && (
+            <span style={{ fontSize: '0.5rem', color: 'var(--color-gray-300)' }}>분석 완료</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CARD_W_REM = '17.5rem';
 const CARD_H_REM = '12.375rem';
 const PORT_SIZE  = 8;
@@ -75,10 +155,11 @@ function PortIndicator({ shape, side }: { shape: PortShape; side: 'left' | 'righ
   return <div style={{ ...base, borderRadius: '50%', transform: 'translateY(-50%)' }} />;
 }
 
-function NodeCard({
+export default function NodeCard({
   node, isSelected, onSelect, onExpand, onDuplicate, onDelete, onMouseDown, hasThumbnail,
   artboardType,
   portLeft = 'none', portRight = 'none',
+  plannerMessages,
 }: Props) {
   const { id, type } = node;
   const def = NODE_DEFINITIONS[type];
@@ -89,7 +170,6 @@ function NodeCard({
   const handleArtboardPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
     onMouseDown(id, e);
   };
@@ -199,10 +279,8 @@ function NodeCard({
 
       {/* ── 아트보드 ─────────────────────────────────────────────── */}
       <div
-        draggable={false}
         onPointerDown={handleArtboardPointerDown}
         onPointerUp={handleArtboardPointerUp}
-        onDragStart={e => e.preventDefault()}
         style={{
           width: CARD_W_REM,
           height: CARD_H_REM,
@@ -260,6 +338,37 @@ function NodeCard({
         {isBlank ? (
           /* blank: 빈 플레이스홀더 */
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+        ) : (artboardType === 'thumbnail' && plannerMessages && plannerMessages.length > 0) ? (
+          /* Planners 썸네일 */
+          <PlannersThumbnail messages={plannerMessages} />
+        ) : (node.type === 'cadastral' && node.cadastralGeoJson && node.cadastralMapCenter) ? (
+          /* 지적도 라이브 썸네일 (최초 1회 캡처용, 캡처 완료 시 이미지 대체로 렉 방지) */
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            {node.thumbnailData ? (
+              <img
+                src={node.thumbnailData}
+                alt="지적도 썸네일"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <CadastralMapView
+                boundary={node.cadastralGeoJson}
+                center={node.cadastralMapCenter}
+                tmsType="Vector"
+                showSurrounding={true}
+                showLotNumbers={false}
+                fillSelected={false}
+                zoomPadding={0.5}
+                hideControls={true}
+                className="w-full h-full"
+                onThumbnailCaptured={(base64Url) => {
+                  if (!node.thumbnailData) {
+                    useCanvasStore.getState().updateNode(node.id, { thumbnailData: base64Url });
+                  }
+                }}
+              />
+            )}
+          </div>
         ) : (artboardType === 'image' && node.thumbnailData) ? (
           /* image 아트보드 + 데이터 있음 */
           <img
@@ -275,7 +384,7 @@ function NodeCard({
           /* 기타 아트보드 썸네일 */
           node.thumbnailData ? (
             <img
-              src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : `data:image/png;base64,${node.thumbnailData}`}
+              src={`data:image/png;base64,${node.thumbnailData}`}
               alt={def.displayLabel}
               style={{
                 position: 'absolute', inset: 0,
@@ -324,21 +433,15 @@ function NodeCard({
           </div>
         )}
 
-        {/* ── 아트보드 유형 배지 (blank 제외) — 클릭 시 ExpandedView 진입 ── */}
+        {/* ── 아트보드 유형 배지 (blank 제외) ────────────────────── */}
         {!isBlank && (
-          <button
-            onClick={e => { e.stopPropagation(); onExpand(id); }}
-            onPointerDown={e => e.stopPropagation()}
+          <div
             style={{
               position: 'absolute',
               bottom: 8,
               left: 10,
+              pointerEvents: 'none',
               zIndex: 6,
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              pointerEvents: 'all',
             }}
           >
             <span
@@ -350,10 +453,10 @@ function NodeCard({
               }}
             >
               {artboardType === NODE_TARGET_ARTBOARD_TYPE[node.type]
-                ? (NODE_GENERATED_LABEL[node.type] || ARTBOARD_LABEL[artboardType as Exclude<typeof artboardType, 'blank'>])
-                : ARTBOARD_LABEL[artboardType as Exclude<typeof artboardType, 'blank'>]}
+                ? (NODE_GENERATED_LABEL[node.type] || ARTBOARD_LABEL[artboardType])
+                : ARTBOARD_LABEL[artboardType]}
             </span>
-          </button>
+          </div>
         )}
       </div>
 
@@ -363,5 +466,3 @@ function NodeCard({
     </div>
   );
 }
-
-export default memo(NodeCard);
