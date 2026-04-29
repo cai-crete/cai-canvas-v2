@@ -6,12 +6,12 @@ interface InfiniteGridProps {
 }
 
 export function InfiniteGrid({ zoom, offset }: InfiniteGridProps) {
-  const minor = Math.round(12 * (zoom / 100));
+  const minor = 12 * (zoom / 100);
   const major = minor * 5;
   const showMinor = minor >= 6;
 
-  const bpx = Math.round(offset.x);
-  const bpy = Math.round(offset.y);
+  const bpx = offset.x;
+  const bpy = offset.y;
 
   const lineColor      = 'rgba(0,0,0,0.04)';
   const lineColorMajor = 'rgba(0,0,0,0.14)';

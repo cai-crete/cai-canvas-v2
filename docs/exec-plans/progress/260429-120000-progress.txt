@@ -1,3 +1,4 @@
+
 날짜: 2026-04-29
 세션: Phase 1 — Render Express 서버 구축 완료
 
@@ -50,3 +51,61 @@ Phase 2 완료 절차:
    NEXT_PUBLIC_RENDER_HEALTH_URL = https://{your-app}.onrender.com
 5. GET https://{your-app}.onrender.com/health → { status: 'ok' } 확인
 6. Vercel 재배포 후 전체 E2E 테스트
+
+작업: Zoom 동기화 & 스케치 영속성 수정
+
+방금 완료한 작업:
+
+[정리] docs/exec-plans/progress/old/
+  - 260426-* 파일 6개 → old/ 로 이동
+
+[Bug A] SketchCanvas.tsx — reference image CSS transform wrapper 교체
+  - 기존: explicit px 좌표 (left: ox - cw*zs/2, width: cw*zs) → canvas와 별도 계산
+  - 변경: CSS transform wrapper (position:absolute, left:0, top:0, transformOrigin:'0 0',
+           transform: translate(${ox}px, ${oy}px) scale(${zs}))
+  - 내부 image div: left:-cw/2, top:-ch/2, width:cw, height:ch (world 좌표)
+  - 결과: canvas ctx.translate/scale과 동일한 변환 → 동기화 보장
+
+[Bug A] InfiniteGrid.tsx — Math.round 제거
+  - minor, bpx, bpy에서 Math.round 제거 → sub-pixel 오차 해소
+  - grid와 canvas 정밀도 일치
+
+[Bug B] SketchCanvas.tsx
+  - SketchState import from @/types/canvas (로컬 정의 제거)
+  - textItemsRef 추가 (useEffect로 textItems 미러링)
+  - SketchCanvasHandle에 exportState() / loadState() 추가
+  - useImperativeHandle에 구현: exportState는 현재 paths/uploadedImageData/imageTransform/textItems 반환
+    loadState는 state 복원 후 undo 스택 초기화
+
+[Bug B] types/canvas.ts
+  - SketchState 인터페이스 추가 (paths, uploadedImageData, imageTransform, textItems)
+  - CanvasNode에 sketchPaths?: SketchState 필드 추가
+
+[Bug B] sketch-to-image/ExpandedView.tsx
+  - onCollapseWithSketch 시그니처에 sketchPaths?: SketchState 추가
+  - expand useEffect: node.sketchPaths 있으면 loadState() 우선, 없으면 기존 loadImage() 폴백
+  - handleSketchCollapse: exportState() 호출 후 onCollapseWithSketch에 전달
+
+[Bug B] sketch-to-plan/ExpandedView.tsx
+  - 동일한 패턴으로 처리 (onCollapseWithPlanSketch, handlePlanCollapse)
+
+[Bug B] components/ExpandedView.tsx (wrapper)
+  - onCollapseWithSketch, onCollapseWithPlanSketch 시그니처 업데이트
+
+[Bug B] app/page.tsx
+  - SketchState import 추가
+  - handleCollapseWithSketch: sketchPaths 파라미터 받아 updates.sketchPaths에 저장
+  - handleCollapseWithPlanSketch: 동일 처리
+
+TypeScript: 오류 없음 확인
+
+완료 상태:
+  [x] 260426-* 정리
+  [x] Bug A 수정 (CSS wrapper + InfiniteGrid precision)
+  [x] Bug B 수정 (sketchPaths 영속성 전체)
+  [x] TS 오류 없음
+  [x] exec plan → completed/ 이동
+
+다음에 할 일:
+  - iPad/browser에서 테스트 후 커밋 요청 시 진행
+

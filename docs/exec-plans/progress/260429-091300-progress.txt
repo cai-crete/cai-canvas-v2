@@ -1,0 +1,32 @@
+작업: 태블릿 펜슬 드래그 시 Safari OOM 충돌 수정
+
+방금 완료한 작업:
+
+1. [Fix 1] InfiniteCanvas.tsx — RAF 쓰로틀
+   - dragRafRef, dragPendingPos ref 추가
+   - onMove 내 onNodePositionChange 호출을 requestAnimationFrame으로 래핑 (240Hz → 60Hz)
+   - pointerup(onUp)에서 cancelAnimationFrame + 즉시 플러시 안전장치 추가
+
+2. [Fix 2] page.tsx — 드래그 중 IndexedDB 저장 억제
+   - isDraggingNodeRef 추가
+   - updateNodePosition에서 isDraggingNodeRef.current = true
+   - commitNodePosition에서 isDraggingNodeRef.current = false
+   - persist effect에 isDraggingNodeRef 가드 추가
+   - window blur 이벤트로 ref 고착 방지 + 강제 저장 안전장치
+
+3. [Fix 3] NodeCard.tsx — React.memo 래핑
+   - memo import 추가
+   - export default memo(NodeCard)
+
+커밋: 9d15839 — perf: fix tablet pencil drag OOM crash on Safari iPad
+배포: Vercel (push → main)
+
+완료 상태:
+  [x] 세 파일 수정 완료
+  [x] TypeScript 타입 오류 없음 확인
+  [x] 커밋 및 Vercel push 완료
+  [x] exec plan completed/ 이동
+
+다음에 할 일:
+  - iPad에서 Apple Pencil로 노드 카드 드래그 테스트 (업로드 이미지 노드 포함)
+  - 충돌 재현 여부 확인

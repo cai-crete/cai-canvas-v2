@@ -1,0 +1,35 @@
+작업: ExpandedView 줌 분리 & iPad Palm Touch 드래그 버그 수정
+
+방금 완료한 작업:
+
+[Bug 1] SketchCanvas.tsx — referenceImageUrl transform 수정
+  - 기존: CSS transform(translate+scale) with transformOrigin:center — 스케치와 zoom center 불일치 가능
+  - 변경: 명시적 픽셀 좌표 (left: ox - cw*zs/2, top: oy - ch*zs/2, width: cw*zs, height: ch*zs)
+  - 스케치 캔버스의 ox/oy/zs/cw/ch와 동일한 값 사용 → 줌 시 완전히 동기화
+
+[Bug 2] SketchCanvas.tsx — Palm Touch preventDefault
+  - handlePointerDown: touch & penActive → e.preventDefault() 추가
+  - handlePointerMove: touch & penActive → e.preventDefault() 추가
+  - useEffect: native touchstart/touchmove addEventListener (passive:false) + penActive 가드 추가
+  - canvas에 onContextMenu={e => e.preventDefault()} 추가
+
+[Bug 2] InfiniteCanvas.tsx — Palm Touch preventDefault
+  - penActiveRef 추가
+  - handleWrapperPointerDown: pen pointerdown → penActiveRef.current = true
+  - handleNodeMouseDown: pen pointerdown → penActiveRef.current = true
+  - global onUp: pen pointerup → penActiveRef.current = false
+  - useEffect wheel: native touchstart/touchmove addEventListener (passive:false) + penActive 가드 추가
+
+[Bug 2] LeftToolbar.tsx — 드래그 방지
+  - pill 컨테이너에 userSelect:none, WebkitUserSelect:none, touchAction:none, onContextMenu 추가
+
+TypeScript: 오류 없음 확인
+
+완료 상태:
+  [x] Bug 1 수정
+  [x] Bug 2 수정 (SketchCanvas, InfiniteCanvas, LeftToolbar)
+  [x] TS 오류 없음
+
+다음에 할 일:
+  - 사용자가 iPad에서 테스트 후 커밋/배포 명령 시 진행
+  - exec plan → completed/ 이동 (커밋 시)

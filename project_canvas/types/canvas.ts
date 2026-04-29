@@ -1,5 +1,13 @@
 import type { SelectedImage, PrintSavedState } from '@cai-crete/print-components';
 
+/* 스케치 캔버스 벡터 상태 (paths + text + image transform) */
+export interface SketchState {
+  paths: { tool: 'pen' | 'eraser'; points: { x: number; y: number }[]; strokeWidth: number; color: string }[];
+  uploadedImageData: string | null;
+  imageTransform: { x: number; y: number; width: number; height: number; rotation: number } | null;
+  textItems: { id: string; x: number; y: number; width: number; height: number; text: string }[];
+}
+
 /* 노드 카드 규격 (rem → px @ 16px base) */
 export const CARD_W_PX  = 280; // 17.5rem
 export const CARD_H_PX  = 198; // 12.375rem
@@ -150,7 +158,8 @@ export interface CanvasNode {
   hasThumbnail: boolean;
   artboardType: ArtboardType;  // 아트보드 컨테이너 유형
   thumbnailData?: string;
-  sketchData?: string;          // 드로잉 base64 (sketch→image 원본)
+  sketchData?: string;          // 드로잉 base64 (sketch→image 원본, API 전송용)
+  sketchPaths?: SketchState;    // 스케치 벡터 상태 (편집 복원용)
   generatedImageData?: string;  // 생성 결과 base64
   sketchPanelSettings?: SketchPanelSettings;       // 패널 설정 복원용
   planPanelSettings?: PlanPanelSettings;           // 플랜 패널 설정 복원용

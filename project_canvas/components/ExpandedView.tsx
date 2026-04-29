@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { CanvasNode, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings, PlannerMessage, SavedInsightData } from '@/types/canvas';
+import { CanvasNode, NODE_DEFINITIONS, ActiveTool, SketchPanelSettings, PlanPanelSettings, PlannerMessage, SavedInsightData, SketchState } from '@/types/canvas';
 import LeftToolbar from '@/components/LeftToolbar';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchToImageExpandedView from '@/sketch-to-image/ExpandedView';
@@ -17,8 +17,8 @@ interface Props {
   node: CanvasNode;
   viewMode?: 'image' | 'plan' | 'default';
   onCollapse: () => void;
-  onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings) => void;
-  onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings) => void;
+  onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings, sketchPaths?: SketchState) => void;
+  onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings, sketchPaths?: SketchState) => void;
   onGenerateError?: (nodeId: string) => void;
   onAbortControllerReady?: (ctrl: AbortController) => void;
   activeTool: ActiveTool;

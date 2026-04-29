@@ -5,6 +5,7 @@ import {
   useImperativeHandle, forwardRef,
 } from 'react';
 import { InfiniteGrid } from '@/components/InfiniteGrid';
+import type { SketchState } from '@/types/canvas';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 export type SketchTool = 'cursor' | 'pan' | 'pen' | 'eraser' | 'text';
@@ -46,6 +47,8 @@ export interface SketchCanvasHandle {
   loadImage: (base64: string, removeBackground?: boolean, fitCanvas?: boolean) => void;
   undo: () => void;
   redo: () => void;
+  exportState: () => SketchState;
+  loadState: (state: SketchState) => void;
 }
 
 interface Props {
@@ -246,13 +249,17 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   const isDrawing     = useRef(false);
   const currentPath   = useRef<Path | null>(null);
   const pathsRef      = useRef<Path[]>([]);
-  const uploadImgRef  = useRef<string | null>(null);
+  const uploadImgRef   = useRef<string | null>(null);
+  const textItemsRef   = useRef<TextItem[]>([]);
   useEffect(() => { pathsRef.current     = paths;             }, [paths]);
   useEffect(() => { uploadImgRef.current = uploadedImageData; }, [uploadedImageData]);
+  useEffect(() => { textItemsRef.current = textItems;         }, [textItems]);
 
   /* ── Uploaded image element ─────────────────────────────────────── */
-  const uploadedImgElRef    = useRef<HTMLImageElement | null>(null);
+  const uploadedImgElRef     = useRef<HTMLImageElement | null>(null);
   const fitCanvasNextLoadRef = useRef(false);
+  /* loadState 호출 시 uploadedImageData 변경이 transform을 덮어쓰지 않도록 보호 */
+  const keepTransformNextLoadRef = useRef(false);
   useEffect(() => {
     if (!uploadedImageData) {
       uploadedImgElRef.current = null;
@@ -262,6 +269,19 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const img = new Image();
     img.onload = () => {
       uploadedImgElRef.current = img;
+
+      /* loadState 복원 시: 저장된 transform을 그대로 유지 */
+      if (keepTransformNextLoadRef.current) {
+        keepTransformNextLoadRef.current = false;
+        /* undo stack 최신 항목의 imageTransform 반영 */
+        if (undoStack.current.length > 0) {
+          const last = undoStack.current[undoStack.current.length - 1];
+          undoStack.current[undoStack.current.length - 1] = {
+            ...last, imageTransform: imageTransformRef.current,
+          };
+        }
+        return;
+      }
 
       let newTransform: ImageTransform;
       if (fitCanvasNextLoadRef.current) {
@@ -409,7 +429,10 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
 
   /* ── Pointer handlers ───────────────────────────────────────────── */
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && penActiveRef.current) return;
+    if (e.pointerType === 'touch' && penActiveRef.current) {
+      e.preventDefault();
+      return;
+    }
 
     if (e.button === 1) {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -505,7 +528,10 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   }, [activeTool, editingTextId, textItems, internalZoom, toWorld, penStrokeWidth, eraserStrokeWidth]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch' && penActiveRef.current) return;
+    if (e.pointerType === 'touch' && penActiveRef.current) {
+      e.preventDefault();
+      return;
+    }
 
     if (e.pointerType === 'touch') {
       pointerPositions.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -749,11 +775,19 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
 
     const onMouseDown = (e: MouseEvent) => { if (e.button === 1) e.preventDefault(); };
 
-    container.addEventListener('wheel', onWheel, { passive: false });
-    container.addEventListener('mousedown', onMouseDown);
+    /* pen 활성 중 palm touch → Safari 웹 드래그/선택 방지 */
+    const onTouchStart = (e: TouchEvent) => { if (penActiveRef.current) e.preventDefault(); };
+    const onTouchMove  = (e: TouchEvent) => { if (penActiveRef.current) e.preventDefault(); };
+
+    container.addEventListener('wheel',      onWheel,      { passive: false });
+    container.addEventListener('mousedown',  onMouseDown);
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove',  onTouchMove,  { passive: false });
     return () => {
-      container.removeEventListener('wheel', onWheel);
-      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('wheel',      onWheel);
+      container.removeEventListener('mousedown',  onMouseDown);
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove',  onTouchMove);
     };
   }, [onInternalZoomChange, onInternalOffsetChange, clampOffset]);
 
@@ -771,20 +805,19 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, offscreen.width, offscreen.height);
 
-    const expZs = 1;
-    const expOx = canvas.width  / 2;
-    const expOy = canvas.height / 2;
+    const expZs = internalZoom / 100;
+    const expOx = internalOffset.x + canvas.width  / 2;
+    const expOy = internalOffset.y + canvas.height / 2;
 
     const imgEl = uploadedImgElRef.current;
     const ct    = imageTransformRef.current;
     if (imgEl && ct) {
-      const fillScale = Math.max(offscreen.width / ct.width, offscreen.height / ct.height);
-      const drawW = ct.width  * fillScale;
-      const drawH = ct.height * fillScale;
+      const cx = expOx + (ct.x + ct.width  / 2) * expZs;
+      const cy = expOy + (ct.y + ct.height / 2) * expZs;
       ctx.save();
-      ctx.translate(offscreen.width / 2, offscreen.height / 2);
+      ctx.translate(cx, cy);
       ctx.rotate(ct.rotation * Math.PI / 180);
-      ctx.drawImage(imgEl, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.drawImage(imgEl, -ct.width * expZs / 2, -ct.height * expZs / 2, ct.width * expZs, ct.height * expZs);
       ctx.restore();
     }
 
@@ -911,6 +944,35 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     },
     undo: handleUndo,
     redo: handleRedo,
+    exportState: (): SketchState => ({
+      paths: pathsRef.current,
+      uploadedImageData: uploadImgRef.current,
+      imageTransform: imageTransformRef.current,
+      textItems: textItemsRef.current,
+    }),
+    loadState: (state: SketchState) => {
+      setPaths(state.paths);
+      setTextItems(state.textItems);
+      setImageEditingActive(false);
+      applyImageTransform(state.imageTransform);
+      if (state.uploadedImageData) {
+        const dataUrl = state.uploadedImageData.startsWith('data:')
+          ? state.uploadedImageData
+          : `data:image/png;base64,${state.uploadedImageData}`;
+        /* useEffect([uploadedImageData])가 transform을 덮어쓰지 않도록 보호 */
+        keepTransformNextLoadRef.current = true;
+        setUploadedImageData(dataUrl);
+      } else {
+        setUploadedImageData(null);
+      }
+      undoStack.current = [{
+        paths: state.paths,
+        uploadedImageData: state.uploadedImageData,
+        imageTransform: state.imageTransform,
+      }];
+      redoStack.current = [];
+      notifyHistory();
+    },
   }), [exportAsBase64, exportThumbnail, notifyHistory, handleUndo, handleRedo, applyImageTransform]);
 
   /* ── Cursor style per tool ──────────────────────────────────────── */
@@ -1020,42 +1082,70 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       ref={containerRef}
       style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'none', background: 'var(--color-app-bg)' }}
     >
-      {/* z=0 참조 이미지 오버레이 (exportAsBase64에 포함되지 않는 read-only 레이어) */}
-      {referenceImageUrl && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', overflow: 'hidden' }}>
-          <img
-            src={referenceImageUrl}
-            alt=""
-            draggable={false}
-            style={{
-              height: '100%', width: 'auto',
-              opacity: 1, userSelect: 'none', pointerEvents: 'none',
-              transform: `translate(${internalOffset.x}px, ${internalOffset.y}px) scale(${internalZoom / 100})`,
-              transformOrigin: 'center center',
-            }}
-          />
+      {/* z=0 참조 이미지 오버레이 — canvas와 동일한 CSS transform 사용 */}
+      {referenceImageUrl && cw > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: 0, top: 0,
+          transformOrigin: '0 0',
+          transform: `translate(${ox}px, ${oy}px) scale(${zs})`,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: -cw / 2, top: -ch / 2,
+            width: cw, height: ch,
+            overflow: 'hidden',
+          }}>
+            <img
+              src={referenceImageUrl}
+              alt=""
+              draggable={false}
+              style={{
+                display: 'block', width: '100%', height: '100%',
+                objectFit: 'contain', objectPosition: 'center',
+                userSelect: 'none', pointerEvents: 'none',
+              }}
+            />
+          </div>
         </div>
       )}
 
-      {/* z=1 업로드 이미지 DOM 레이어 (CSS rotate 지원) */}
-      {uploadedImageData && imageTransform && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
-          <img
-            src={uploadedImageData}
-            alt=""
-            draggable={false}
-            style={{
-              position: 'absolute',
-              left:   imageTransform.x * zs + ox,
-              top:    imageTransform.y * zs + oy,
-              width:  imageTransform.width  * zs,
-              height: imageTransform.height * zs,
-              transform:       `rotate(${imageTransform.rotation}deg)`,
-              transformOrigin: 'center center',
-              pointerEvents:   'none',
-              userSelect:      'none',
-            }}
-          />
+      {/* z=1 업로드 이미지 DOM 레이어 — canvas와 동일한 CSS transform 사용 */}
+      {uploadedImageData && imageTransform && cw > 0 && (
+        <div style={{
+          position: 'absolute',
+          left: 0, top: 0,
+          transformOrigin: '0 0',
+          transform: `translate(${ox}px, ${oy}px) scale(${zs})`,
+          zIndex: 1,
+          overflow: 'visible',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            position: 'absolute',
+            left: -cw / 2, top: -ch / 2,
+            width: cw, height: ch,
+            overflow: 'visible',
+          }}>
+            <img
+              src={uploadedImageData}
+              alt=""
+              draggable={false}
+              style={{
+                position: 'absolute',
+                left:   imageTransform.x + cw / 2,
+                top:    imageTransform.y + ch / 2,
+                width:  imageTransform.width,
+                height: imageTransform.height,
+                transform:       `rotate(${imageTransform.rotation}deg)`,
+                transformOrigin: 'center center',
+                pointerEvents:   'none',
+                userSelect:      'none',
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -1078,6 +1168,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
         onDragStart={e => e.preventDefault()}
+        onContextMenu={e => e.preventDefault()}
         onMouseEnter={() => setShowCursor(true)}
         onMouseLeave={() => setShowCursor(false)}
       />

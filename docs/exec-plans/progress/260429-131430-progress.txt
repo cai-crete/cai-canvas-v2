@@ -1,0 +1,12 @@
+작업: ExpandedView 업로드 이미지 클리핑 버그 수정
+
+방금 완료한 작업:
+- `project_canvas/components/SketchCanvas.tsx` 수정 완료
+  - `uploadedImageData`의 렌더링 영역에 명시적 크기(`cw`, `ch`)와 오프셋(`-cw/2`, `-ch/2`)을 가진 `inner div` 래퍼 추가
+  - `img` 요소의 `left`, `top` 값에 `+ cw/2`, `+ ch/2` 보정 처리하여 기존 좌표 유지
+
+다음에 할 일:
+- 브라우저에서 검증 진행:
+  1. ExpandedView에서 이미지를 업로드했을 때, 이미지가 캔버스 상에 정상적으로 보이는지 확인
+  2. 업로드된 이미지를 이동/회전/크기 조절(transform)할 때 마우스 동작과 위치가 이전처럼 정확하게 일치하는지 확인
+- 검증 완료 시 `260429-uploaded-image-clipping-fix.md` 체크리스트를 완료 처리하고 `completed` 폴더로 이동
