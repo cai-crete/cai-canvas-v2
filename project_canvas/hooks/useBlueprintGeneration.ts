@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { compressImageBase64 } from '@/lib/compressImage';
+import type { SelectedImage } from '@cai-crete/print-components';
 
 export interface GenerationParams {
   userPrompt?: string;
@@ -22,7 +23,8 @@ export interface UseBlueprintGenerationReturn extends GenerationResult {
   generate: (
     sketchBase64: string,
     params?: GenerationParams,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    inputSources?: SelectedImage[]
   ) => Promise<string | null>;
   reset: () => void;
 }
@@ -37,7 +39,8 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
     async (
       sketchBase64: string,
       params: GenerationParams = {},
-      signal?: AbortSignal
+      signal?: AbortSignal,
+      inputSources?: SelectedImage[]
     ): Promise<string | null> => {
       setIsLoading(true);
       setError(null);
@@ -46,7 +49,7 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
         /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
         const compressed = await compressImageBase64(sketchBase64, 'image/png');
 
-        const body = {
+        const body: Record<string, unknown> = {
           sketch_image: compressed.base64,
           mime_type:    compressed.mimeType,
           user_prompt:  params.userPrompt  ?? '',
@@ -55,6 +58,16 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
           resolution:   params.resolution  ?? 'NORMAL QUALITY',
           aspect_ratio: params.aspectRatio ?? '4:3',
         };
+
+        if (inputSources && inputSources.length > 0) {
+          const roles = ['평면도', '입면도'];
+          body.input_sources = inputSources.map((img, idx) => ({
+            id:        img.id,
+            data:      img.base64,
+            mime_type: img.mimeType,
+            role:      roles[idx] ?? `소스 ${idx + 1}`,
+          }));
+        }
 
         const res = await fetch('/api/sketch-to-image', {
           method: 'POST',

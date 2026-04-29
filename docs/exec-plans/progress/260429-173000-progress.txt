@@ -1,0 +1,29 @@
+## 방금 한 것
+- orchestrator-v2.md 발동조건 분석 및 사용자에게 정리 출력
+- 다중 아트보드(평면도+입면도) → Sketch-to-Image(N3_Image) 발동 가능성 검토
+- render-server/sketchToImage.ts 전체 파이프라인 파악 (Gemini 기반, Claude 아님)
+- PRINT 노드의 printSelectedImages 패턴 분석 (page.tsx:823, printUtils.ts, ExpandedView)
+- 작업지시서 생성: docs/exec-plans/active/260429-multi-artboard-sketch-to-image.md
+
+## 완료된 것
+- 작업지시서 최종 확정 (7 Tier 체크리스트 포함)
+- 핵심 설계 결정 사항:
+  1. INPUT IMAGES 섹션: 다중 선택 시에만 표시
+  2. 슬롯 레이블: 평면도 / 입면도 2개 고정
+  3. 자동 배치: 노드 타입(n.type) 아닌 artboardType + 필드 존재 여부로 판별
+     - isSketchArtboard = artboardType==='sketch' || sketchPaths || sketchData
+  4. 데이터 추출: 양쪽 슬롯 모두 동일 (generatedImageData ?? sketchData ?? thumbnailData)
+     - 입면도가 핸드 스케치든 레퍼런스 이미지든 동일 처리
+  5. swap ⇄ 버튼: 두 슬롯 사이, 양쪽 채워진 경우만 활성
+  6. × 버튼: 슬롯 비우기 (슬롯 레이블 유지, 빈 슬롯 점선 표시)
+  7. Phase 1 프롬프트: 소스1=평면도, 소스2=입면도 역할 명시 후 통합 analysis-spec 생성
+
+## 다음에 해야 할 것
+- 작업지시서 기반으로 실제 구현 진행 (사용자 승인 후)
+  - Tier 1: types/canvas.ts CanvasNode에 sketchInputImages 추가
+  - Tier 2: page.tsx handleNodeTypeSelect('image') 분기 수정
+  - Tier 3: sketch-to-image/ExpandedView.tsx inputImages state 추가
+  - Tier 4: SketchToImagePanel.tsx INPUT IMAGES 섹션 + swap 버튼 추가
+  - Tier 5: useBlueprintGeneration.ts inputSources 파라미터 추가
+  - Tier 6: app/api/sketch-to-image/route.ts input_sources 수신
+  - Tier 7: render-server/sketchToImage.ts 복수 이미지 처리

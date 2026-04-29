@@ -12,7 +12,7 @@ import {
   CadastralGeoJson,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
-import type { PrintDraftState } from '@cai-crete/print-components';
+import type { PrintDraftState, SelectedImage } from '@cai-crete/print-components';
 import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
@@ -866,6 +866,70 @@ export default function CanvasPage() {
       }
       showToast('이미지를 선택해 주세요');
       return;
+    }
+
+    /* IMAGE 탭 + 다중 아트보드 선택(≥2) → 새 image 노드 생성 + INPUT IMAGES 사전 로드 */
+    if (type === 'image') {
+      const sketchInputNodes = selectedNodeIds
+        .map(id => nodes.find(n => n.id === id))
+        .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch'));
+
+      if (sketchInputNodes.length >= 2) {
+        const isSketchArtboard = (n: CanvasNode) =>
+          n.artboardType === 'sketch' || !!n.sketchPaths || !!n.sketchData;
+
+        const elevNode = sketchInputNodes.find(isSketchArtboard);
+        const planNode = sketchInputNodes.find(n => !isSketchArtboard(n));
+
+        const slot0 = planNode ?? sketchInputNodes[0];  // 평면도
+        const slot1 = elevNode ?? sketchInputNodes[1];  // 입면도
+
+        const getNodeBase64 = (n: CanvasNode) =>
+          n.generatedImageData ?? n.sketchData ?? n.thumbnailData;
+
+        const toSelectedImage = (n: CanvasNode): SelectedImage | null => {
+          const raw = getNodeBase64(n);
+          return raw ? nodeImageToSelectedImage(raw, n.id) : null;
+        };
+
+        const sketchInputImages: (SelectedImage | null)[] = [
+          toSelectedImage(slot0),
+          toSelectedImage(slot1),
+        ];
+
+        const currentNodes = nodes;
+        const currentEdges = edgesRef.current;
+        const num = currentNodes.filter(n => n.type === 'image').length + 1;
+        const newId = generateId();
+        const { position, pushdowns } = placeNewChild(slot0.id, currentNodes, currentEdges);
+
+        const imageNode: CanvasNode = {
+          id: newId, type: 'image',
+          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
+          position, instanceNumber: num, hasThumbnail: false,
+          artboardType: 'sketch',
+          parentId: slot0.id, autoPlaced: true,
+          sketchInputImages,
+          ...nodeOrchestratorInit('image'),
+        };
+
+        let nextNodes = [...currentNodes, imageNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        const newEdges: CanvasEdge[] = sketchInputNodes.map(srcNode => ({
+          id: generateId(), sourceId: srcNode.id, targetId: newId,
+        }));
+
+        pushHistory(nextNodes, [...currentEdges, ...newEdges]);
+        setExpandedNodeId(newId);
+        setActiveSidebarNodeType(null);
+        return;
+      }
     }
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */

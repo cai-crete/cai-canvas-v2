@@ -237,6 +237,7 @@ export interface CanvasNode {
   elevationAeplData?: ElevationAeplData;
   printSavedState?: PrintSavedState;
   printSelectedImages?: SelectedImage[];
+  sketchInputImages?: (SelectedImage | null)[];  // 다중 아트보드 입력 [인덱스0=평면도, 인덱스1=입면도]
   /* ── Orchestrator v2.0 상태 필드 ────────────────────────────────── */
   artboardStatus?: ArtboardStatus;     // 오케스트레이터 상태 전환 (VOID→VERIFYING→REALIZED)
   cumulativeScore?: number;            // Red Team 누적 성공 횟수

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, Dispatch, SetStateAction } from 'react';
+import type { SelectedImage } from '@cai-crete/print-components';
 
 const STYLE_DESCRIPTIONS: Record<string, {
   title: { ko: string; en: string };
@@ -29,6 +30,8 @@ export interface SketchToImagePanelProps {
   resolution: string;
   setResolution: Dispatch<SetStateAction<string>>;
   onGenerate: () => void;
+  inputImages?: (SelectedImage | null)[];
+  onInputImagesChange?: (imgs: (SelectedImage | null)[]) => void;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -42,6 +45,23 @@ const IconX = () => (
   <svg viewBox="0 0 20 20" width={14} height={14} {...IC}><path d="M5 5L15 15M15 5L5 15" /></svg>
 );
 
+const IconSwap = () => (
+  <svg viewBox="0 0 20 20" width={16} height={16}
+    stroke="currentColor" fill="none" strokeWidth={1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 7h12M13 4l3 3-3 3" />
+    <path d="M16 13H4M7 10l-3 3 3 3" />
+  </svg>
+);
+
+const IconClose = () => (
+  <svg viewBox="0 0 20 20" width={10} height={10}
+    stroke="currentColor" fill="none" strokeWidth={2}
+    strokeLinecap="round">
+    <path d="M4 4L16 16M16 4L4 16" />
+  </svg>
+);
+
 export default function SketchToImagePanel({
   isGenerating, error,
   sketchPrompt, setSketchPrompt,
@@ -50,8 +70,25 @@ export default function SketchToImagePanel({
   aspectRatio, setAspectRatio,
   resolution, setResolution,
   onGenerate,
+  inputImages,
+  onInputImagesChange,
 }: SketchToImagePanelProps) {
   const [activeDetailStyle, setActiveDetailStyle] = useState<string | null>(null);
+
+  const slotLabels = ['평면도', '입면도'];
+  const hasAnyInput = inputImages?.some(Boolean) ?? false;
+  const bothFilled  = (inputImages?.length ?? 0) >= 2 && inputImages![0] != null && inputImages![1] != null;
+
+  const handleRemoveSlot = (idx: number) => {
+    if (!inputImages || !onInputImagesChange) return;
+    const next = inputImages.map((img, i) => i === idx ? null : img);
+    onInputImagesChange(next);
+  };
+
+  const handleSwap = () => {
+    if (!inputImages || !onInputImagesChange || inputImages.length < 2) return;
+    onInputImagesChange([inputImages[1], inputImages[0]]);
+  };
 
   const sectionLabel: React.CSSProperties = {
     fontFamily: 'var(--font-family-bebas)',
@@ -94,6 +131,98 @@ export default function SketchToImagePanel({
         padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem',
         minHeight: 0,
       }}>
+
+        {/* INPUT IMAGES — 다중 아트보드 선택 시에만 표시 */}
+        {hasAnyInput && (
+          <div>
+            <span style={sectionLabel}>Input Images</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {[0, 1].map(idx => {
+                const img = inputImages?.[idx] ?? null;
+                return (
+                  <div key={idx} style={{ position: 'relative', flex: 1 }}>
+                    {img ? (
+                      <>
+                        <img
+                          src={`data:${img.mimeType};base64,${img.base64}`}
+                          alt={slotLabels[idx]}
+                          style={{
+                            width: '100%', aspectRatio: '1/1',
+                            objectFit: 'cover',
+                            borderRadius: '0.5rem',
+                            display: 'block',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRemoveSlot(idx)}
+                          title="제거"
+                          style={{
+                            position: 'absolute', top: 4, right: 4,
+                            width: 18, height: 18,
+                            border: 'none', borderRadius: '50%',
+                            background: 'rgba(0,0,0,0.5)',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: 0,
+                          }}
+                        >
+                          <IconClose />
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{
+                        width: '100%', aspectRatio: '1/1',
+                        border: '1px dashed var(--color-gray-200)',
+                        borderRadius: '0.5rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'var(--color-gray-300)',
+                        fontSize: '0.5625rem',
+                        fontFamily: 'var(--font-family-pretendard)',
+                      }}>
+                        비어있음
+                      </div>
+                    )}
+                    <div style={{
+                      textAlign: 'center',
+                      fontSize: '0.5625rem',
+                      fontFamily: 'var(--font-family-bebas)',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      marginTop: '0.25rem',
+                    }}>
+                      {slotLabels[idx]}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Swap 버튼 */}
+              <button
+                onClick={handleSwap}
+                disabled={!bothFilled}
+                title="순서 바꾸기"
+                style={{
+                  width: 28, height: 28, flexShrink: 0,
+                  border: 'none', borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.04)',
+                  color: 'var(--color-gray-500)',
+                  cursor: bothFilled ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: bothFilled ? 1 : 0.3,
+                  transition: 'background-color 100ms ease, opacity 100ms ease',
+                  alignSelf: 'center',
+                  marginBottom: '1.125rem',
+                }}
+                onMouseEnter={e => { if (bothFilled) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'; }}
+              >
+                <IconSwap />
+              </button>
+            </div>
+            <div style={{ borderBottom: '1px solid var(--color-gray-100)', marginTop: '0.75rem' }} />
+          </div>
+        )}
 
         {/* PROMPT */}
         <div>

@@ -26,6 +26,13 @@ async function callWithFallback<T>(primary: () => Promise<T>, fallback: () => Pr
   }
 }
 
+interface InputSource {
+  id: string;
+  data: string;
+  mime_type: string;
+  role: string;
+}
+
 router.post('/', async (req, res) => {
   const {
     sketch_image,
@@ -36,16 +43,33 @@ router.post('/', async (req, res) => {
     resolution = 'NORMAL QUALITY',
     aspect_ratio = '4:3',
     nodeId = 'unknown',
-  } = req.body;
+    input_sources,
+  } = req.body as {
+    sketch_image?: string;
+    mime_type?: string;
+    user_prompt?: string;
+    viz_mode?: string;
+    style_mode?: string;
+    resolution?: string;
+    aspect_ratio?: string;
+    nodeId?: string;
+    input_sources?: InputSource[];
+  };
 
-  if (!sketch_image) { res.status(400).json({ error: 'sketch_image is required' }); return; }
+  const isMultiSource = Array.isArray(input_sources) && input_sources.length > 0;
+
+  if (!isMultiSource && !sketch_image) {
+    res.status(400).json({ error: 'sketch_image is required' }); return;
+  }
 
   const mimeTypeLower = mime_type.toLowerCase();
-  if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeTypeLower)) {
-    res.status(400).json({ error: 'Invalid image type. Allowed: JPEG, PNG, WebP' }); return;
-  }
-  if (Buffer.from(sketch_image, 'base64').length > MAX_IMAGE_BYTES) {
-    res.status(400).json({ error: 'Image size exceeds 10MB limit' }); return;
+  if (!isMultiSource) {
+    if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeTypeLower)) {
+      res.status(400).json({ error: 'Invalid image type. Allowed: JPEG, PNG, WebP' }); return;
+    }
+    if (Buffer.from(sketch_image!, 'base64').length > MAX_IMAGE_BYTES) {
+      res.status(400).json({ error: 'Image size exceeds 10MB limit' }); return;
+    }
   }
   if (user_prompt.length > MAX_PROMPT_LENGTH) {
     res.status(400).json({ error: `Prompt exceeds ${MAX_PROMPT_LENGTH} character limit` }); return;
@@ -65,13 +89,27 @@ router.post('/', async (req, res) => {
   if (!apiKey) { res.status(500).json({ error: 'GEMINI_API_KEY_IMAGE is missing' }); return; }
 
   const ai = new GoogleGenAI({ apiKey });
-  const imagePart = { inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image } };
+
+  // 단일 또는 다중 이미지 파트 구성
+  const imageParts = isMultiSource
+    ? input_sources!.map(src => ({
+        inlineData: { mimeType: src.mime_type as AllowedMimeType, data: src.data }
+      }))
+    : [{ inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image! } }];
 
   // Phase 1: Analysis
   let analysisSpec: Record<string, unknown> = {};
   try {
+    const multiSourceContext = isMultiSource
+      ? [
+          `입력 소스: ${input_sources!.length}개`,
+          ...input_sources!.map((src, idx) => `소스 ${idx + 1} (${src.role}): ${src.role === '평면도' ? '평면 공간 구성 및 치수 체계를 분석하세요.' : '파사드 기하학 및 층고 체계를 분석하세요.'}`),
+          '두 도면을 통합하여 3D 투시 관점의 analysis-spec을 생성하세요.',
+        ].join('\n')
+      : '스케치 이미지를 분석하세요.';
+
     const analysisPrompt = [
-      '스케치 이미지를 분석하세요.',
+      multiSourceContext,
       'ROOM 1 (정의의 방) → ROOM 2 (전략의 방) → ROOM 3 (논리의 방) 순서로 실행하고,',
       'ROOM 3 완료 후 반드시 SPEC_OUTPUT: analysis-spec JSON 블록을 출력하세요.',
       '',
@@ -84,7 +122,7 @@ router.post('/', async (req, res) => {
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt },
-        contents: [{ role: 'user', parts: [imagePart, { text: analysisPrompt }] }],
+        contents: [{ role: 'user', parts: [...imageParts, { text: analysisPrompt }] }],
       }).then(r => r.text ?? ''),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), TIMEOUT_ANALYSIS)),
     ]);
@@ -123,7 +161,7 @@ router.post('/', async (req, res) => {
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt, responseModalities: ['IMAGE', 'TEXT'] },
-        contents: [{ role: 'user', parts: [imagePart, { text: generationPrompt }] }],
+        contents: [{ role: 'user', parts: [...imageParts, { text: generationPrompt }] }],
       }).then(r => {
         const parts = r.candidates?.[0]?.content?.parts ?? [];
         const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>

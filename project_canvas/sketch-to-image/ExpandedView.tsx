@@ -6,6 +6,7 @@ import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchCanvas, { SketchCanvasHandle, SketchTool, PEN_STROKE_WIDTHS, ERASER_STROKE_WIDTHS, DOT_VISUAL_SIZES } from '@/components/SketchCanvas';
 import SketchToImagePanel from '@/components/panels/SketchToImagePanel';
 import { useBlueprintGeneration, GenerationParams } from '@/hooks/useBlueprintGeneration';
+import type { SelectedImage } from '@cai-crete/print-components';
 
 export interface SketchToImageExpandedViewProps {
   node: CanvasNode;
@@ -123,6 +124,11 @@ export default function SketchToImageExpandedView({
   const abortRef        = useRef<AbortController | null>(null);
   const [refImage, setRefImage] = useState<string | null>(null);
 
+  /* ── 다중 아트보드 입력 이미지 [인덱스0=평면도, 인덱스1=입면도] ── */
+  const [inputImages, setInputImages] = useState<(SelectedImage | null)[]>(
+    node.sketchInputImages ?? []
+  );
+
   const { isLoading, error, generate } = useBlueprintGeneration();
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
@@ -220,11 +226,13 @@ export default function SketchToImageExpandedView({
       aspectRatio: aspectRatio ?? '4:3',
     };
 
+    const validInputSources = inputImages.filter((img): img is SelectedImage => img !== null);
+
     onGeneratingChange?.(true);
     onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings());
     onCollapse();
 
-    const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal);
+    const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal, validInputSources.length > 0 ? validInputSources : undefined);
     if (generatedBase64) {
       onGenerateComplete?.({ sketchBase64, thumbnailBase64, generatedBase64, nodeId: node.id });
     } else {
@@ -411,6 +419,8 @@ export default function SketchToImageExpandedView({
           resolution={resolution}
           setResolution={setResolution}
           onGenerate={handleGenerate}
+          inputImages={inputImages}
+          onInputImagesChange={setInputImages}
         />
       </ExpandedSidebar>
     </div>
