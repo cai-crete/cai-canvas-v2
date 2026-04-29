@@ -167,8 +167,8 @@ export default function ExpandedView({
   const map3dRef = useRef<Map3DViewRef>(null);
 
   const def = NODE_DEFINITIONS[node.type];
-  const isSketchImageMode = node.artboardType === 'sketch' && node.type === 'image';
-  const isSketchPlanMode = node.artboardType === 'sketch' && node.type === 'plan';
+  const isSketchImageMode = node.artboardType === 'sketch' && (node.type === 'image' || node.type === 'map3d');
+  const isSketchPlanMode = node.artboardType === 'sketch' && (node.type === 'plan' || node.type === 'cadastral');
   const isSketchMode = node.artboardType === 'sketch' || node.artboardType === 'blank';
 
   const [insightData, setInsightData] = useState<FetchLawsResult | null>(
@@ -254,8 +254,8 @@ export default function ExpandedView({
     );
   }
 
-  /* ── 지적도 전용 뷰 (artboardType=image 분기보다 먼저 체크) ──────── */
-  if (node.type === 'cadastral') {
+  /* ── 지적도 전용 뷰 (artboardType=image 분기보다 먼저 체크, sketch는 제외) ──────── */
+  if (node.type === 'cadastral' && node.artboardType !== 'sketch') {
     const boundary = node.cadastralGeoJson ?? null;
     const center = node.cadastralMapCenter ?? null;
 
@@ -325,8 +325,8 @@ export default function ExpandedView({
     );
   }
 
-  /* ── 3D 버드아이 뷰 (artboardType=image 분기보다 먼저 체크) ────────── */
-  if (node.type === 'map3d') {
+  /* ── 3D 버드아이 뷰 (artboardType=image 분기보다 먼저 체크, sketch는 제외) ────────── */
+  if (node.type === 'map3d' && node.artboardType !== 'sketch') {
     const center3d = node.map3dCenter;
     const heading3d = node.map3dHeading ?? null;
     const height3d = node.map3dHeight ?? 800;

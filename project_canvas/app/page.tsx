@@ -494,16 +494,23 @@ export default function CanvasPage() {
     if (!expandedNodeId) return;
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
-    const num = currentNodes.filter(n => n.type === 'image').length + 1;
+    const srcNode = currentNodes.find(n => n.id === expandedNodeId);
+    const num = currentNodes.filter(n => n.type === 'cadastral').length + 1;
     const newId = generateId();
     const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
     const newNode: CanvasNode = {
-      id: newId, type: 'image',
-      title: `지적도 Export #${num}`,
-      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
+      id: newId, type: 'cadastral',
+      title: `지적도 #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'sketch',
       parentId: expandedNodeId, autoPlaced: true,
       thumbnailData: base64Url,
-      generatedImageData: base64Url,
+      cadastralPnu: srcNode?.cadastralPnu,
+      cadastralGeoJson: srcNode?.cadastralGeoJson,
+      cadastralMapCenter: srcNode?.cadastralMapCenter,
+      cadastralTmsType: srcNode?.cadastralTmsType,
+      cadastralShowSurrounding: srcNode?.cadastralShowSurrounding,
+      cadastralShowLotNumbers: srcNode?.cadastralShowLotNumbers,
+      cadastralFillSelected: srcNode?.cadastralFillSelected,
     };
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
@@ -522,16 +529,23 @@ export default function CanvasPage() {
     if (!expandedNodeId) return;
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
-    const num = currentNodes.filter(n => n.type === 'image').length + 1;
+    const srcNode = currentNodes.find(n => n.id === expandedNodeId);
+    const num = currentNodes.filter(n => n.type === 'map3d').length + 1;
     const newId = generateId();
     const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
     const newNode: CanvasNode = {
-      id: newId, type: 'image',
-      title: `3D View Export #${num}`,
-      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
+      id: newId, type: 'map3d',
+      title: `3D 버드아이 뷰 #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'sketch',
       parentId: expandedNodeId, autoPlaced: true,
       thumbnailData: base64Url,
-      generatedImageData: base64Url,
+      map3dCenter: srcNode?.map3dCenter,
+      map3dHeading: srcNode?.map3dHeading,
+      map3dHeight: srcNode?.map3dHeight,
+      map3dOffsetAngle: srcNode?.map3dOffsetAngle,
+      map3dBoundary: srcNode?.map3dBoundary,
+      map3dRoadInfo: srcNode?.map3dRoadInfo,
+      map3dShowLabels: srcNode?.map3dShowLabels,
     };
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
