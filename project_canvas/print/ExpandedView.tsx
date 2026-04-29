@@ -81,15 +81,16 @@ export default function PrintExpandedView({
 
   // 저장 완료 → Canvas 썸네일 + 문서 상태 업데이트
   const handleSave = useCallback((result: PrintSaveResult) => {
-    onGeneratePrintComplete?.({ thumbnailBase64: result.thumbnail });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = result as any;
+    onGeneratePrintComplete?.({ thumbnailBase64: r.thumbnail });
     onPrintNodeUpdate?.({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       printSavedState: {
-        html: result.html,
-        mode: result.mode,
-        orientation: result.orientation,
-        metadata: result.metadata,
-        resultByOrientation: result.resultByOrientation,
+        html: r.html,
+        mode: r.mode,
+        orientation: r.orientation,
+        metadata: r.metadata,
+        resultByOrientation: r.resultByOrientation,
         savedAt: new Date().toISOString(),
       } as any,
     });
