@@ -16,6 +16,7 @@ import type { PrintDraftState } from '@cai-crete/print-components';
 import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
+import { nodeOrchestratorInit, initOrchestratorInspector } from '@/lib/orchestrator';
 import InfiniteCanvas    from '@/components/InfiniteCanvas';
 import LeftToolbar       from '@/components/LeftToolbar';
 import RightSidebar      from '@/components/RightSidebar';
@@ -147,6 +148,13 @@ export default function CanvasPage() {
   useEffect(() => {
     useCanvasStore.getState().syncNodes(nodes);
   }, [nodes]);
+
+  /* ── Orchestrator v2.0 콘솔 인스펙터 초기화 ─────────────────────── */
+  const nodesRef = useRef<CanvasNode[]>(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => {
+    initOrchestratorInspector(() => nodesRef.current);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── edges + 신규 엣지 애니메이션 ───────────────────────────────── */
   const [edges,      setEdges]      = useState<CanvasEdge[]>([]);
@@ -345,6 +353,7 @@ export default function CanvasPage() {
         title: `${NODE_DEFINITIONS[type].caption} #${num}`,
         position, instanceNumber: num, hasThumbnail: false, artboardType,
         parentId: selectedNodeId, autoPlaced: true,
+        ...nodeOrchestratorInit(type),
       };
       let nextNodes = [...currentNodes, newNode];
       if (pushdowns.size > 0) {
@@ -360,6 +369,7 @@ export default function CanvasPage() {
         id: newId, type,
         title: `${NODE_DEFINITIONS[type].caption} #${num}`,
         position, instanceNumber: num, hasThumbnail: false, artboardType,
+        ...nodeOrchestratorInit(type),
       };
       pushHistory([...currentNodes, newNode]);
     }
@@ -405,6 +415,7 @@ export default function CanvasPage() {
       title: `${NODE_DEFINITIONS[type].caption} #${num}`,
       position, instanceNumber: num, hasThumbnail: false,
       artboardType, parentId, autoPlaced: true,
+      ...nodeOrchestratorInit(type),
       ...extraProps,
     };
 
@@ -440,6 +451,7 @@ export default function CanvasPage() {
         hasThumbnail: true,
         artboardType: 'image',
         thumbnailData: dataUrl,
+        ...nodeOrchestratorInit('image'),
       };
       pushHistory([...currentNodes, newNode]);
       setSelectedNodeIds([newNode.id]);
@@ -470,6 +482,7 @@ export default function CanvasPage() {
       cadastralPnu: pnu,
       cadastralGeoJson: geoJson,
       cadastralMapCenter: mapCenter,
+      ...nodeOrchestratorInit('cadastral'),
     };
 
     // 3D 버드아이 뷰 노드 — 현재 비활성화 (VWorld 3D SDK 안정화 후 복원 예정)
@@ -512,6 +525,7 @@ export default function CanvasPage() {
       cadastralShowSurrounding: srcNode?.cadastralShowSurrounding,
       cadastralShowLotNumbers: srcNode?.cadastralShowLotNumbers,
       cadastralFillSelected: srcNode?.cadastralFillSelected,
+      ...nodeOrchestratorInit('cadastral'),
     };
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
@@ -548,6 +562,7 @@ export default function CanvasPage() {
       map3dBoundary: srcNode?.map3dBoundary,
       map3dRoadInfo: srcNode?.map3dRoadInfo,
       map3dShowLabels: srcNode?.map3dShowLabels,
+      ...nodeOrchestratorInit('map3d'),
     };
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
@@ -681,6 +696,7 @@ export default function CanvasPage() {
         roomAnalysis,
         parentId: nodeId,
         autoPlaced: true,
+        ...nodeOrchestratorInit('plan'),
       };
 
       const next = [...prev, newNode];
@@ -753,6 +769,7 @@ export default function CanvasPage() {
       generatedImageData: images.front,
       elevationImages: images,
       elevationAeplData: aepl,
+      ...nodeOrchestratorInit('elevation'),
     };
 
     let nextNodes = currentNodes.map(n =>
@@ -827,6 +844,7 @@ export default function CanvasPage() {
           artboardType: 'thumbnail',
           parentId: imageNodes[0].id, autoPlaced: true,
           printSelectedImages: preloadedImages,
+          ...nodeOrchestratorInit('print'),
         };
 
         let nextNodes = [...currentNodes, printNode];
@@ -1077,6 +1095,7 @@ export default function CanvasPage() {
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,
+        ...nodeOrchestratorInit('image'),
       };
 
       const next = [...prev, newNode];
@@ -1172,6 +1191,7 @@ export default function CanvasPage() {
           viewpointPanelSettings: settings,
           parentId: selectedNodeId,
           autoPlaced: true,
+          ...nodeOrchestratorInit('viewpoint'),
         };
 
         const next = [...prev, newNode];

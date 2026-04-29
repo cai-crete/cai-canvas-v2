@@ -1,0 +1,26 @@
+DATE: 2026-04-29 23:00
+SESSION: Orchestrator v2.0 + Red Team v2 이식 — Phase 5 완료 (전체 완료)
+
+=== 완료된 작업 ===
+
+[Phase 5 — Protocol Layer: 노드별 Red Team 판단 기준 문서화] ✅
+- docs/product-specs/red-team-criteria.md 신규 생성
+  - 시스템 책임 경계 (Orchestrator / Red Team / loop-orchestrator 역할 분리)
+  - 3대 원칙 적용 기준 상세 설명 (계보적 불변성 / 결정론적 하드데이터 / 기능적 해결성)
+  - 노드별(N1~N7) Cut-off 값 설계 근거
+  - N3(Image) 고엔트로피 처리 규칙 (Cut-off 3의 이유)
+  - REALIZED 잠금 CONSTRAINT 흐름 도식
+  - Red Team FAIL 피드백 형식 예시
+
+=== 전체 완료 상태 ===
+Phase 1 (Agent Protocol Layer)       ✅
+Phase 2 (App State Layer 타입 확장)   ✅
+Phase 3 (App State Layer 스토리지)    ✅
+Phase 4 (Dev Console Layer)           ✅
+Phase 5 (노드별 판단 기준 문서)       ✅
+
+exec-plan 이동: active/ → completed/
+  260429-red-team-orchestrator-transplant-plan.md
+
+=== 남은 작업 ===
+없음. 전체 이식 계획 완료.

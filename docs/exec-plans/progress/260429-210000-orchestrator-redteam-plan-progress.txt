@@ -1,0 +1,45 @@
+DATE: 2026-04-29 21:00
+SESSION: Orchestrator v2.0 + Red Team v2 이식 계획 수립
+
+=== 방금 완료한 것 ===
+- red-team-v2.md, orchestrator_augment_prompt-v2.md 두 문서 상세 분석
+- 시스템 계층 구조 확립:
+  - Orchestrator v2.0 = 메인 프로토콜 (CAI-CANVAS 전체 관통 컨트롤 타워)
+  - Red Team v2 = 오케스트레이터 산하 verification_gate 서브시스템
+  - loop-orchestrator.txt = 기술 실행 레이어 (오케스트레이터 하위)
+- 이식 계획 문서 작성 완료:
+  docs/exec-plans/active/260429-red-team-orchestrator-transplant-plan.md
+
+=== 이식 계획 5-Phase 요약 ===
+Phase 1 (CRITICAL): Agent Protocol Layer — 레퍼런스 파일 이식
+  - docs/references/orchestrator-v2.md 신규 생성 (메인 프로토콜)
+  - docs/references/red-team-v2.md 신규 생성 (검증 서브시스템)
+  - loop-orchestrator.txt에 계층 관계 주석 추가
+  - AGENTS.md 업데이트
+
+Phase 2: App State Layer — TypeScript 타입 확장
+  - ArtboardStatus ('VOID' | 'VERIFYING' | 'REALIZED')
+  - CanvasNode에 artboardStatus, cumulativeScore, nodeCutoff, redTeamLastResult 추가
+  - RedTeamReport 인터페이스
+  - NODE_CUTOFF_MAP 상수
+
+Phase 3: App State Layer — 누적 점수 스토리지
+  - LocalStorage 'cai-canvas-score-map'
+  - applyOrchestratorDecision() guard 함수 (REALIZED 잠금)
+
+Phase 4: Dev Console Layer — 브라우저 콘솔 인터페이스 (UI 변경 없음)
+  - window.__cai_orchestrator 전역 객체
+  - Red Team + Orchestrator 상태 console.group 로그
+
+Phase 5: Protocol 문서 — docs/product-specs/red-team-criteria.md
+
+=== 다음에 해야 할 것 ===
+사용자 승인 후 Phase 1부터 순서대로 실행:
+1. Phase 1: docs/references/ 두 파일 신규 생성 + AGENTS.md 업데이트
+2. Phase 2: project_canvas/types/canvas.ts 타입 확장
+3. Phase 3~4 순차 진행
+
+=== 미결 사항 ===
+- 사용자가 Phase 4 콘솔 방식을 승인함 (UI 배지 설치 없음)
+- Orchestrator v2.0의 메인 프로토콜 지위 확인됨
+- 실제 구현 시작 시점은 사용자 지시 대기 중

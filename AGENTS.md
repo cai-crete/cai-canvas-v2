@@ -25,14 +25,44 @@ Agent(Claude Code)는 **Project-10 노드 앱을 빌드하는 기술 실행자**
 | 에이전트 | 명칭 | 책임 | 발동 파일 |
 |----------|------|------|-----------|
 | **AGENT A** | 실행 에이전트 | Protocol 작성·Node App(API Route, buildSystemPrompt) 구현·결함 수정 | `docs/references/loop-b-execution-agent.txt` |
-| **AGENT B** | 검증 에이전트 | Protocol + Node App 독립 검증·PASS/FAIL 판정·결함 보고서 생성 | `docs/references/loop-b-verification-agent.txt` |
+| **AGENT B** | 검증 에이전트 | Protocol + Node App 독립 검증·PASS/FAIL 판정·결함 보고서 생성 · **Red Team v2 헌법 기반 이진 검증** | `docs/references/loop-b-verification-agent.txt` + `docs/references/red-team-v2.md` |
 | **AGENT C** | 디자인 에이전트 | UI/UX·프론트엔드 구현·브랜드 컴플라이언스·컴포넌트 빌드 | `docs/references/loop-frontend-design-agent.txt` |
 
 > **에이전트 간 경계 원칙**
 > - AGENT A만 Protocol 파일을 작성·수정한다
-> - AGENT B만 PASS/FAIL 판정을 발급한다
+> - AGENT B만 PASS/FAIL 판정을 발급한다 (Red Team v2 3대 원칙 헌법 적용)
 > - AGENT C만 UI/UX·프론트엔드 레이어를 소유한다
 > - 어떤 에이전트도 자신의 영역 밖 파일을 임의로 수정하지 않는다
+
+---
+
+## 메인 프로토콜 — Orchestrator v2.0
+
+> **모든 노드 실행의 컨트롤 타워**. 사용자 의도 분석 → 노드 매핑 → Causality 구축 → Red Team 게이트 → 상태 전환까지 전 과정을 총괄한다.
+
+| 구성 요소 | 파일 | 역할 |
+|-----------|------|------|
+| **Orchestrator v2.0** | `docs/references/orchestrator-v2.md` | **메인 프로토콜** — 전체 파이프라인 컨트롤 타워 |
+| **Red Team v2** | `docs/references/red-team-v2.md` | 검증 서브시스템 — 오케스트레이터 산하 verification_gate |
+| Loop Orchestrator | `docs/references/loop-orchestrator.txt` | 기술 실행 레이어 — 에이전트 스폰 메커니즘 (오케스트레이터 하위) |
+
+### 아트보드 상태 전환 (오케스트레이터 관리)
+```
+VOID → VERIFYING → REALIZED
+         ↑
+    Red Team FAIL 시 REALIZED 차단 (절대 원칙)
+```
+
+### 노드별 Cut-off (Red Team 누적 성공 횟수 기준)
+| 노드 | Cut-off | 비고 |
+|------|---------|------|
+| N1 Planners | 1점 | |
+| N2 Plan | 1점 | |
+| N3 Image | **3점** | 고엔트로피 — 연속 성공 필요 |
+| N4 Viewpoint | 1점 | |
+| N5 Elevation | 2점 | |
+| N6 Diagram | 1점 | |
+| N7 Print | 1점 | |
 
 ---
 
