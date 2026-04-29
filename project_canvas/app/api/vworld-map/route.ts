@@ -1,22 +1,25 @@
 import { NextResponse } from 'next/server';
+import https from 'https';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const VWORLD_KEY = process.env.VWORLD_API_KEY || '2A63345D-557F-32C5-89D5-DE55A65CF23B';
 const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app/';
 
-/* Vercel Edge Runtime의 undici fetch는 VWorld처럼 응답이 느린 서버에서
-   UND_ERR_SOCKET(other side closed) 에러를 일으킬 수 있다.
-   AbortController로 타임아웃을 명시하고, cache: 'no-store'로 캐시 계층을 우회한다. */
-async function vworldFetch(url: string, timeoutMs = 15000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      signal: controller.signal,
-      cache: 'no-store',
+/* Vercel undici fetch의 UND_ERR_SOCKET 문제를 우회하기 위해
+   Node.js https 모듈로 직접 요청한다. */
+function vworldFetch(url: string, timeoutMs = 15000): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: timeoutMs }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode ?? 500, body: data }));
+      res.on('error', reject);
     });
-  } finally {
-    clearTimeout(timer);
-  }
+    req.on('timeout', () => { req.destroy(); reject(new Error('VWorld 요청 타임아웃')); });
+    req.on('error', reject);
+  });
 }
 
 export async function POST(request: Request) {
@@ -65,10 +68,10 @@ export async function POST(request: Request) {
       const roadUrl = `https://api.vworld.kr/req/wfs?${roadParams.toString()}`;
       try {
         const roadRes = await vworldFetch(roadUrl);
-        if (!roadRes.ok) {
+        if (roadRes.status < 200 || roadRes.status >= 300) {
           return NextResponse.json({ data: { type: 'FeatureCollection', features: [] }, note: '도로 WFS 실패' });
         }
-        const roadData = await roadRes.json();
+        const roadData = JSON.parse(roadRes.body);
         const count = roadData?.features?.length ?? 0;
         console.log(`[VWorld API] 도로 WFS — ${count}건 조회`);
         if (!roadData || roadData.type !== 'FeatureCollection' || !Array.isArray(roadData.features)) {
@@ -122,16 +125,15 @@ export async function POST(request: Request) {
 
     const res = await vworldFetch(wfsUrl);
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('[VWorld API] 통신 오류:', res.status, text.slice(0, 300));
+    if (res.status < 200 || res.status >= 300) {
+      console.error('[VWorld API] 통신 오류:', res.status, res.body.slice(0, 300));
       return NextResponse.json(
-        { error: `VWorld API 오류 (${res.status})`, data: { features: [] }, note: text.slice(0, 300) },
+        { error: `VWorld API 오류 (${res.status})`, data: { features: [] }, note: res.body.slice(0, 300) },
         { status: 502 }
       );
     }
 
-    const data = await res.json();
+    const data = JSON.parse(res.body);
     const featureCount = data?.features?.length ?? 0;
 
     console.log(`[VWorld API] GeoJSON 응답 성공 — features: ${featureCount}건`);
