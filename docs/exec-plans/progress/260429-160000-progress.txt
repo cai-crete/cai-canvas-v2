@@ -1,0 +1,56 @@
+날짜: 2026-04-29
+세션: JSON 잘림 버그 수정 완료 (print-components@0.1.2 배포)
+
+== 방금 한 일 ==
+
+1. 근본 원인 확인
+   - 증상: PANEL 모드에서 "Unterminated string in JSON at position 133"
+   - 콘솔: cai-canvas-v2.onrender.com/print-proxy/api/print → HTTP 500
+   - 원인: print-proxy/api/print/route.ts가 upstream 응답을
+     new NextResponse(upstream.body, ...) 스트리밍으로 전달 →
+     Render B 서버 연결 중단 시 브라우저가 133자에서 잘린 JSON 수신
+
+2. Fix 1: print-proxy 버퍼링 (캔버스 Vercel 서버)
+   - 파일: project_canvas/app/api/print-proxy/api/print/route.ts
+   - 변경: upstream.body 스트리밍 → await upstream.arrayBuffer() 버퍼링
+   - 추가: 5xx + invalid JSON 감지 시 502 명확한 오류 반환
+   - 커밋에 포함됨
+
+3. Fix 2: callPrintApi 에러 핸들링 (print-components 패키지)
+   - 파일: cai-harness-print/project.10_print/components/Print_ExpandedView.tsx
+   - 변경: res.json() → res.text() 먼저 읽고 JSON.parse try-catch로 감싸기
+   - 비-JSON 응답 (프록시 413/500) 방어 로직 추가
+   - TypeScript: data: unknown → ApiErrorShape 타입으로 캐스팅
+
+4. 패키지 버전 bump 및 배포
+   - cai-harness-print/project.10_print/package.json: 0.1.1 → 0.1.2
+   - npm publish → @cai-crete/print-components@0.1.2 GitHub Packages 배포 성공
+
+5. canvas 의존성 업데이트 및 배포
+   - project_canvas: npm install @cai-crete/print-components@0.1.2
+   - 커밋: c49f446 (260429) JSON 잘림 버그 수정: print-proxy 버퍼링 + print-components@0.1.2
+   - git push → Vercel 자동 재배포 트리거됨 (f74ed61)
+
+== 현재 상태 ==
+
+수정 완료 → Vercel이 재배포 중.
+Vercel 재배포 완료 후 cai-canvas-v2.vercel.app에서 PANEL 모드 Print 생성 테스트 필요.
+
+참고: 재배포 후에도 Render B 서버(print-components)는 이미 배포되어 있음.
+Render B 서버는 callPrintApi 변경사항 미포함 (패키지는 클라이언트 코드이므로
+Vercel 재배포만으로 반영됨).
+
+== 260429-502-fix.md exec-plan 상태 ==
+- Phase 1 (RenderWakeup layout.tsx 마운트): 완료 (이전 세션, 커밋 0cffdc2)
+- Phase 2 (Vercel env vars Production 체크): 미완료 → 사용자 직접 확인 필요
+- Phase 3 (README_server.md 업데이트): 미완료 → 필요 시 실행
+
+== 다음에 할 일 ==
+
+1. 사용자: cai-canvas-v2.vercel.app에서 Print 생성 테스트
+   - PANEL 모드 선택 → 이미지 업로드 → GENERATE → 에러 없이 완료 확인
+   - VIDEO 모드 (fal.ai Kling) → 에러 없이 완료 확인
+2. 테스트 성공 시: 260429-502-fix.md → completed/로 이동
+3. 다음 대기 작업:
+   - 260429-print-abort-toast.md (Print 생성 중 토스트 + 취소 버튼)
+   - Canvas 사이드바 Print 패널 통합 (260428-print-canvas-integration.md Phase 2-5)

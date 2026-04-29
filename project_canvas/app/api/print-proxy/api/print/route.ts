@@ -68,6 +68,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const resHeaders = new Headers(upstream.headers);
     resHeaders.delete('content-encoding');
+    resHeaders.delete('transfer-encoding');
+    resHeaders.set('content-length', String(responseBody.byteLength));
 
     // 5xx 응답에서 JSON이 잘린 경우 감지 → 명확한 오류 반환
     const upstreamContentType = upstream.headers.get('content-type') ?? '';
