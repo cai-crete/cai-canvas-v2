@@ -135,6 +135,7 @@ export const PlannersInsightPanel = memo(({
               <ParkingSection
                 buildings={apiInsightData.categorized.building}
                 parkingOrdinance={apiInsightData.parkingOrdinance}
+                intendedUse={apiInsightData.intendedUse}
               />
             )}
 
@@ -206,25 +207,46 @@ function NoDataState() {
 
 // ── 대지위치 섹션 ──────────────────────────────────────────────────────────
 
-function ZoneItem({ name }: { name: string }) {
+function ZoneItem({ name, landArea }: { name: string; landArea?: number | null }) {
   const regs = ZONE_REGULATIONS[name];
   const lawMapping = getZoneLaws(name);
   const primaryLaw = lawMapping.laws[0];
+
+  // 대지면적 기준 최대 건축면적·연면적 산출
+  const bcrNum = regs ? parseFloat(regs.bcr.replace(/,/g, '')) : null;
+  const farNum = regs ? parseFloat(regs.far.replace(/,/g, '')) : null;
+  const maxBuildingArea = landArea && bcrNum ? Math.floor(landArea * bcrNum / 100) : null;
+  const maxFloorArea = landArea && farNum ? Math.floor(landArea * farNum / 100) : null;
 
   return (
     <div className="rounded-lg border border-neutral-100 bg-neutral-50/60 p-2">
       <p className="text-[10px] font-bold text-neutral-700 mb-1.5">{name}</p>
       {regs ? (
-        <div className="flex gap-1.5">
-          <span className="flex-1 bg-blue-50 rounded px-1.5 py-1 text-center">
-            <span className="block text-[7px] font-bold text-blue-400 mb-0.5">건폐율</span>
-            <span className="block text-[11px] font-black text-blue-600">{regs.bcr}</span>
-          </span>
-          <span className="flex-1 bg-emerald-50 rounded px-1.5 py-1 text-center">
-            <span className="block text-[7px] font-bold text-emerald-400 mb-0.5">용적률</span>
-            <span className="block text-[11px] font-black text-emerald-600">{regs.far}</span>
-          </span>
-        </div>
+        <>
+          <div className="flex gap-1.5">
+            <span className="flex-1 bg-blue-50 rounded px-1.5 py-1 text-center">
+              <span className="block text-[7px] font-bold text-blue-400 mb-0.5">건폐율</span>
+              <span className="block text-[11px] font-black text-blue-600">{regs.bcr}</span>
+            </span>
+            <span className="flex-1 bg-emerald-50 rounded px-1.5 py-1 text-center">
+              <span className="block text-[7px] font-bold text-emerald-400 mb-0.5">용적률</span>
+              <span className="block text-[11px] font-black text-emerald-600">{regs.far}</span>
+            </span>
+          </div>
+          {/* 대지면적 기준 ㎡ 파라미터 */}
+          {maxBuildingArea !== null && maxFloorArea !== null && (
+            <div className="flex gap-1.5 mt-1.5">
+              <span className="flex-1 bg-blue-50/50 rounded px-1.5 py-1 text-center border border-blue-100/50">
+                <span className="block text-[7px] font-bold text-blue-400 mb-0.5">최대 건축면적</span>
+                <span className="block text-[11px] font-black text-blue-700">{maxBuildingArea.toLocaleString()}<span className="text-[8px] font-bold ml-0.5">㎡</span></span>
+              </span>
+              <span className="flex-1 bg-emerald-50/50 rounded px-1.5 py-1 text-center border border-emerald-100/50">
+                <span className="block text-[7px] font-bold text-emerald-400 mb-0.5">최대 연면적</span>
+                <span className="block text-[11px] font-black text-emerald-700">{maxFloorArea.toLocaleString()}<span className="text-[8px] font-bold ml-0.5">㎡</span></span>
+              </span>
+            </div>
+          )}
+        </>
       ) : primaryLaw ? (
         <p className="text-[8px] text-neutral-500 leading-relaxed">
           {primaryLaw.reason} <br />
@@ -333,7 +355,7 @@ function SiteInfoSection({
             <div className="space-y-1.5 pl-4">
               {zones.map((zone, i) => (
                 <div key={i} className="mb-2">
-                  <ZoneItem name={zone.lawName} />
+                  <ZoneItem name={zone.lawName} landArea={landCharacteristics?.landArea ? Number(landCharacteristics.landArea) : null} />
                 </div>
               ))}
               <p className="text-[7px] text-neutral-300 pt-0.5 leading-relaxed">
@@ -414,13 +436,15 @@ function BuildingInfoSection({ buildings }: { buildings: LawEntry[] }) {
 function ParkingSection({
   buildings,
   parkingOrdinance,
+  intendedUse,
 }: {
   buildings: LawEntry[];
   parkingOrdinance?: LawEntry[];
+  intendedUse?: string;
 }) {
   const parking = useMemo(
-    () => calculateParkingFromBuildingData(buildings, parkingOrdinance),
-    [buildings, parkingOrdinance]
+    () => calculateParkingFromBuildingData(buildings, parkingOrdinance, intendedUse),
+    [buildings, parkingOrdinance, intendedUse]
   );
 
   if (!parking) return null;
@@ -448,7 +472,17 @@ function ParkingSection({
 
         <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-1">
           <div className="col-span-2">
-            <p className="text-[8px] font-bold text-neutral-400 mb-0.5">건물 용도</p>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <p className="text-[8px] font-bold text-neutral-400">건물 용도</p>
+              <span className={cn(
+                'text-[7px] font-black px-1 py-0.5 rounded',
+                parking.useSource === 'intended'
+                  ? 'bg-violet-50 text-violet-600'
+                  : 'bg-neutral-100 text-neutral-400'
+              )}>
+                {parking.useSource === 'intended' ? '기획 용도' : '건물대장'}
+              </span>
+            </div>
             <p className="text-[10px] font-bold text-neutral-700">{parking.buildingUse}</p>
           </div>
           <div>
@@ -488,17 +522,28 @@ function ParkingSection({
 // ── 법령정보 섹션 ──────────────────────────────────────────────────────────
 
 function LawInfoSection({ laws, zones }: { laws: LawEntry[]; zones: LawEntry[] }) {
+  // 건축물 높이·면적 관련 법령을 최상단으로 정렬하기 위한 우선순위 키워드
+  const HEIGHT_AREA_KEYWORDS = ['높이', '건폐율', '용적률', '면적', '건축제한', '건축물의 높이'];
+
   const zoneMappedLaws = zones.length > 0
     ? (() => {
         const zoneNames = [...new Set(zones.map(z => z.lawName).filter(Boolean))];
         const seen = new Set<string>();
-        return zoneNames.flatMap(zoneName => {
+        const mapped = zoneNames.flatMap(zoneName => {
           const mapping = getZoneLaws(zoneName);
           return mapping.laws.filter(law => {
             if (seen.has(law.lawName)) return false;
             seen.add(law.lawName);
             return true;
           }).map(law => ({ ...law, _zoneName: zoneName, _zoneCategory: mapping.zoneCategory, _zoneNote: mapping.note }));
+        });
+        // 높이·면적 관련 법령 우선 정렬
+        return mapped.sort((a, b) => {
+          const aHasKeyword = HEIGHT_AREA_KEYWORDS.some(kw => a.reason.includes(kw) || a.articleHint.includes(kw));
+          const bHasKeyword = HEIGHT_AREA_KEYWORDS.some(kw => b.reason.includes(kw) || b.articleHint.includes(kw));
+          if (aHasKeyword && !bHasKeyword) return -1;
+          if (!aHasKeyword && bHasKeyword) return 1;
+          return 0;
         });
       })()
     : [];

@@ -15,8 +15,9 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ExpertTurnData, LawCitation, TurnGroupNodeData } from './types';
 import { EXPERTS } from './experts';
-import { extractAddress, extractLawKeywords, extractZoneKeyword } from './lib/lawKeywords';
+import { extractAddress, extractLawKeywords, extractZoneKeyword, extractIntendedUse } from './lib/lawKeywords';
 import { fetchRelevantLaws, type FetchLawsResult } from './lib/lawApi';
+import type { CadastralGeoJson } from '@/types/canvas';
 
 const IconMap: Record<string, any> = {
   Orbit, Search, GitBranch, Shield, Zap, Compass, Wind, Hash,
@@ -236,12 +237,12 @@ function buildMarkdownComponents(citations: LawCitation[]) {
 
 const reorderLegacyFinalOutput = (text: string) => {
   if (!text) return '';
-  if (/^\s*(###\s*)?(Final Output)/i.test(text)) return text;
+  if (/^\s*(###\s*)?(Final Output|통합 전략 기획서)/i.test(text)) return text;
 
-  const metaDef = text.match(/###\s*Metacognitive Definition[\s\S]*?(?=###|$)/i);
-  const workflow = text.match(/###\s*Workflow Simulation Log[\s\S]*?(?=###|$)/i);
-  const finalOut = text.match(/###\s*Final Output[\s\S]*?(?=###\s*Metacognitive Transparency Report|###\s*Metacognitive Definition|$)/i);
-  const transparency = text.match(/###\s*Metacognitive Transparency Report[\s\S]*?(?=###|$)/i);
+  const metaDef = text.match(/###\s*(?:Metacognitive Definition|메타인지 정의)[\s\S]*?(?=###|$)/i);
+  const workflow = text.match(/###\s*(?:Workflow Simulation Log|워크플로우 시뮬레이션 로그)[\s\S]*?(?=###|$)/i);
+  const finalOut = text.match(/###\s*(?:Final Output|통합 전략 기획서)[\s\S]*?(?=###\s*(?:Metacognitive Transparency Report|메타인지 투명성 보고서)|###\s*(?:Metacognitive Definition|메타인지 정의)|$)/i);
+  const transparency = text.match(/###\s*(?:Metacognitive Transparency Report|메타인지 투명성 보고서)[\s\S]*?(?=###|$)/i);
 
   if (!finalOut) return text;
 
@@ -253,7 +254,11 @@ const reorderLegacyFinalOutput = (text: string) => {
   ].filter(Boolean).join('\n\n');
 };
 
-const HighlightText = ({ text, keywords }: { text: string; keywords: string[] }) => {
+const HighlightText = ({ text }: { text: string; keywords?: string[] }) => {
+  // [HIDDEN] 키워드 볼드 처리 로직 비활성화 — 품질 개선 후 재활성화 예정
+  return <>{text}</>;
+  // eslint-disable-next-line no-unreachable
+  const keywords: string[] = [];
   if (!keywords || keywords.length === 0) return <>{text}</>;
 
   const sortedKeywords = Array.from(new Set(keywords))
@@ -557,7 +562,11 @@ export type Message =
 
 export interface PlannersPanelProps {
   onInsightDataUpdate?: (data: FetchLawsResult | null) => void;
-  onCadastralDataReceived?: (pnu: string | null, landCount: number) => void;
+  onCadastralDataReceived?: (
+    pnu: string | null,
+    geoJson: CadastralGeoJson | null,
+    mapCenter: { lng: number; lat: number } | null,
+  ) => void;
   initialMessages?: Message[];
   onMessagesChange?: (messages: Message[]) => void;
 }
@@ -609,17 +618,67 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
         enableLand: isLandApiEnabled
       });
 
+      // 사용자 프롬프트에서 기획 용도 추출 → 주차 산정에 우선 적용
+      const intendedUse = extractIntendedUse(text);
+      if (intendedUse) {
+        insightData.intendedUse = intendedUse;
+      }
+
       if (onInsightDataUpdate) {
         onInsightDataUpdate(insightData);
       }
 
-      // 브이월드 결과 1건 이상 수신 시 지적도 아트보드 생성 요청
-      if (insightData.categorized.land.length > 0) {
-        console.log(`[지적도] 아트보드 생성 시작 — PNU: ${insightData.pnu ?? '없음'}, 브이월드 ${insightData.categorized.land.length}건 반환`);
-        onCadastralDataReceived?.(insightData.pnu, insightData.categorized.land.length);
+      // 브이월드 결과 1건 이상 + PNU 존재 시 → WFS 지적 경계 GeoJSON 조회 후 아트보드 생성
+      console.log(`[지적도 DIAG] land건수=${insightData.categorized.land.length}, PNU=${insightData.pnu ?? 'null'}`);
+      if (insightData.categorized.land.length > 0 && insightData.pnu) {
+        let cadastralGeoJson: CadastralGeoJson | null = null;
+        let mapCenter: { lng: number; lat: number } | null = null;
+
+        try {
+          console.log(`[지적도 DIAG] /api/vworld-map WFS 호출 시작 — PNU: ${insightData.pnu}`);
+          const wfsRes = await fetch('/api/vworld-map', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'wfs', pnu: insightData.pnu }),
+          });
+          console.log(`[지적도 DIAG] WFS 응답 status=${wfsRes.status}, ok=${wfsRes.ok}`);
+          if (wfsRes.ok) {
+            const wfsJson = await wfsRes.json();
+            console.log(`[지적도 DIAG] WFS 응답 JSON:`, JSON.stringify(wfsJson).slice(0, 300));
+            cadastralGeoJson = wfsJson?.data ?? null;
+            console.log(`[지적도 DIAG] cadastralGeoJson features=${cadastralGeoJson?.features?.length ?? 'null'}`);
+
+            // GeoJSON 첫 번째 feature 좌표에서 centroid 계산
+            if (cadastralGeoJson?.features?.[0]?.geometry?.coordinates) {
+              const geom = cadastralGeoJson.features[0].geometry;
+              const flatCoords: number[][] = geom.type === 'Polygon'
+                ? (geom.coordinates as number[][][])[0]
+                : (geom.coordinates as number[][][][])[0][0];
+              if (flatCoords.length > 0) {
+                const sumLng = flatCoords.reduce((s, c) => s + c[0], 0);
+                const sumLat = flatCoords.reduce((s, c) => s + c[1], 0);
+                mapCenter = { lng: sumLng / flatCoords.length, lat: sumLat / flatCoords.length };
+                console.log(`[지적도 DIAG] mapCenter 계산 완료:`, mapCenter);
+              }
+            } else {
+              console.warn(`[지적도 DIAG] GeoJSON features 없음 또는 좌표 없음`);
+            }
+          } else {
+            const errText = await wfsRes.text();
+            console.error(`[지적도 DIAG] WFS 응답 오류 (${wfsRes.status}):`, errText.slice(0, 300));
+          }
+        } catch (e) {
+          console.error(`[지적도 DIAG] WFS fetch 예외:`, e);
+        }
+
+        console.log(`[지적도 DIAG] 콜백 호출 — PNU: ${insightData.pnu}, geoJson: ${cadastralGeoJson ? '있음' : 'null'}, center: ${mapCenter ? '있음' : 'null'}`);
+        onCadastralDataReceived?.(insightData.pnu, cadastralGeoJson, mapCenter);
+      } else {
+        console.warn(`[지적도 DIAG] WFS 호출 건너뜀 — land건수=${insightData.categorized.land.length}, PNU=${insightData.pnu ?? 'null'}`);
       }
 
       // 2. 자체 API 라우트 통신 (Vercel 배포 시 파일 누락 오류 해결)
+      console.log('[PIPELINE] Planners로 전송하는 relevantLaws:', insightData.formatted?.slice(0, 300) || '(비어있음)');
       const res = await fetch('/api/planners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -723,7 +782,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
                     className="p-2.5 rounded-full text-neutral-400 hover:text-black hover:bg-neutral-200/50 transition-all"
                     title="기능 준비중"
                   >
-                    <WandSparkles className="w-4 h-4" />
+                    <WandSparkles className="w-4.5 h-4.5" />
                   </button>
 
                   {/* API Toggles */}
@@ -751,7 +810,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
                         : "bg-neutral-200 text-neutral-400"
                     )}
                   >
-                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {isGenerating ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Send className="w-4.5 h-4.5" />}
                   </button>
                 </div>
               </div>

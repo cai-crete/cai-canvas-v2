@@ -91,9 +91,10 @@ export function extractAddress(context: string): DetectedAddress | null {
     return { city, district, full: `${city} ${district} ${detail}` };
   }
 
-  // 패턴 B: 지번 주소 전체 (예: "서울시 강남구 신사동 537-5")
+  // 패턴 B: 지번 주소 전체 (예: "서울시 강남구 신사동 537-5", "서울시 성북구 동소문동5가 75번지")
+  // (?:\d+가)? — "동소문동5가" 등 하위 구역(가) 접미사를 동 이름의 일부로 인식
   const lotMatch = context.match(
-    /([가-힣]{2,6}(?:특별시|광역시|특별자치시|특별자치도|시|도))\s*([가-힣]{2,5}(?:구|시|군))\s+([가-힣]+동\s*\d+(?:-\d+)?(?:번지)?)/
+    /([가-힣]{2,6}(?:특별시|광역시|특별자치시|특별자치도|시|도))\s*([가-힣]{2,5}(?:구|시|군))\s+([가-힣]+동(?:\d+가)?\s*\d+(?:-\d+)?(?:번지)?)/
   );
   if (lotMatch) {
     const city = lotMatch[1];
@@ -118,9 +119,9 @@ export function extractAddress(context: string): DetectedAddress | null {
     }
   }
 
-  // 패턴 C-2: 광역시 약칭 + 구 + 지번 (예: "서울 강남구 신사동 537-5")
+  // 패턴 C-2: 광역시 약칭 + 구 + 지번 (예: "서울 강남구 신사동 537-5", "서울 성북구 동소문동5가 75번지")
   const shortLotMatch = context.match(
-    /([가-힣]{2,4})\s+([가-힣]{2,5}구)\s+([가-힣]+(?:동|리)\s*\d+(?:-\d+)?(?:번지)?)/
+    /([가-힣]{2,4})\s+([가-힣]{2,5}구)\s+([가-힣]+(?:동|리)(?:\d+가)?\s*\d+(?:-\d+)?(?:번지)?)/
   );
   if (shortLotMatch) {
     for (const metro of METRO_CITIES) {
@@ -150,7 +151,7 @@ export function extractAddress(context: string): DetectedAddress | null {
       if (context.includes(metro)) {
         // 근처에 도로명/지번이 있는지 추가 탐색
         const nearbyRoad = context.match(new RegExp(`${district}\\s+([가-힣]+(?:로|길)\\d*(?:번?길)?\\s*\\d+(?:-\\d+)?)`));
-        const nearbyLot = context.match(new RegExp(`${district}\\s+([가-힣]+동\\s*\\d+(?:-\\d+)?)`));
+        const nearbyLot = context.match(new RegExp(`${district}\\s+([가-힣]+동(?:\\d+가)?\\s*\\d+(?:-\\d+)?)`));
         const detail = nearbyRoad?.[1] || nearbyLot?.[1] || '';
         const full = detail ? `${metro} ${district} ${detail}` : `${metro} ${district}`;
         return { city: metro, district, full };
@@ -193,4 +194,58 @@ export function isLawRelevant(_keywords: string[]): boolean {
  */
 export function extractLawKeywords(keywords: string[]): string[] {
   return keywords.filter(k => k.length >= 2);
+}
+
+// ── 건축물 용도 키워드 (사용자 프롬프트에서 기획 용도 추출) ───────────────────
+const BUILDING_USE_PATTERNS: { pattern: RegExp; use: string }[] = [
+  // 주거
+  { pattern: /단독주택/, use: '단독주택' },
+  { pattern: /다가구주택/, use: '다가구주택' },
+  { pattern: /다세대주택/, use: '다세대주택' },
+  { pattern: /연립주택/, use: '연립주택' },
+  { pattern: /아파트|공동주택/, use: '공동주택' },
+  { pattern: /오피스텔/, use: '오피스텔' },
+  // 상업
+  { pattern: /근린생활/, use: '근린생활시설' },
+  { pattern: /판매시설|상가/, use: '판매시설' },
+  { pattern: /백화점|쇼핑/, use: '판매시설' },
+  // 업무
+  { pattern: /업무시설|사무실|오피스/, use: '업무시설' },
+  // 숙박
+  { pattern: /숙박시설|호텔|모텔|펜션|리조트/, use: '숙박시설' },
+  // 의료
+  { pattern: /병원|의료시설|요양/, use: '의료시설' },
+  // 교육
+  { pattern: /학교|교육시설|학원/, use: '교육연구시설' },
+  // 문화
+  { pattern: /문화시설|전시|공연|극장|영화/, use: '문화 및 집회시설' },
+  { pattern: /종교시설|교회|사찰|성당/, use: '종교시설' },
+  // 공장/산업
+  { pattern: /공장|제조/, use: '공장' },
+  { pattern: /창고|물류/, use: '창고시설' },
+  // 운동
+  { pattern: /체육시설|운동시설|수영장|골프/, use: '운동시설' },
+  // 위락
+  { pattern: /위락시설|유흥/, use: '위락시설' },
+  // 관광
+  { pattern: /관광/, use: '관광휴게시설' },
+];
+
+/**
+ * 사용자 프롬프트에서 건축물의 기획 용도를 추출합니다.
+ * "~을(를) 건설/건축/신축/기획/계획" 또는 "~으로 용도변경" 패턴도 감지합니다.
+ *
+ * @returns 감지된 기획 용도 (없으면 undefined)
+ */
+export function extractIntendedUse(prompt: string): string | undefined {
+  // 1. 직접 매칭: 용도 키워드가 텍스트에 포함되어 있는지 확인
+  for (const { pattern, use } of BUILDING_USE_PATTERNS) {
+    if (pattern.test(prompt)) return use;
+  }
+
+  // 2. "~시설" 패턴 폴백: "숙박시설", "의료시설" 등
+  const facilityMatch = prompt.match(/([가-힣]+시설)/);
+  if (facilityMatch) return facilityMatch[1];
+
+  return undefined;
 }
