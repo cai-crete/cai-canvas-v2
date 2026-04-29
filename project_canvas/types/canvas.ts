@@ -58,6 +58,35 @@ export type NodeType =
 /* 아트보드 컨테이너 유형 */
 export type ArtboardType = 'blank' | 'sketch' | 'image' | 'thumbnail';
 
+/* ── Orchestrator v2.0 — 아트보드 상태 전환 모델 ─────────────────── */
+export type ArtboardStatus = 'VOID' | 'VERIFYING' | 'REALIZED';
+
+/* Red Team v2 — verification_gate 출력 형식 */
+export interface RedTeamReport {
+  node: string;
+  constitution_check: {
+    Principle_1: 0 | 1;  // 계보적 불변성
+    Principle_2: 0 | 1;  // 결정론적 하드데이터
+    Principle_3: 0 | 1;  // 기능적 해결성
+  };
+  cumulative_status: string;   // e.g. "2 / 3"
+  is_final_approved: boolean;
+  retry_required: boolean;
+  critical_defect: string;
+  timestamp: string;
+}
+
+/* Orchestrator v2.0 node_cutoff_standard — 노드별 Red Team 누적 성공 기준 */
+export const NODE_CUTOFF_MAP: Record<string, number> = {
+  planners:  1,  // N1
+  plan:      1,  // N2
+  image:     3,  // N3 — 고엔트로피, 연속 3회 성공 필요
+  viewpoint: 1,  // N4
+  elevation: 2,  // N5
+  diagram:   1,  // N6
+  print:     1,  // N7
+};
+
 export type ActiveTool = 'cursor' | 'handle';
 
 export interface SketchPanelSettings {
@@ -208,6 +237,11 @@ export interface CanvasNode {
   elevationAeplData?: ElevationAeplData;
   printSavedState?: PrintSavedState;
   printSelectedImages?: SelectedImage[];
+  /* ── Orchestrator v2.0 상태 필드 ────────────────────────────────── */
+  artboardStatus?: ArtboardStatus;     // 오케스트레이터 상태 전환 (VOID→VERIFYING→REALIZED)
+  cumulativeScore?: number;            // Red Team 누적 성공 횟수
+  nodeCutoff?: number;                 // 해당 노드 Cut-off 목표값
+  redTeamLastResult?: RedTeamReport;   // 마지막 Red Team 검증 결과
 }
 
 export interface CanvasViewport {

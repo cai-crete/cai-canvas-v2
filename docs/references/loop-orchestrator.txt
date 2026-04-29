@@ -175,3 +175,12 @@ Before spawning any sub-agent:
   - [ ] Sub-agent prompt includes the correct reference file path
   - [ ] Sub-agent prompt includes the correct handoff file path
   - [ ] Sub-agent prompt includes the correct iteration number
+
+# ─────────────────────────────────────────────────────────
+# HIERARCHY NOTE (2026-04-29)
+# 이 파일은 기술 실행 레이어 (에이전트 스폰 메커니즘)를 담당한다.
+# 의사결정, Causality 구축, 상태 전환(VOID→VERIFYING→REALIZED) 로직은
+# Orchestrator v2.0이 총괄한다.
+# → 상위 레이어: docs/references/orchestrator-v2.md
+# → 검증 서브시스템: docs/references/red-team-v2.md
+# ─────────────────────────────────────────────────────────
