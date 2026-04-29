@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import localforage from 'localforage';
-import { useCanvasStore } from '@/store/canvas';
 import {
   CanvasNode, CanvasEdge, NodeType,
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
@@ -137,16 +136,9 @@ export default function CanvasPage() {
   const [history,      setHistory]      = useState<{ nodes: CanvasNode[]; edges: CanvasEdge[] }[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  /* ── canvasStore 동기화 ──────────────────────────────────────────── */
-  // store가 updateNode를 호출할 때 React 상태로 역전파할 setter 등록
-  useEffect(() => {
-    useCanvasStore.getState().registerSetter(setNodes);
-    return () => { useCanvasStore.getState().registerSetter(null); };
+  const updateNode = useCallback((id: string, data: Partial<CanvasNode>) => {
+    setNodes(prev => prev.map(n => n.id === id ? { ...n, ...data } : n));
   }, []);
-  // nodes 변경 → store 동기화 (store→React 역전파 루프 없음)
-  useEffect(() => {
-    useCanvasStore.getState().syncNodes(nodes);
-  }, [nodes]);
 
   /* ── edges + 신규 엣지 애니메이션 ───────────────────────────────── */
   const [edges,      setEdges]      = useState<CanvasEdge[]>([]);
@@ -492,7 +484,7 @@ export default function CanvasPage() {
         try {
           const roads = await fetchRoads(mapCenter);
           const facade = calculateFacade(geoJson, roads, landAreaNum);
-          useCanvasStore.getState().updateNode(m3dIdCapture, {
+          updateNode(m3dIdCapture, {
             map3dHeading: facade.heading,
             map3dHeight: facade.height,
             map3dOffsetAngle: facade.offsetAngle,
@@ -501,7 +493,7 @@ export default function CanvasPage() {
         } catch (e) {
           console.error('[3D Map] 도로 분석 실패:', e);
           // fallback — heading 0 (북쪽)
-          useCanvasStore.getState().updateNode(m3dIdCapture, { map3dHeading: 0, map3dRoadInfo: '도로 분석 실패' });
+          updateNode(m3dIdCapture, { map3dHeading: 0, map3dRoadInfo: '도로 분석 실패' });
         }
       });
     }
@@ -1190,6 +1182,7 @@ export default function CanvasPage() {
           onCadastralDataReceived={handleCadastralDataReceived}
           onExportCadastralImage={handleExportCadastralImage}
           onExportMap3dImage={handleExportMap3dImage}
+          onUpdateNode={updateNode}
         />
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -1211,6 +1204,7 @@ export default function CanvasPage() {
             onNodeExpand={setExpandedNodeId}
             onNodeDuplicate={duplicateNode}
             onNodeDelete={deleteNode}
+            onUpdateNode={updateNode}
           />
 
           <LeftToolbar

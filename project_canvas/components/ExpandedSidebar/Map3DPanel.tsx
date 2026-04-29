@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { useCanvasStore } from '@/store/canvas';
+
 import { CanvasNode } from '@/types/canvas';
 import type { Map3DViewRef } from '@/components/Map3DView';
 
@@ -9,6 +9,7 @@ interface Props {
   node: CanvasNode;
   map3dRef: React.RefObject<Map3DViewRef | null>;
   onExportImage?: (base64: string) => void;
+  onUpdateNode: (id: string, data: Partial<CanvasNode>) => void;
 }
 
 const sectionLabel: React.CSSProperties = {
@@ -41,14 +42,13 @@ const inactiveStyle: React.CSSProperties = {
   color: 'var(--color-gray-500)',
 };
 
-export function Map3DPanel({ node, map3dRef, onExportImage }: Props) {
-  const updateNode = useCanvasStore(state => state.updateNode);
+export function Map3DPanel({ node, map3dRef, onExportImage, onUpdateNode }: Props) {
   const showLabels = node.map3dShowLabels ?? true;
   const isCapturing = useRef(false);
 
   const toggleLabels = () => {
     const next = !showLabels;
-    updateNode(node.id, { map3dShowLabels: next });
+    onUpdateNode(node.id, { map3dShowLabels: next });
     map3dRef.current?.setLabelsVisible(next);
   };
 
@@ -59,7 +59,7 @@ export function Map3DPanel({ node, map3dRef, onExportImage }: Props) {
     try {
       const base64 = await map3dRef.current.capture();
       if (base64 && base64.length > 1000) {
-        updateNode(node.id, { thumbnailData: base64 });
+        onUpdateNode(node.id, { thumbnailData: base64 });
         onExportImage?.(base64);
       }
     } catch (err) {

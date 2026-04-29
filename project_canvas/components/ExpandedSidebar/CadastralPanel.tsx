@@ -1,11 +1,12 @@
 'use client';
 
-import { useCanvasStore } from '@/store/canvas';
+
 import { CanvasNode } from '@/types/canvas';
 
 interface Props {
   node: CanvasNode;
   onExportImage?: () => void;
+  onUpdateNode: (id: string, data: Partial<CanvasNode>) => void;
 }
 
 const sectionLabel: React.CSSProperties = {
@@ -38,8 +39,7 @@ const inactiveStyle: React.CSSProperties = {
   color: 'var(--color-gray-500)',
 };
 
-export function CadastralPanel({ node, onExportImage }: Props) {
-  const updateNode = useCanvasStore(state => state.updateNode);
+export function CadastralPanel({ node, onExportImage, onUpdateNode }: Props) {
 
   const currentTms = node.cadastralTmsType ?? 'Base';
   const showSurrounding = node.cadastralShowSurrounding ?? true;
@@ -47,12 +47,12 @@ export function CadastralPanel({ node, onExportImage }: Props) {
   const fillSelected = node.cadastralFillSelected ?? true;
 
   const handleTmsChange = (val: 'None' | 'Base' | 'Satellite' | 'Vector') => {
-    updateNode(node.id, { cadastralTmsType: val });
+    onUpdateNode(node.id, { cadastralTmsType: val });
   };
 
-  const toggleSurrounding = () => updateNode(node.id, { cadastralShowSurrounding: !showSurrounding });
-  const toggleLotNumbers = () => updateNode(node.id, { cadastralShowLotNumbers: !showLotNumbers });
-  const toggleFillSelected = () => updateNode(node.id, { cadastralFillSelected: !fillSelected });
+  const toggleSurrounding = () => onUpdateNode(node.id, { cadastralShowSurrounding: !node.cadastralShowSurrounding });
+  const toggleLotNumbers = () => onUpdateNode(node.id, { cadastralShowLotNumbers: !node.cadastralShowLotNumbers });
+  const toggleFillSelected = () => onUpdateNode(node.id, { cadastralFillSelected: !node.cadastralFillSelected });
 
   return (
     <div style={{

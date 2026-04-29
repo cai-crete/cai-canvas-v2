@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { useCanvasStore } from '@/store/canvas';
+
 import { CanvasNode, NODE_DEFINITIONS, PortShape, ArtboardType, ARTBOARD_LABEL, NODE_GENERATED_LABEL, NODE_TARGET_ARTBOARD_TYPE, PlannerMessage } from '@/types/canvas';
 import { CadastralMapView } from './CadastralMapView';
 
@@ -18,6 +18,7 @@ interface Props {
   portLeft?: PortShape;
   portRight?: PortShape;
   plannerMessages?: PlannerMessage[];
+  onUpdateNode: (id: string, data: Partial<CanvasNode>) => void;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -159,7 +160,7 @@ export default function NodeCard({
   node, isSelected, onSelect, onExpand, onDuplicate, onDelete, onMouseDown, hasThumbnail,
   artboardType,
   portLeft = 'none', portRight = 'none',
-  plannerMessages,
+  plannerMessages, onUpdateNode,
 }: Props) {
   const { id, type } = node;
   const def = NODE_DEFINITIONS[type];
@@ -363,7 +364,7 @@ export default function NodeCard({
                 className="w-full h-full"
                 onThumbnailCaptured={(base64Url) => {
                   if (!node.thumbnailData) {
-                    useCanvasStore.getState().updateNode(node.id, { thumbnailData: base64Url });
+                    onUpdateNode(node.id, { thumbnailData: base64Url });
                   }
                 }}
               />

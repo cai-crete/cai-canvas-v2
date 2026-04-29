@@ -15,7 +15,7 @@ import { CadastralMapView, type CadastralMapViewRef } from '@/components/Cadastr
 import { CadastralPanel } from '@/components/ExpandedSidebar/CadastralPanel';
 import { Map3DPanel } from '@/components/ExpandedSidebar/Map3DPanel';
 import { Map3DView, type Map3DViewRef } from '@/components/Map3DView';
-import { useCanvasStore } from '@/store/canvas';
+
 import type { CadastralGeoJson } from '@/types/canvas';
 
 interface Props {
@@ -53,6 +53,7 @@ interface Props {
   ) => void;
   onExportCadastralImage?: (base64: string) => void;
   onExportMap3dImage?: (base64: string) => void;
+  onUpdateNode: (id: string, data: Partial<CanvasNode>) => void;
 }
 
 /* ── SketchInfiniteGrid (sketch/blank 아트보드용) ───────────────── */
@@ -156,7 +157,7 @@ export default function ExpandedView({
   onGeneratePrintComplete,
   onGenerateElevationComplete,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived, onExportCadastralImage,
-  onExportMap3dImage,
+  onExportMap3dImage, onUpdateNode,
 }: Props) {
   const mapRef = useRef<CadastralMapViewRef>(null);
   const map3dRef = useRef<Map3DViewRef>(null);
@@ -324,11 +325,11 @@ export default function ExpandedView({
               fillSelected={node.cadastralFillSelected ?? true}
               isOffsetMode={node.cadastralIsOffsetMode}
               mapOffset={node.cadastralMapOffset}
-              onChangeOffset={(offset) => useCanvasStore.getState().updateNode(node.id, { cadastralMapOffset: offset })}
+              onChangeOffset={(offset) => onUpdateNode(node.id, { cadastralMapOffset: offset })}
               onThumbnailCaptured={(base64Url) => {
                 // 썸네일 데이터가 없을 때만 1회 저장 (깜빡임 방지)
                 if (!node.thumbnailData) {
-                  useCanvasStore.getState().updateNode(node.id, { thumbnailData: base64Url });
+                  onUpdateNode(node.id, { thumbnailData: base64Url });
                 }
               }}
               className="w-full h-full"
@@ -348,6 +349,7 @@ export default function ExpandedView({
         <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse}>
           <CadastralPanel 
             node={node} 
+            onUpdateNode={onUpdateNode}
             onExportImage={async () => {
               if (mapRef.current && onExportCadastralImage) {
                 const base64 = await mapRef.current.exportToImage();
@@ -392,6 +394,7 @@ export default function ExpandedView({
             node={node}
             map3dRef={map3dRef}
             onExportImage={onExportMap3dImage}
+            onUpdateNode={onUpdateNode}
           />
         </ExpandedSidebar>
       </div>
