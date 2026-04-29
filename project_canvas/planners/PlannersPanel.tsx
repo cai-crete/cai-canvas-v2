@@ -538,7 +538,7 @@ const AIBubble = memo(({ data }: { data: TurnGroupNodeData }) => {
   );
 });
 
-const UserBubble = memo(({ text, onRewind }: { text: string, onRewind: (t: string) => void }) => {
+const UserBubble = memo(({ text, images, onRewind }: { text: string, images?: string[], onRewind: (t: string) => void }) => {
   return (
     <div className="flex flex-col items-end w-full mb-8 relative group">
       <div className="flex items-center gap-2 mb-2 w-full justify-end px-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
@@ -550,6 +550,13 @@ const UserBubble = memo(({ text, onRewind }: { text: string, onRewind: (t: strin
         </button>
       </div>
       <div className="max-w-[85%] bg-neutral-100/70 rounded-3xl rounded-tr-sm px-5 py-4 text-[13.5px] font-medium leading-[1.8] text-neutral-900 border border-neutral-200 shadow-sm whitespace-pre-wrap">
+        {images && images.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {images.map((img, idx) => (
+              <img key={idx} src={img} alt={`첨부 ${idx + 1}`} className="w-20 h-20 object-cover rounded-xl border border-neutral-200" />
+            ))}
+          </div>
+        )}
         {text}
       </div>
     </div>
@@ -557,7 +564,7 @@ const UserBubble = memo(({ text, onRewind }: { text: string, onRewind: (t: strin
 });
 
 export type Message =
-  | { type: 'user', text: string }
+  | { type: 'user', text: string, images?: string[] }
   | { type: 'ai', data: TurnGroupNodeData, loading?: boolean };
 
 export interface PlannersPanelProps {
@@ -569,13 +576,16 @@ export interface PlannersPanelProps {
   ) => void;
   initialMessages?: Message[];
   onMessagesChange?: (messages: Message[]) => void;
+  initialImages?: string[];
 }
 
-export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataReceived, initialMessages, onMessagesChange }: PlannersPanelProps) {
+export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataReceived, initialMessages, onMessagesChange, initialImages }: PlannersPanelProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [chatInput, setChatInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [chatImages, setChatImages] = useState<string[]>(initialImages ?? []);
 
   // API 토글 로컬 상태 관리
   const [isLawApiEnabled, setIsLawApiEnabled] = useState(true);
@@ -598,12 +608,32 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
     }
   }, [messages, isGenerating]);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    try {
+      const { resizeImageLocal } = await import('./lib/imageUtils');
+      const results = await Promise.all(
+        Array.from(files)
+          .filter(f => f.type.startsWith('image/'))
+          .map(f => resizeImageLocal(f, 1024))
+      );
+      setChatImages(prev => [...prev, ...results]);
+    } catch (error) {
+      console.error('Image processing failed', error);
+    }
+    e.target.value = '';
+  };
+
   const handleChatSubmit = async () => {
     const text = chatInput.trim();
-    if (!text || isGenerating) return;
+    if (!text && chatImages.length === 0) return;
+    if (isGenerating) return;
 
-    setMessages(prev => [...prev, { type: 'user', text }]);
+    const currentImages = [...chatImages];
+    setMessages(prev => [...prev, { type: 'user', text: text || '(이미지 첨부)', images: currentImages.length > 0 ? currentImages : undefined }]);
     setChatInput('');
+    setChatImages([]);
     setIsGenerating(true);
 
     try {
@@ -682,7 +712,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
       const res = await fetch('/api/planners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userInput: text, relevantLaws: insightData.formatted })
+        body: JSON.stringify({ userInput: text || '(이미지 첨부)', relevantLaws: insightData.formatted, images: currentImages.length > 0 ? currentImages : undefined })
       });
 
       const json = await res.json();
@@ -726,7 +756,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
             <div className="flex flex-col">
               {messages.map((msg, i) => {
                 if (msg.type === 'user') {
-                  return <UserBubble key={i} text={msg.text} onRewind={setChatInput} />;
+                  return <UserBubble key={i} text={msg.text} images={msg.images} onRewind={setChatInput} />;
                 } else {
                   return <AIBubble key={i} data={msg.data} />;
                 }
@@ -752,9 +782,36 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
           )}
         </div>
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
         {/* Floating Input Bar */}
         <div className="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-white via-white/95 to-transparent pt-10 rounded-b-[32px] pointer-events-none">
           <div className="relative flex flex-col w-full bg-[#f4f4f4] rounded-[32px] border border-neutral-200 shadow-sm transition-all focus-within:bg-white focus-within:border-neutral-300 focus-within:shadow-xl overflow-hidden group/input-container pointer-events-auto">
+            {/* Image Thumbnails */}
+            {chatImages.length > 0 && (
+              <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto custom-scrollbar">
+                {chatImages.map((img, idx) => (
+                  <div key={idx} className="relative shrink-0 group/thumb">
+                    <img src={img} alt={`첨부 ${idx + 1}`} className="w-16 h-16 object-cover rounded-xl border border-neutral-200" />
+                    <button
+                      onClick={() => setChatImages(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-black/70 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover/thumb:opacity-100 transition-opacity hover:bg-black"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="relative flex flex-col pt-1">
               <textarea
                 value={chatInput}
@@ -773,8 +830,9 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
               <div className="absolute bottom-2 left-0 right-0 px-4 flex items-center justify-between pointer-events-none">
                 <div className="flex items-center gap-1 pointer-events-auto">
                   <button
+                    onClick={() => fileInputRef.current?.click()}
                     className="p-2.5 rounded-full text-neutral-500 hover:text-black hover:bg-neutral-200/50 transition-all"
-                    title="기능 준비중"
+                    title="이미지 첨부"
                   >
                     <PlusIcon className="w-5 h-5" />
                   </button>
@@ -802,10 +860,10 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
                   <div className="w-px h-4 bg-neutral-200 mx-1" />
                   <button
                     onClick={handleChatSubmit}
-                    disabled={!chatInput.trim() || isGenerating}
+                    disabled={(!chatInput.trim() && chatImages.length === 0) || isGenerating}
                     className={cn(
                       "p-2.5 rounded-full transition-all shadow-sm",
-                      chatInput.trim() && !isGenerating
+                      (chatInput.trim() || chatImages.length > 0) && !isGenerating
                         ? "bg-black text-white hover:scale-105 active:scale-95 shadow-lg"
                         : "bg-neutral-200 text-neutral-400"
                     )}
