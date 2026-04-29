@@ -20,6 +20,7 @@ import type { CadastralGeoJson } from '@/types/canvas';
 
 interface Props {
   node: CanvasNode;
+  expandedViewMode?: 'image' | 'plan' | 'default';
   onCollapse: () => void;
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings) => void;
   onCollapseWithPlanSketch?: (sketchBase64: string, thumbnailBase64: string, planSettings: PlanPanelSettings) => void;
@@ -149,7 +150,7 @@ function SketchInfiniteGrid() {
    ExpandedView — 라우터: 노드 유형별 전용 뷰로 위임
 ══════════════════════════════════════════════════════════════════ */
 export default function ExpandedView({
-  node, onCollapse, onCollapseWithSketch, onCollapseWithPlanSketch, onGenerateError, onAbortControllerReady,
+  node, expandedViewMode = 'default', onCollapse, onCollapseWithSketch, onCollapseWithPlanSketch, onGenerateError, onAbortControllerReady,
   activeTool, scale, canUndo, canRedo,
   onToolChange, onUndo, onRedo, onZoomIn, onZoomOut, onZoomReset,
   onAddArtboard, onGenerateComplete, onGeneratePlanComplete, onGeneratingChange,
@@ -250,49 +251,7 @@ export default function ExpandedView({
     );
   }
 
-  /* ── 생성 이미지 뷰 (image/plan → generate 결과, artboardType=image) ── */
-  if (node.artboardType === 'image' && (node.type === 'image' || node.type === 'plan')) {
-    const imgSrc = node.generatedImageData ?? node.thumbnailData;
-    const displaySrc = imgSrc
-      ? (imgSrc.startsWith('data:') ? imgSrc : `data:image/jpeg;base64,${imgSrc}`)
-      : null;
-    return (
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          left: 'calc(4rem + 1.5rem)',
-          right: 'calc(var(--sidebar-w) + 2rem)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem',
-        }}>
-          {displaySrc ? (
-            <img
-              src={displaySrc}
-              alt={node.title}
-              style={{
-                maxWidth: '100%', maxHeight: '100%',
-                objectFit: 'contain',
-                borderRadius: 'var(--radius-box)',
-                boxShadow: 'var(--shadow-float)',
-              }}
-            />
-          ) : (
-            <span className="text-body-3" style={{ color: 'var(--color-gray-300)' }}>이미지가 없습니다</span>
-          )}
-        </div>
-        <LeftToolbar
-          activeTool={activeTool} scale={scale}
-          canUndo={canUndo} canRedo={canRedo}
-          onToolChange={onToolChange} onUndo={onUndo} onRedo={onRedo}
-          onZoomIn={onZoomIn} onZoomOut={onZoomOut} onZoomReset={onZoomReset}
-          onAddArtboard={onAddArtboard}
-        />
-        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
-      </div>
-    );
-  }
-
-  /* ── 지적도 전용 뷰 (VWorld WFS SVG 렌더링) ────────────────────── */
+  /* ── 지적도 전용 뷰 (artboardType=image 분기보다 먼저 체크) ──────── */
   if (node.type === 'cadastral') {
     const boundary = node.cadastralGeoJson ?? null;
     const center = node.cadastralMapCenter ?? null;
@@ -349,8 +308,8 @@ export default function ExpandedView({
           )}
         </div>
         <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse}>
-          <CadastralPanel 
-            node={node} 
+          <CadastralPanel
+            node={node}
             onExportImage={async () => {
               if (mapRef.current && onExportCadastralImage) {
                 const base64 = await mapRef.current.exportToImage();
@@ -363,7 +322,7 @@ export default function ExpandedView({
     );
   }
 
-  /* ── 3D 버드아이 뷰 (VWorld WebGL 3D SDK) ──────────────────────── */
+  /* ── 3D 버드아이 뷰 (artboardType=image 분기보다 먼저 체크) ────────── */
   if (node.type === 'map3d') {
     const center3d = node.map3dCenter;
     const heading3d = node.map3dHeading ?? null;
@@ -397,6 +356,78 @@ export default function ExpandedView({
             onExportImage={onExportMap3dImage}
           />
         </ExpandedSidebar>
+      </div>
+    );
+  }
+
+  /* ── artboardType=image + [PLAN] 버튼 → sketch-to-plan ExpandedView ── */
+  if (node.artboardType === 'image' && expandedViewMode === 'plan') {
+    return (
+      <SketchToPlanExpandedView
+        node={node}
+        onCollapse={onCollapse}
+        onCollapseWithPlanSketch={onCollapseWithPlanSketch}
+        onGeneratePlanComplete={onGeneratePlanComplete}
+        onGeneratingChange={onGeneratingChange}
+        isGenerating={isGenerating}
+      />
+    );
+  }
+
+  /* ── artboardType=image + [IMAGE] 버튼 or 더블클릭 → sketch-to-image ExpandedView ── */
+  if (node.artboardType === 'image' && (expandedViewMode === 'image' || expandedViewMode === 'default')) {
+    return (
+      <SketchToImageExpandedView
+        node={node}
+        onCollapse={onCollapse}
+        onCollapseWithSketch={onCollapseWithSketch}
+        onGenerateError={onGenerateError}
+        onAbortControllerReady={onAbortControllerReady}
+        onGenerateComplete={onGenerateComplete}
+        onGeneratingChange={onGeneratingChange}
+        isGenerating={isGenerating}
+      />
+    );
+  }
+
+  /* ── 생성 이미지 뷰 (image/plan → generate 결과, artboardType=image) ── */
+  if (node.artboardType === 'image' && (node.type === 'image' || node.type === 'plan')) {
+    const imgSrc = node.generatedImageData ?? node.thumbnailData;
+    const displaySrc = imgSrc
+      ? (imgSrc.startsWith('data:') ? imgSrc : `data:image/jpeg;base64,${imgSrc}`)
+      : null;
+    return (
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          left: 'calc(4rem + 1.5rem)',
+          right: 'calc(var(--sidebar-w) + 2rem)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '2rem',
+        }}>
+          {displaySrc ? (
+            <img
+              src={displaySrc}
+              alt={node.title}
+              style={{
+                maxWidth: '100%', maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: 'var(--radius-box)',
+                boxShadow: 'var(--shadow-float)',
+              }}
+            />
+          ) : (
+            <span className="text-body-3" style={{ color: 'var(--color-gray-300)' }}>이미지가 없습니다</span>
+          )}
+        </div>
+        <LeftToolbar
+          activeTool={activeTool} scale={scale}
+          canUndo={canUndo} canRedo={canRedo}
+          onToolChange={onToolChange} onUndo={onUndo} onRedo={onRedo}
+          onZoomIn={onZoomIn} onZoomOut={onZoomOut} onZoomReset={onZoomReset}
+          onAddArtboard={onAddArtboard}
+        />
+        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
       </div>
     );
   }
