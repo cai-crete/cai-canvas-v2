@@ -70,13 +70,35 @@ export async function POST(request: Request) {
 
     if (action === 'wfs') {
       if (!pnu) return NextResponse.json({ error: 'pnu required', data: { features: [] } }, { status: 400 });
-      // 브이월드 최신 매뉴얼에 따른 XML Filter 구성
-      const xmlFilter = `<ogc:Filter><ogc:PropertyIsEqualTo matchCase="true"><ogc:PropertyName>pnu</ogc:PropertyName><ogc:Literal>${pnu}</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>`;
-      wfsUrl = `https://api.vworld.kr/req/wfs?key=${VWORLD_KEY}&domain=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=40&SRSNAME=EPSG:4326&OUTPUT=application/json&FILTER=${encodeURIComponent(xmlFilter)}`;
+      // Planners 서버와 동일한 방식 — lt_c_landseries + CQL_FILTER
+      const params = new URLSearchParams({
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lt_c_landseries',
+        VERSION: '1.1.0',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        MAXFEATURES: '40',
+        KEY: VWORLD_KEY,
+        DOMAIN: VWORLD_DOMAIN,
+        CQL_FILTER: `pnu='${pnu}'`,
+      });
+      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     } else if (action === 'wfs-bbox') {
       if (!bbox) return NextResponse.json({ error: 'bbox required', data: { features: [] } }, { status: 400 });
-      // bbox 기반 다중 필지 검색 (최대 1000개)
-      wfsUrl = `https://api.vworld.kr/req/wfs?key=${VWORLD_KEY}&domain=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=1000&SRSNAME=EPSG:4326&OUTPUT=application/json&BBOX=${bbox},EPSG:4326`;
+      const params = new URLSearchParams({
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lt_c_landseries',
+        VERSION: '1.1.0',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        MAXFEATURES: '1000',
+        KEY: VWORLD_KEY,
+        DOMAIN: VWORLD_DOMAIN,
+        BBOX: `${bbox},EPSG:4326`,
+      });
+      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     }
 
     console.log(`[VWorld API] WFS Fetch 요청 — URL Length: ${wfsUrl.length}`);
