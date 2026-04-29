@@ -1,0 +1,14 @@
+## 방금 한 일
+- types/canvas.ts: ARTBOARD_COMPATIBLE_NODES.sketch에 'print' 추가 → sketch 아트보드 노드 PRINT 버튼 활성화
+- app/page.tsx: handleNodeTabSelect print 블록 필터를 artboardType === 'sketch' | 'image' 로 확장
+
+## 완료된 항목
+- [x] ARTBOARD_COMPATIBLE_NODES.sketch에 'print' 추가
+- [x] print 필터 sketch | image 확장
+
+## 다음에 해야 할 일
+- 브라우저 검증: sketch 아트보드 단일 선택 → PRINT 버튼 활성 확인
+- 브라우저 검증: sketch 아트보드 PRINT 클릭 → Print ExpandedView 진입 + thumbnailData 로드 확인
+- 브라우저 검증: image 아트보드 단일/다중 선택 → Print ExpandedView 정상 진입 확인
+- 회귀: 기존 uploaded image PRINT 흐름 이상 없음 확인
+- 검증 완료 후 exec-plan을 active/ → completed/ 이동

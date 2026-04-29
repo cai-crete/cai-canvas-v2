@@ -504,12 +504,15 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
-      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
-      if (sketchBase64 && n.artboardType !== 'image') {
+      if (sketchBase64) {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
         updates.sketchPaths   = sketchPaths;
+        /* image 아트보드의 경우, 원본 이미지가 유실되지 않도록 최초 1회 generatedImageData에 백업 */
+        if (n.artboardType === 'image' && !n.generatedImageData) {
+          updates.generatedImageData = n.thumbnailData;
+        }
       }
       return { ...n, ...updates };
     }));
@@ -522,12 +525,15 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
-      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
-      if (sketchBase64 && n.artboardType !== 'image') {
+      if (sketchBase64) {
         updates.hasThumbnail  = true;
         updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
         updates.sketchPaths   = sketchPaths;
+        /* image 아트보드의 경우, 원본 이미지가 유실되지 않도록 최초 1회 generatedImageData에 백업 */
+        if (n.artboardType === 'image' && !n.generatedImageData) {
+          updates.generatedImageData = n.thumbnailData;
+        }
       }
       return { ...n, ...updates };
     }));
@@ -683,11 +689,11 @@ export default function CanvasPage() {
   const handleNodeTabSelect = useCallback((type: NodeType) => {
     const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
 
-    /* print + image 아트보드 선택(단일/다중) → print 노드 생성 + expanded 진입 (이미지 사전 로드) */
+    /* print + sketch/image 아트보드 선택(단일/다중) → print 노드 생성 + expanded 진입 (이미지 사전 로드) */
     if (type === 'print') {
       const imageNodes = selectedNodeIds
         .map(id => nodes.find(n => n.id === id))
-        .filter((n): n is CanvasNode => !!n && n.artboardType === 'image');
+        .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch'));
 
       if (imageNodes.length > 0) {
         const currentNodes = nodes;
