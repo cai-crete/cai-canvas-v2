@@ -2,12 +2,14 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import localforage from 'localforage';
+import { useCanvasStore } from '@/store/canvas';
 import {
   CanvasNode, CanvasEdge, NodeType,
   ArtboardType, NODE_TO_ARTBOARD_TYPE, NODES_THAT_EXPAND,
   NODE_DEFINITIONS, COL_GAP_PX, SketchPanelSettings, PlanPanelSettings, ViewpointPanelSettings,
   NODES_NAVIGATE_DISABLED, NODE_TARGET_ARTBOARD_TYPE,
   PlannerMessage, SavedInsightData, ElevationImages, SketchState,
+  CadastralGeoJson,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
 import type { PrintDraftState } from '@cai-crete/print-components';
@@ -136,6 +138,15 @@ export default function CanvasPage() {
   const [nodes,        setNodes]        = useState<CanvasNode[]>([]);
   const [history,      setHistory]      = useState<{ nodes: CanvasNode[]; edges: CanvasEdge[] }[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  /* ── canvasStore 동기화 ──────────────────────────────────────────── */
+  useEffect(() => {
+    useCanvasStore.getState().registerSetter(setNodes);
+    return () => { useCanvasStore.getState().registerSetter(null); };
+  }, []);
+  useEffect(() => {
+    useCanvasStore.getState().syncNodes(nodes);
+  }, [nodes]);
 
   /* ── edges + 신규 엣지 애니메이션 ───────────────────────────────── */
   const [edges,      setEdges]      = useState<CanvasEdge[]>([]);
@@ -434,21 +445,105 @@ export default function CanvasPage() {
     reader.readAsDataURL(file);
   }, [nodes, offset, scale, pushHistory]);
 
-  /* ── planners: 지적도 노드 자동 생성 ────────────────────────────── */
-  const handleCadastralDataReceived = useCallback((pnu: string | null, _landCount: number) => {
+  /* ── planners: 지적도 노드 + 3D 버드아이 뷰 노드 자동 생성 ──── */
+  const handleCadastralDataReceived = useCallback((
+    pnu: string | null,
+    geoJson: CadastralGeoJson | null,
+    mapCenter: { lng: number; lat: number } | null,
+  ) => {
     if (!expandedNodeId || !pnu) return;
     const currentNodes = nodes;
     const currentEdges = edgesRef.current;
-    const existing = currentNodes.filter(n => n.type === 'cadastral');
-    const num = existing.length + 1;
+
+    // 지적도 노드
+    const cadExisting = currentNodes.filter(n => n.type === 'cadastral');
+    const cadNum = cadExisting.length + 1;
+    const cadId = generateId();
+    const { position: cadPos, pushdowns: cadPushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+    const cadNode: CanvasNode = {
+      id: cadId, type: 'cadastral',
+      title: `지적도 #${cadNum}`,
+      position: cadPos, instanceNumber: cadNum, hasThumbnail: true, artboardType: 'image',
+      parentId: expandedNodeId, autoPlaced: true,
+      cadastralPnu: pnu,
+      cadastralGeoJson: geoJson,
+      cadastralMapCenter: mapCenter,
+    };
+
+    // 3D 버드아이 뷰 노드 (mapCenter가 있을 때만)
+    const map3dNodes: CanvasNode[] = [];
+    const map3dEdges: CanvasEdge[] = [];
+    let map3dId: string | null = null;
+    if (mapCenter && geoJson) {
+      const m3dExisting = currentNodes.filter(n => n.type === 'map3d');
+      const m3dNum = m3dExisting.length + 1;
+      map3dId = generateId();
+      const nodesWithCad = [...currentNodes, cadNode];
+      const edgesWithCad = [...currentEdges, { id: generateId(), sourceId: expandedNodeId, targetId: cadId }];
+      const { position: m3dPos } = placeNewChild(expandedNodeId, nodesWithCad, edgesWithCad);
+      const m3dNode: CanvasNode = {
+        id: map3dId, type: 'map3d',
+        title: `3D 버드아이 #${m3dNum}`,
+        position: m3dPos, instanceNumber: m3dNum, hasThumbnail: true, artboardType: 'image',
+        parentId: expandedNodeId, autoPlaced: true,
+        map3dBoundary: geoJson,
+        map3dCenter: mapCenter,
+        map3dHeading: null,
+        map3dHeight: 500,
+      };
+      map3dNodes.push(m3dNode);
+      map3dEdges.push({ id: generateId(), sourceId: expandedNodeId, targetId: map3dId });
+    }
+
+    let nextNodes = [...currentNodes, cadNode, ...map3dNodes];
+    if (cadPushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = cadPushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+    const cadEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: cadId };
+    pushHistory(nextNodes, [...currentEdges, cadEdge, ...map3dEdges]);
+
+    // 비동기 도로 분석 → 3D 노드 heading 업데이트
+    if (map3dId && mapCenter && geoJson) {
+      const m3dIdCapture = map3dId;
+      const plannersNode = currentNodes.find(n => n.id === expandedNodeId);
+      const rawLandArea = plannersNode?.plannerInsightData?.landCharacteristics?.landArea;
+      const parsed = rawLandArea ? Number(String(rawLandArea).replace(/,/g, '')) : NaN;
+      const landAreaNum = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      import('@/planners/lib/roadApi').then(async ({ fetchRoads, calculateFacade }) => {
+        try {
+          const roads = await fetchRoads(mapCenter);
+          const facade = calculateFacade(geoJson, roads, landAreaNum);
+          useCanvasStore.getState().updateNode(m3dIdCapture, {
+            map3dHeading: facade.heading,
+            map3dHeight: facade.height,
+            map3dOffsetAngle: facade.offsetAngle,
+            map3dRoadInfo: facade.roadInfo,
+          });
+        } catch (e) {
+          console.error('[3D Map] 도로 분석 실패:', e);
+        }
+      });
+    }
+  }, [expandedNodeId, nodes, pushHistory]);
+
+  /* ── planners: 지적도 이미지 익스포트 → 새 이미지 노드 생성 ──── */
+  const handleExportCadastralImage = useCallback((base64Url: string) => {
+    if (!expandedNodeId) return;
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const num = currentNodes.filter(n => n.type === 'image').length + 1;
     const newId = generateId();
     const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
     const newNode: CanvasNode = {
-      id: newId, type: 'cadastral',
-      title: `지적도 #${num}`,
-      position, instanceNumber: num, hasThumbnail: false, artboardType: 'image',
+      id: newId, type: 'image',
+      title: `지적도 Export #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
       parentId: expandedNodeId, autoPlaced: true,
-      cadastralPnu: pnu,
+      thumbnailData: base64Url,
+      generatedImageData: base64Url,
     };
     let nextNodes = [...currentNodes, newNode];
     if (pushdowns.size > 0) {
@@ -459,6 +554,34 @@ export default function CanvasPage() {
     }
     const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
     pushHistory(nextNodes, [...currentEdges, newEdge]);
+  }, [expandedNodeId, nodes, pushHistory]);
+
+  /* ── planners: 3D 맵 이미지 익스포트 → 새 이미지 노드 생성 ──── */
+  const handleExportMap3dImage = useCallback((base64Url: string) => {
+    if (!expandedNodeId) return;
+    const currentNodes = nodes;
+    const currentEdges = edgesRef.current;
+    const num = currentNodes.filter(n => n.type === 'image').length + 1;
+    const newId = generateId();
+    const { position, pushdowns } = placeNewChild(expandedNodeId, currentNodes, currentEdges);
+    const newNode: CanvasNode = {
+      id: newId, type: 'image',
+      title: `3D View Export #${num}`,
+      position, instanceNumber: num, hasThumbnail: true, artboardType: 'image',
+      parentId: expandedNodeId, autoPlaced: true,
+      thumbnailData: base64Url,
+      generatedImageData: base64Url,
+    };
+    let nextNodes = [...currentNodes, newNode];
+    if (pushdowns.size > 0) {
+      nextNodes = nextNodes.map(n => {
+        const np = pushdowns.get(n.id);
+        return np ? { ...n, position: np } : n;
+      });
+    }
+    const newEdge: CanvasEdge = { id: generateId(), sourceId: expandedNodeId, targetId: newId };
+    pushHistory(nextNodes, [...currentEdges, newEdge]);
+    setExpandedNodeId(null);
   }, [expandedNodeId, nodes, pushHistory]);
 
   /* ── expand에서 돌아올 때 썸네일 생성 + planners 데이터 flush */
@@ -1161,7 +1284,6 @@ export default function CanvasPage() {
       {expandedNode ? (
         <ExpandedView
           node={expandedNode}
-          viewMode={expandedViewMode}
           onCollapse={handleReturnFromExpand}
           onCollapseWithSketch={handleCollapseWithSketch}
           onGenerateError={handleGenerateError}
@@ -1183,14 +1305,13 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
-          onPrintNodeUpdate={handlePrintNodeUpdate}
-          autoGeneratePrint={printAutoGenerate}
-          printDraftState={printDraftState}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
           initialInsightData={expandedNode?.plannerInsightData}
           onCadastralDataReceived={handleCadastralDataReceived}
+          onExportCadastralImage={handleExportCadastralImage}
+          onExportMap3dImage={handleExportMap3dImage}
         />
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

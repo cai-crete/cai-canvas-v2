@@ -22,6 +22,21 @@ export type PortShape =
   | 'diamond-solid'   // 부모 포트, 다중 연결
   | 'diamond-outline' // 자식 포트, 다중 연결
 
+// ── 지적도 GeoJSON 타입 (Planners 백엔드 WFS 응답 구조) ──────────
+export interface CadastralFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][] | number[][][][];
+  };
+  properties: Record<string, unknown>;
+}
+
+export interface CadastralGeoJson {
+  type: 'FeatureCollection';
+  features: CadastralFeature[];
+}
+
 export interface CanvasEdge {
   id: string;
   sourceId: string; // 부모 노드
@@ -37,7 +52,8 @@ export type NodeType =
   | 'diagram'
   | 'print'
   | 'sketch'
-  | 'cadastral'; // 지적도 — VWorld 결과 수신 시 자동 생성
+  | 'cadastral' // 지적도 — VWorld 결과 수신 시 자동 생성
+  | 'map3d';    // 3D 버드아이 뷰 — 지적도 생성 시 자동 생성
 
 /* 아트보드 컨테이너 유형 */
 export type ArtboardType = 'blank' | 'sketch' | 'image' | 'thumbnail';
@@ -172,6 +188,21 @@ export interface CanvasNode {
   plannerMessages?: PlannerMessage[];
   plannerInsightData?: SavedInsightData; // Insight 패널 데이터 (재진입 시 복원용)
   cadastralPnu?: string;                 // 지적도 노드 전용 — VWorld PNU 코드
+  cadastralGeoJson?: CadastralGeoJson | null;
+  cadastralTmsType?: 'None' | 'Base' | 'Satellite' | 'Vector';
+  cadastralMapCenter?: { lng: number; lat: number } | null;
+  cadastralShowSurrounding?: boolean;
+  cadastralShowLotNumbers?: boolean;
+  cadastralFillSelected?: boolean;
+  cadastralMapOffset?: { x: number; y: number };
+  cadastralIsOffsetMode?: boolean;
+  map3dBoundary?: CadastralGeoJson | null;
+  map3dCenter?: { lng: number; lat: number } | null;
+  map3dHeading?: number | null;
+  map3dHeight?: number;
+  map3dOffsetAngle?: number;
+  map3dRoadInfo?: string;
+  map3dShowLabels?: boolean;
   elevationPanelSettings?: ElevationPanelSettings;
   elevationImages?: ElevationImages;
   elevationAeplData?: ElevationAeplData;
@@ -194,6 +225,7 @@ export const NODE_DEFINITIONS: Record<NodeType, { label: string; displayLabel: s
   print:     { label: 'PRINT',              displayLabel: 'PRINT',      caption: 'Print' },
   sketch:    { label: 'SKETCH',             displayLabel: 'SKETCH',     caption: 'Sketch Artboard' },
   cadastral: { label: '지적도',              displayLabel: '지적도',      caption: '지적도' },
+  map3d:     { label: '3D 버드아이',         displayLabel: '3D VIEW',     caption: '3D 버드아이 뷰' },
 };
 
 export const NODE_ORDER: NodeType[] = [
@@ -217,6 +249,7 @@ export const NODE_TO_ARTBOARD_TYPE: Partial<Record<NodeType, ArtboardType>> = {
   print:     'thumbnail',
   planners:  'thumbnail',
   cadastral: 'image',
+  map3d:     'image',
 };
 
 /* 아트보드 선택 + 탭 클릭 시 expand 진입하는 노드 */
