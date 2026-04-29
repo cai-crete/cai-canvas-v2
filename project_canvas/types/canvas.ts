@@ -1,3 +1,13 @@
+import type { SelectedImage, PrintSavedState } from '@cai-crete/print-components';
+
+/* 스케치 캔버스 벡터 상태 (paths + text + image transform) */
+export interface SketchState {
+  paths: { tool: 'pen' | 'eraser'; points: { x: number; y: number }[]; strokeWidth: number; color: string }[];
+  uploadedImageData: string | null;
+  imageTransform: { x: number; y: number; width: number; height: number; rotation: number } | null;
+  textItems: { id: string; x: number; y: number; width: number; height: number; text: string }[];
+}
+
 /* 노드 카드 규격 (rem → px @ 16px base) */
 export const CARD_W_PX  = 280; // 17.5rem
 export const CARD_H_PX  = 198; // 12.375rem
@@ -43,7 +53,7 @@ export type NodeType =
   | 'print'
   | 'sketch'
   | 'cadastral' // 지적도 — VWorld 결과 수신 시 자동 생성
-  | 'map3d';     // 3D 버드아이 뷰 — 지적도 생성 시 자동 생성
+  | 'map3d';    // 3D 버드아이 뷰 — 지적도 생성 시 자동 생성
 
 /* 아트보드 컨테이너 유형 */
 export type ArtboardType = 'blank' | 'sketch' | 'image' | 'thumbnail';
@@ -164,7 +174,8 @@ export interface CanvasNode {
   hasThumbnail: boolean;
   artboardType: ArtboardType;  // 아트보드 컨테이너 유형
   thumbnailData?: string;
-  sketchData?: string;          // 드로잉 base64 (sketch→image 원본)
+  sketchData?: string;          // 드로잉 base64 (sketch→image 원본, API 전송용)
+  sketchPaths?: SketchState;    // 스케치 벡터 상태 (편집 복원용)
   generatedImageData?: string;  // 생성 결과 base64
   sketchPanelSettings?: SketchPanelSettings;       // 패널 설정 복원용
   planPanelSettings?: PlanPanelSettings;           // 플랜 패널 설정 복원용
@@ -177,25 +188,26 @@ export interface CanvasNode {
   plannerMessages?: PlannerMessage[];
   plannerInsightData?: SavedInsightData; // Insight 패널 데이터 (재진입 시 복원용)
   cadastralPnu?: string;                 // 지적도 노드 전용 — VWorld PNU 코드
-  cadastralGeoJson?: CadastralGeoJson | null;              // 지적 경계 GeoJSON
-  cadastralTmsType?: 'None' | 'Base' | 'Satellite' | 'Vector'; // 배경 레이어 타입
-  cadastralMapCenter?: { lng: number; lat: number } | null; // 지도 중심 좌표 (centroid)
-  cadastralShowSurrounding?: boolean;  // 주변 지적선 표시 여부
-  cadastralShowLotNumbers?: boolean;   // 지번 라벨 표시 여부
-  cadastralFillSelected?: boolean;     // 선택 대지 내부 칠하기 여부
-  cadastralMapOffset?: { x: number; y: number }; // 지도 배경 오프셋 (SVG 로컬 좌표)
-  cadastralIsOffsetMode?: boolean;     // 맵 오프셋 조정 모드 활성화 여부
-  // 3D 버드아이 뷰 전용
-  map3dBoundary?: CadastralGeoJson | null;           // 대지 경계 GeoJSON
-  map3dCenter?: { lng: number; lat: number } | null;  // 대지 중심 좌표
-  map3dHeading?: number | null;                       // 카메라 heading (도로 분석 결과)
-  map3dHeight?: number;                               // 카메라 높이 (m) — 면적 기반 동적 계산
-  map3dOffsetAngle?: number;                          // 카메라 좌우 오프셋 (+45=우, -45=좌, 0=정면)
-  map3dRoadInfo?: string;                             // 도로 접면 정보 텍스트
-  map3dShowLabels?: boolean;                          // 지명/POI 레이블 표시 여부
+  cadastralGeoJson?: CadastralGeoJson | null;
+  cadastralTmsType?: 'None' | 'Base' | 'Satellite' | 'Vector';
+  cadastralMapCenter?: { lng: number; lat: number } | null;
+  cadastralShowSurrounding?: boolean;
+  cadastralShowLotNumbers?: boolean;
+  cadastralFillSelected?: boolean;
+  cadastralMapOffset?: { x: number; y: number };
+  cadastralIsOffsetMode?: boolean;
+  map3dBoundary?: CadastralGeoJson | null;
+  map3dCenter?: { lng: number; lat: number } | null;
+  map3dHeading?: number | null;
+  map3dHeight?: number;
+  map3dOffsetAngle?: number;
+  map3dRoadInfo?: string;
+  map3dShowLabels?: boolean;
   elevationPanelSettings?: ElevationPanelSettings;
   elevationImages?: ElevationImages;
   elevationAeplData?: ElevationAeplData;
+  printSavedState?: PrintSavedState;
+  printSelectedImages?: SelectedImage[];
 }
 
 export interface CanvasViewport {
@@ -222,8 +234,8 @@ export const NODE_ORDER: NodeType[] = [
 
 /* 아트보드 유형별 호환 노드 탭 */
 export const ARTBOARD_COMPATIBLE_NODES: Record<Exclude<ArtboardType, 'blank'>, NodeType[]> = {
-  sketch:    ['image', 'plan'],
-  image:     ['elevation', 'viewpoint', 'diagram', 'print'],
+  sketch:    ['image', 'plan', 'print'],
+  image:     ['elevation', 'viewpoint', 'plan', 'diagram', 'print'],
   thumbnail: ['planners', 'print'],
 };
 
