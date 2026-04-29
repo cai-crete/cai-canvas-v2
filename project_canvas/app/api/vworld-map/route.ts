@@ -106,7 +106,9 @@ export async function POST(request: Request) {
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류';
-    console.error('[VWorld API] 예외 발생:', message);
+    const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
+    console.error('[VWorld API] 예외 발생:', message, '| cause:', cause);
+    console.error('[VWorld API] KEY prefix:', VWORLD_KEY.slice(0, 8), '| DOMAIN:', VWORLD_DOMAIN);
     // 빈 features 배열을 주어 프론트 크래시 방지
     return NextResponse.json({ error: message, data: { features: [] } }, { status: 500 });
   }
