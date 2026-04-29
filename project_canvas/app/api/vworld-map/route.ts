@@ -1,7 +1,23 @@
 import { NextResponse } from 'next/server';
 
 const VWORLD_KEY = process.env.VWORLD_API_KEY || '2A63345D-557F-32C5-89D5-DE55A65CF23B';
-const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app';
+const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app/';
+
+/* Vercel Edge Runtime의 undici fetch는 VWorld처럼 응답이 느린 서버에서
+   UND_ERR_SOCKET(other side closed) 에러를 일으킬 수 있다.
+   AbortController로 타임아웃을 명시하고, cache: 'no-store'로 캐시 계층을 우회한다. */
+async function vworldFetch(url: string, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -48,7 +64,7 @@ export async function POST(request: Request) {
       });
       const roadUrl = `https://api.vworld.kr/req/wfs?${roadParams.toString()}`;
       try {
-        const roadRes = await fetch(roadUrl);
+        const roadRes = await vworldFetch(roadUrl);
         if (!roadRes.ok) {
           return NextResponse.json({ data: { type: 'FeatureCollection', features: [] }, note: '도로 WFS 실패' });
         }
@@ -70,40 +86,41 @@ export async function POST(request: Request) {
 
     if (action === 'wfs') {
       if (!pnu) return NextResponse.json({ error: 'pnu required', data: { features: [] } }, { status: 400 });
-      // Planners 서버와 동일한 방식 — lt_c_landseries + CQL_FILTER
+      // XML Filter — lp_pa_cbnd_bubun 레이어는 CQL_FILTER 미지원, XML ogc:Filter 필수
+      const xmlFilter = `<ogc:Filter><ogc:PropertyIsEqualTo matchCase="true"><ogc:PropertyName>pnu</ogc:PropertyName><ogc:Literal>${pnu}</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>`;
       const params = new URLSearchParams({
-        SERVICE: 'WFS',
-        REQUEST: 'GetFeature',
-        TYPENAME: 'lt_c_landseries',
-        VERSION: '1.1.0',
-        SRSNAME: 'EPSG:4326',
-        OUTPUT: 'application/json',
-        MAXFEATURES: '40',
         KEY: VWORLD_KEY,
         DOMAIN: VWORLD_DOMAIN,
-        CQL_FILTER: `pnu='${pnu}'`,
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lp_pa_cbnd_bubun',
+        VERSION: '1.1.0',
+        MAXFEATURES: '40',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
+        FILTER: xmlFilter,
       });
       wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     } else if (action === 'wfs-bbox') {
       if (!bbox) return NextResponse.json({ error: 'bbox required', data: { features: [] } }, { status: 400 });
       const params = new URLSearchParams({
-        SERVICE: 'WFS',
-        REQUEST: 'GetFeature',
-        TYPENAME: 'lt_c_landseries',
-        VERSION: '1.1.0',
-        SRSNAME: 'EPSG:4326',
-        OUTPUT: 'application/json',
-        MAXFEATURES: '1000',
         KEY: VWORLD_KEY,
         DOMAIN: VWORLD_DOMAIN,
+        SERVICE: 'WFS',
+        REQUEST: 'GetFeature',
+        TYPENAME: 'lp_pa_cbnd_bubun',
+        VERSION: '1.1.0',
+        MAXFEATURES: '1000',
+        SRSNAME: 'EPSG:4326',
+        OUTPUT: 'application/json',
         BBOX: `${bbox},EPSG:4326`,
       });
       wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
     }
 
     console.log(`[VWorld API] WFS Fetch 요청 — URL Length: ${wfsUrl.length}`);
-    
-    const res = await fetch(wfsUrl);
+
+    const res = await vworldFetch(wfsUrl);
 
     if (!res.ok) {
       const text = await res.text();
@@ -116,10 +133,9 @@ export async function POST(request: Request) {
 
     const data = await res.json();
     const featureCount = data?.features?.length ?? 0;
-    
+
     console.log(`[VWorld API] GeoJSON 응답 성공 — features: ${featureCount}건`);
-    
-    // 프론트엔드가 기대하는 JSON 구조 { data: GeoJson, note: string } 로 반환
+
     return NextResponse.json({
       success: true,
       data: data,
@@ -131,7 +147,6 @@ export async function POST(request: Request) {
     const cause = error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined;
     console.error('[VWorld API] 예외 발생:', message, '| cause:', cause);
     console.error('[VWorld API] KEY prefix:', VWORLD_KEY.slice(0, 8), '| DOMAIN:', VWORLD_DOMAIN);
-    // 빈 features 배열을 주어 프론트 크래시 방지
     return NextResponse.json({ error: message, data: { features: [] } }, { status: 500 });
   }
 }
