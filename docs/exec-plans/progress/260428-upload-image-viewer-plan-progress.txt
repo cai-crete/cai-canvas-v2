@@ -1,0 +1,21 @@
+작업: 업로드 이미지 → IMAGE ExpandedView 라우팅 계획 수립
+
+완료된 작업:
+1. 현황 분석
+   - handleUploadImage로 생성되는 노드: type='image', artboardType='image', thumbnailData=dataUrl, sketchData/generatedImageData 없음
+   - 현재 ExpandedView.tsx 라우팅: node.type==='image' → 무조건 SketchToImageExpandedView → 빈 스케치 캔버스 표시됨
+   - IMAGE 버튼 클릭(handleNodeTabSelect): 업로드 이미지도 expandedViewMode='image'로 설정하지만 결과는 동일
+
+2. 해결 방향 확정
+   - 분기 기준: artboardType
+     - 'sketch' → SketchToImageExpandedView (기존 유지)
+     - 'image' + type='image'/'viewpoint' → 신규 ImageViewerExpandedView
+   - plan + IMAGE 버튼 케이스는 viewMode 체크로 기존 유지
+
+3. 작업지시서 작성
+   - docs/exec-plans/active/upload-image-viewer-expandedview.md 생성
+
+다음 할 일:
+- 사용자 승인 후 구현 진행
+- ImageViewerExpandedView 신규 컴포넌트 생성
+- components/ExpandedView.tsx 라우팅 수정

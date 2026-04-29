@@ -152,6 +152,9 @@ export default function CanvasPage() {
   /* ── localStorage 복원 완료 플래그 (persist effect 선실행 방지) ─── */
   const isRestoredRef = useRef(false);
 
+  /* ── 드래그 중 IndexedDB 저장 억제 플래그 ─────────────────────── */
+  const isDraggingNodeRef = useRef(false);
+
   /* ── 줌 배율 버튼 사이클 상태 (0: idle, 1: fit-all, 2: focus-latest) */
   const zoomCycleStateRef = useRef(0);
   const savedViewRef      = useRef<{ scale: number; offset: { x: number; y: number } } | null>(null);
@@ -159,7 +162,7 @@ export default function CanvasPage() {
   /* ── 선택 / 확장 상태 ────────────────────────────────────────────── */
   const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
   const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
-  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'default'>('default');
+  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'plan' | 'default'>('default');
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -260,9 +263,9 @@ export default function CanvasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undo, redo, expandedNodeId]);
 
-  /* ── persist: nodes → IndexedDB (복원 완료 후에만) ─────────────── */
+  /* ── persist: nodes → IndexedDB (복원 완료 후, 드래그 중 제외) ── */
   useEffect(() => {
-    if (!isRestoredRef.current) return;
+    if (!isRestoredRef.current || isDraggingNodeRef.current) return;
     lfSaveNodes(nodes);
   }, [nodes]);
 
@@ -277,6 +280,20 @@ export default function CanvasPage() {
     if (!isRestoredRef.current) return;
     lsSaveView(scale, offset);
   }, [scale, offset]);
+
+  /* ── 드래그 중 포커스 상실 시 저장 억제 플래그 복구 ──────────── */
+  useEffect(() => {
+    const onBlur = () => {
+      if (isDraggingNodeRef.current) {
+        isDraggingNodeRef.current = false;
+        lfSaveNodes(nodes);
+      }
+    };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  // nodes 최신값 필요 — 의도적 의존성
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes]);
 
   /* ── mount: IndexedDB 복원 → isRestoredRef = true ──────────────── */
   useEffect(() => {
@@ -487,10 +504,10 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
-      if (sketchBase64) {
+      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
+      if (sketchBase64 && n.artboardType !== 'image') {
         updates.hasThumbnail  = true;
-        /* generatedImageData가 있으면 원본 AI 이미지를 썸네일로 유지, 없으면 100% zoom 썸네일 */
-        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
+        updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -504,9 +521,10 @@ export default function CanvasPage() {
     setNodes(prev => prev.map(n => {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
-      if (sketchBase64) {
+      /* image 아트보드(생성 결과 노드)는 원본 이미지 데이터 유지 — 스케치 노드만 업데이트 */
+      if (sketchBase64 && n.artboardType !== 'image') {
         updates.hasThumbnail  = true;
-        updates.thumbnailData = n.generatedImageData ?? thumbnailBase64;
+        updates.thumbnailData = thumbnailBase64;
         updates.sketchData    = sketchBase64;
       }
       return { ...n, ...updates };
@@ -515,7 +533,7 @@ export default function CanvasPage() {
 
   /* ── sketch-plan GENERATE 완료 ─────────────────────────────────────── */
   const handleGeneratePlanComplete = useCallback(({
-    sketchBase64, thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedPlanBase64, roomAnalysis, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
@@ -524,13 +542,7 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      const updatedOrigin = {
-        ...origin,
-        hasThumbnail: true,
-        thumbnailData: thumbnailBase64,
-        sketchData: sketchBase64,
-      };
-
+      /* 원본 노드는 변경하지 않음 — handleCollapseWithPlanSketch에서 이미 저장 완료 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -545,14 +557,13 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedPlanBase64,
-        sketchData: generatedPlanBase64,
         generatedImageData: generatedPlanBase64,
         roomAnalysis,
         parentId: nodeId,
         autoPlaced: true,
       };
 
-      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
+      const next = [...prev, newNode];
 
       const newEdge: CanvasEdge = {
         id: generateId(),
@@ -652,10 +663,12 @@ export default function CanvasPage() {
 
   /* ── node position ───────────────────────────────────────────────── */
   const updateNodePosition = useCallback((id: string, pos: { x: number; y: number }) => {
+    isDraggingNodeRef.current = true;
     setNodes(prev => prev.map(n => n.id === id ? { ...n, position: pos } : n));
   }, []);
 
   const commitNodePosition = useCallback((id: string) => {
+    isDraggingNodeRef.current = false;
     setNodes(prev => {
       const next = prev.map(n => n.id === id ? { ...n, autoPlaced: false } : n);
       setHistory(h => [...h.slice(0, historyIndex + 1), { nodes: next, edges: edgesRef.current }]);
@@ -716,6 +729,18 @@ export default function CanvasPage() {
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
+      /* PLAN 탭 + image 아트보드 노드(plan/image/viewpoint) → Plan ExpandedView */
+      if (
+        type === 'plan' &&
+        selectedNode.artboardType === 'image' &&
+        (selectedNode.type === 'plan' || selectedNode.type === 'image' || selectedNode.type === 'viewpoint')
+      ) {
+        setExpandedViewMode('plan');
+        setExpandedNodeId(selectedNode.id);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
       /* IMAGE 탭 + plan/image/viewpoint 노드(artboardType=image) → Image ExpandedView */
       if (
         type === 'image' &&
@@ -724,6 +749,17 @@ export default function CanvasPage() {
       ) {
         setExpandedViewMode('image');
         setExpandedNodeId(selectedNode.id);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+
+      /* planners: 선택 노드가 planners면 expand, 그 외에는 새 planners 자식 노드 생성 */
+      if (type === 'planners') {
+        if (selectedNode.type === 'planners') {
+          setExpandedNodeId(selectedNode.id);
+        } else {
+          createAndExpandNode('planners');
+        }
         setActiveSidebarNodeType(null);
         return;
       }
@@ -883,24 +919,16 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64, thumbnailBase64, generatedBase64, nodeId,
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
   }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
     setNodes(prev => {
-      /* 원본 노드: sketchData + thumbnailData(100% zoom) 업데이트 */
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      const updatedOrigin = {
-        ...origin,
-        hasThumbnail: true,
-        thumbnailData: thumbnailBase64,
-        sketchData: sketchBase64,
-      };
-
-      /* 새 노드: 생성 이미지 */
+      /* 원본 노드는 변경하지 않음 — handleCollapseWithSketch에서 이미 저장 완료 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -915,15 +943,13 @@ export default function CanvasPage() {
         instanceNumber: num,
         hasThumbnail: true,
         thumbnailData: generatedBase64,
-        sketchData: generatedBase64,
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,
       };
 
-      const next = prev.map(n => n.id === nodeId ? updatedOrigin : n).concat(newNode);
+      const next = [...prev, newNode];
 
-      /* edge 생성 */
       const newEdge: CanvasEdge = {
         id: generateId(),
         sourceId: nodeId,

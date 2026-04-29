@@ -121,16 +121,25 @@ export default function SketchToImageExpandedView({
 
   const sketchCanvasRef = useRef<SketchCanvasHandle>(null);
   const abortRef        = useRef<AbortController | null>(null);
+  const [refImage, setRefImage] = useState<string | null>(null);
 
   const { isLoading, error, generate } = useBlueprintGeneration();
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 generatedImageData 우선 로드, 없으면 sketchData */
+  /* Expand 시 sketchData 우선 로드. generatedImageData는 캔버스에 로드하지 않고
+     참조 오버레이로만 표시 (exportAsBase64에 포함되지 않아 sketch 오염 방지). */
   useEffect(() => {
-    const toLoad = node.generatedImageData ?? node.sketchData;
-    if (toLoad) {
-      sketchCanvasRef.current?.loadImage(toLoad);
+    setRefImage(null);
+    if (node.sketchData) {
+      sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
+    } else if (node.generatedImageData) {
+      const src = node.generatedImageData.startsWith('data:')
+        ? node.generatedImageData
+        : `data:image/png;base64,${node.generatedImageData}`;
+      setRefImage(src);
+    } else if (node.thumbnailData) {
+      sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
@@ -246,6 +255,8 @@ export default function SketchToImageExpandedView({
           internalOffset={internalOffset}
           onInternalZoomChange={setInternalZoom}
           onInternalOffsetChange={setInternalOffset}
+          fitOnUpload
+          referenceImageUrl={refImage ?? undefined}
         />
       </div>
 

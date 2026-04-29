@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { CanvasNode, NODE_DEFINITIONS, PortShape, ArtboardType, ARTBOARD_LABEL, NODE_GENERATED_LABEL, NODE_TARGET_ARTBOARD_TYPE } from '@/types/canvas';
 
 interface Props {
@@ -75,7 +75,7 @@ function PortIndicator({ shape, side }: { shape: PortShape; side: 'left' | 'righ
   return <div style={{ ...base, borderRadius: '50%', transform: 'translateY(-50%)' }} />;
 }
 
-export default function NodeCard({
+function NodeCard({
   node, isSelected, onSelect, onExpand, onDuplicate, onDelete, onMouseDown, hasThumbnail,
   artboardType,
   portLeft = 'none', portRight = 'none',
@@ -363,3 +363,5 @@ export default function NodeCard({
     </div>
   );
 }
+
+export default memo(NodeCard);

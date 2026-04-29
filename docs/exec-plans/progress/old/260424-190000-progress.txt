@@ -1,0 +1,30 @@
+## 진행 상황 — 2026-04-24 19:00
+
+### 방금 완료한 작업
+SDK 마이그레이션: @google/generative-ai → @google/genai
+
+### 근본 원인 (최종 확인)
+cai-change-viewpoint-v5(작동하는 앱)와 cai-canvas-v2(503 오류 앱)의 핵심 차이:
+- v5: `import { GoogleGenAI } from "@google/genai"` ← 신 SDK
+- canvas-v2: `import { GoogleGenerativeAI } from '@google/generative-ai'` ← 구 SDK
+
+구 SDK(@google/generative-ai v0.24.1)는 v1beta API를 사용하는데,
+gemini-2.5-pro-preview 등 최신 모델이 v1beta에서 삭제되어 404 반환 → 503 발생.
+
+### 수정 내용
+1. package.json: @google/generative-ai → @google/genai v1.50.1 교체
+2. change-viewpoint/route.ts: 새 SDK 패턴으로 전체 재작성
+   - GoogleGenerativeAI → GoogleGenAI({ apiKey })
+   - model.generateContent([...]) → ai.models.generateContent({ model, config, contents })
+   - r.response.text() → r.text
+   - generationConfig.responseModalities → config.responseModalities
+3. sketch-to-image/route.ts: 동일 패턴으로 재작성
+4. sketch-to-plan/route.ts: 동일 패턴으로 재작성
+
+### 빌드 결과
+✓ npm run build 성공 (TypeScript 0 errors)
+✓ git push → GitHub origin/main 업데이트 (commit: 49b17a0)
+
+### 다음에 할 일
+- Vercel 자동 재배포 완료 후 change-viewpoint 실제 동작 검증
+- sketch-to-image, sketch-to-plan 동작도 함께 검증

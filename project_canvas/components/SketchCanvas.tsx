@@ -43,7 +43,7 @@ export interface SketchCanvasHandle {
   exportThumbnail: () => string;
   uploadTrigger: () => void;
   clearAll: () => void;
-  loadImage: (base64: string, removeBackground?: boolean) => void;
+  loadImage: (base64: string, removeBackground?: boolean, fitCanvas?: boolean) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -58,6 +58,9 @@ interface Props {
   internalOffset: { x: number; y: number };
   onInternalZoomChange: (z: number) => void;
   onInternalOffsetChange: (o: { x: number; y: number }) => void;
+  removeWhiteOnUpload?: boolean;
+  fitOnUpload?: boolean;
+  referenceImageUrl?: string;
 }
 
 /* ── Stroke widths ──────────────────────────────────────────────── */
@@ -152,6 +155,9 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     onUndoAvailable, onRedoAvailable,
     internalZoom, internalOffset,
     onInternalZoomChange, onInternalOffsetChange,
+    removeWhiteOnUpload = false,
+    fitOnUpload = false,
+    referenceImageUrl,
   },
   ref
 ) {
@@ -245,7 +251,8 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   useEffect(() => { uploadImgRef.current = uploadedImageData; }, [uploadedImageData]);
 
   /* ── Uploaded image element ─────────────────────────────────────── */
-  const uploadedImgElRef = useRef<HTMLImageElement | null>(null);
+  const uploadedImgElRef    = useRef<HTMLImageElement | null>(null);
+  const fitCanvasNextLoadRef = useRef(false);
   useEffect(() => {
     if (!uploadedImageData) {
       uploadedImgElRef.current = null;
@@ -256,12 +263,22 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     img.onload = () => {
       uploadedImgElRef.current = img;
 
-      const canvasW = canvasRef.current?.width  || containerRef.current?.clientWidth  || 800;
-      const canvasH = canvasRef.current?.height || containerRef.current?.clientHeight || 600;
-      const imgScale = Math.min(canvasW / img.naturalWidth, canvasH / img.naturalHeight) * 0.8;
-      const w = img.naturalWidth  * imgScale;
-      const h = img.naturalHeight * imgScale;
-      const newTransform: ImageTransform = { x: -w / 2, y: -h / 2, width: w, height: h, rotation: 0 };
+      let newTransform: ImageTransform;
+      if (fitCanvasNextLoadRef.current) {
+        fitCanvasNextLoadRef.current = false;
+        const canvasH = canvasRef.current?.height || containerRef.current?.clientHeight || 600;
+        const heightScale = canvasH / img.naturalHeight;
+        const w = img.naturalWidth  * heightScale;
+        const h = img.naturalHeight * heightScale;
+        newTransform = { x: -w / 2, y: -h / 2, width: w, height: h, rotation: 0 };
+      } else {
+        const canvasW = canvasRef.current?.width  || containerRef.current?.clientWidth  || 800;
+        const canvasH = canvasRef.current?.height || containerRef.current?.clientHeight || 600;
+        const imgScale = Math.min(canvasW / img.naturalWidth, canvasH / img.naturalHeight) * 0.8;
+        const w = img.naturalWidth  * imgScale;
+        const h = img.naturalHeight * imgScale;
+        newTransform = { x: -w / 2, y: -h / 2, width: w, height: h, rotation: 0 };
+      }
       applyImageTransform(newTransform);
       /* 초기 undo 스냅샷에 transform 반영 */
       if (undoStack.current.length > 0) {
@@ -496,9 +513,27 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
         const pts  = [...pointerPositions.current.values()];
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         if (lastPinchDist.current > 0) {
-          const ratio = dist / lastPinchDist.current;
-          const next  = Math.max(100, Math.min(400, internalZoomRef.current * ratio));
-          onInternalZoomChange(Math.round(next));
+          const prevZoom = internalZoomRef.current;
+          const ratio    = dist / lastPinchDist.current;
+          const nextZoom = Math.max(100, Math.min(400, prevZoom * ratio));
+          const prevZs   = prevZoom / 100;
+          const nextZs   = nextZoom / 100;
+          const canvas   = canvasRef.current;
+          if (canvas) {
+            const rect  = canvas.getBoundingClientRect();
+            const midX  = (pts[0].x + pts[1].x) / 2 - rect.left;
+            const midY  = (pts[0].y + pts[1].y) / 2 - rect.top;
+            const prevOx = internalOffsetRef.current.x + canvas.width  / 2;
+            const prevOy = internalOffsetRef.current.y + canvas.height / 2;
+            const wx     = (midX - prevOx) / prevZs;
+            const wy     = (midY - prevOy) / prevZs;
+            const rawX   = midX - wx * nextZs - canvas.width  / 2;
+            const rawY   = midY - wy * nextZs - canvas.height / 2;
+            onInternalZoomChange(Math.round(nextZoom));
+            onInternalOffsetChange(clampOffset(rawX, rawY, nextZs));
+          } else {
+            onInternalZoomChange(Math.round(nextZoom));
+          }
         }
         lastPinchDist.current = dist;
         return;
@@ -743,12 +778,13 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const imgEl = uploadedImgElRef.current;
     const ct    = imageTransformRef.current;
     if (imgEl && ct) {
-      const cx = expOx + ct.x + ct.width  / 2;
-      const cy = expOy + ct.y + ct.height / 2;
+      const fillScale = Math.max(offscreen.width / ct.width, offscreen.height / ct.height);
+      const drawW = ct.width  * fillScale;
+      const drawH = ct.height * fillScale;
       ctx.save();
-      ctx.translate(cx, cy);
+      ctx.translate(offscreen.width / 2, offscreen.height / 2);
       ctx.rotate(ct.rotation * Math.PI / 180);
-      ctx.drawImage(imgEl, -ct.width / 2, -ct.height / 2, ct.width, ct.height);
+      ctx.drawImage(imgEl, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
     }
 
@@ -830,12 +866,13 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const raw    = ev.target?.result as string;
-      const base64 = await removeWhiteBackground(raw);
+      const base64 = removeWhiteOnUpload ? await removeWhiteBackground(raw) : raw;
+      fitCanvasNextLoadRef.current = fitOnUpload;
       pushSnapshot(pathsRef.current, base64);
       setUploadedImageData(base64);
     };
     reader.readAsDataURL(file);
-  }, [pushSnapshot]);
+  }, [pushSnapshot, removeWhiteOnUpload, fitOnUpload]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
   useImperativeHandle(ref, () => ({
@@ -852,10 +889,11 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       redoStack.current = [];
       notifyHistory();
     },
-    loadImage: (base64: string, removeBackground = false) => {
+    loadImage: (base64: string, removeBackground = false, fitCanvas = false) => {
       setPaths([]);
       setTextItems([]);
       setImageEditingActive(false);
+      fitCanvasNextLoadRef.current = fitCanvas;
       const dataUrl = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
       if (removeBackground) {
         removeWhiteBackground(dataUrl).then(processed => {
@@ -982,14 +1020,26 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       ref={containerRef}
       style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'none', background: 'var(--color-app-bg)' }}
     >
-      {/* z=1 Grid */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-        <InfiniteGrid zoom={internalZoom} offset={internalOffset} />
-      </div>
+      {/* z=0 참조 이미지 오버레이 (exportAsBase64에 포함되지 않는 read-only 레이어) */}
+      {referenceImageUrl && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', overflow: 'hidden' }}>
+          <img
+            src={referenceImageUrl}
+            alt=""
+            draggable={false}
+            style={{
+              height: '100%', width: 'auto',
+              opacity: 1, userSelect: 'none', pointerEvents: 'none',
+              transform: `translate(${internalOffset.x}px, ${internalOffset.y}px) scale(${internalZoom / 100})`,
+              transformOrigin: 'center center',
+            }}
+          />
+        </div>
+      )}
 
-      {/* z=2 업로드 이미지 DOM 레이어 (CSS rotate 지원) */}
+      {/* z=1 업로드 이미지 DOM 레이어 (CSS rotate 지원) */}
       {uploadedImageData && imageTransform && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 2, overflow: 'visible', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
           <img
             src={uploadedImageData}
             alt=""
@@ -1008,6 +1058,11 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
           />
         </div>
       )}
+
+      {/* z=2 Grid */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
+        <InfiniteGrid zoom={internalZoom} offset={internalOffset} />
+      </div>
 
       {/* z=3 드로잉 캔버스 */}
       <canvas

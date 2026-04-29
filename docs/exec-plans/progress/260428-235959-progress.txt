@@ -1,0 +1,30 @@
+작업: 롤백 — 260428-220000-progress.txt 기준점으로 복원
+
+방금 완료한 작업:
+
+git restore 7개 파일 (스트로크 저장/배경 합성 기능 제거):
+  - project_canvas/app/page.tsx
+  - project_canvas/components/ExpandedView.tsx
+  - project_canvas/components/SketchCanvas.tsx
+  - project_canvas/sketch-to-image/ExpandedView.tsx
+  - project_canvas/sketch-to-plan/ExpandedView.tsx
+  - project_canvas/sketch-to-plan/_context/protocol-sketch-to-plan-v3.8.txt
+  - project_canvas/types/canvas.ts
+
+되돌린 기능: exportPathsJSON/loadPathsJSON, compositeImages/compositeSketchOnBackground, strokeData/planBaseImageData 타입
+
+현재 미커밋 변경사항 (유지):
+  - app/api/sketch-to-image/route.ts — maxDuration 300, gemini-2.5-pro
+  - app/api/sketch-to-plan/route.ts  — gemini-2.5-pro
+  - components/ExpandedSidebar.tsx   — IconCollapse 압축화살표 아이콘
+
+HEAD 커밋: d35787f feat(canvas): fix ExpandedView image fit, data contamination, and Planners UI
+
+완료된 상태 (260428-220000 기준):
+  [x] NodeCard 썸네일 contain → cover
+  [x] SketchCanvas referenceImageUrl 줌 연동
+  [x] PLANNERS 버튼 항상 활성화
+
+다음에 할 일:
+  - 브라우저 검증 (3가지 버그 수정 확인)
+  - 유지된 3개 파일 커밋 여부 결정

@@ -1,0 +1,27 @@
+작업: 업로드 이미지 → IMAGE ExpandedView 라우팅 구현
+
+완료된 작업:
+1. components/ImageViewerExpandedView.tsx 신규 생성
+   - generatedImageData ?? thumbnailData 이미지 렌더링
+   - 이미지 없을 때 플레이스홀더 (회색 박스 + "이미지가 없습니다")
+   - ExpandedSidebar 연결 (currentNodeType={node.type})
+   - onCollapse 연결
+
+2. components/ExpandedView.tsx 라우팅 수정
+   - isImageViewerMode 조건 추가:
+     (node.type === 'image' || node.type === 'viewpoint') && node.artboardType === 'image'
+   - isSketchImageMode 범위 축소:
+     (node.type === 'image' && node.artboardType === 'sketch') ||
+     (viewMode === 'image' && artboardType === 'image' && type !== 'image'/'viewpoint')
+   - isImageViewerMode 라우팅 블록 추가 (isSketchImageMode 앞)
+   - ImageViewerExpandedView import 추가
+
+변경 동작:
+- 업로드 이미지 Expand/IMAGE → ImageViewerExpandedView (이미지 뷰어)
+- viewpoint 결과 Expand → ImageViewerExpandedView
+- AI 생성 image 노드 Expand → ImageViewerExpandedView
+- sketch artboard image 노드 Expand → SketchToImageExpandedView (기존 유지)
+- plan + IMAGE 버튼 → SketchToImageExpandedView (기존 유지)
+
+다음 할 일:
+- 브라우저에서 동작 검증 (dev server 실행 필요)

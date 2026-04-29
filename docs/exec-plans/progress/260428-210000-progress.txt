@@ -1,26 +1,28 @@
-날짜: 2026-04-28
-세션: Firebase 백엔드 인프라 구축 계획서 작성
+작업: ExpandedView 3가지 버그 수정
 
-== 방금 한 일 ==
+방금 완료한 작업:
 
-Firebase 백엔드 인프라 구축 계획서 작성:
-- 파일: docs/exec-plans/active/260428-firebase-backend-infra.md
+1. [Issue 1] SketchCanvas.tsx — referenceImageUrl 오버레이 opacity 0.35 → 1.0
+   - Plan/Image ExpandedView에서 생성된 이미지가 희미하게 보이던 문제 수정
+   - z-index 순서는 이미 올바름(z=0 image → z=2 grid → z=3 sketch), opacity만 수정
 
-계획서 내용:
-- 현재 Vercel 한계 분석 (body 4.5MB, 타임아웃 60초, 메모리 1GB)
-- Firebase 4-서비스 구조 설계 (Storage, Functions, Firestore, Hosting 제외)
-- Phase 0: Firebase 초기화 (프로젝트 생성, SDK 설치, 환경변수)
-- Phase 1: Firebase Storage 연동 (이미지 URL 반환으로 Vercel body 한계 우회)
-- Phase 2: Firebase Functions 2nd gen 이전 (타임아웃·메모리 대폭 확대)
-- Phase 3: Firestore 캔버스 상태 영속화 (익명 세션 ID 기반, 로그인 없이 동작)
-- 무중단 마이그레이션 전략 (점진적 전환, 기존 Vercel 유지)
-- Storage 보안 규칙, Firestore 보안 규칙 초안 포함
+2. [Issue 2] NodeCard.tsx — thumbnailData 표시 objectFit: 'cover' → 'contain' (2개소)
+   - artboardType=image 케이스(line 271)와 hasThumbnail 케이스(line 283) 모두 수정
+   - 썸네일에서 이미지 전체가 보이도록 크롭 제거
 
-== 현재 상태 ==
-계획서만 작성 완료. 구현 미착수. 사용자 승인 대기.
+3. [Issue 3] page.tsx — 원본 노드 교체 버그 수정 (치명적)
+   - handleCollapseWithSketch: artboardType=image 노드는 thumbnailData/sketchData 업데이트 스킵
+   - handleCollapseWithPlanSketch: 동일 적용
+   - handleGenerateComplete: updatedOrigin 제거 → 새 자식 노드만 추가 (원본 노드 불변)
+   - handleGeneratePlanComplete: 동일 적용
 
-== 다음에 할 일 ==
-1. 사용자 계획서 승인 후 Phase 0부터 순차 구현
-2. Firebase Console에서 프로젝트 생성 (수동 작업 필요)
-3. Firebase CLI 로그인 후 project_canvas/에서 초기화
-4. lib/firebase.ts 생성 → Phase 1 Storage 연동 시작
+완료된 이슈:
+- 모든 3개 이슈 수정 완료
+- exec-plan 체크리스트 완료 → completed 폴더로 이동
+
+다음에 할 일:
+- 브라우저에서 검증 필요:
+  1. Plan/Image ExpandedView에서 생성 이미지가 선명하게 표시되는지 확인
+  2. 썸네일에서 이미지 전체가 보이는지(크롭 없음) 확인
+  3. Generate 후 원본 노드가 변경되지 않고 새 자식 노드만 생성되는지 확인
+  4. 스케치 노드의 경우 thumbnail이 스케치 캔버스 출력으로 유지되는지 확인

@@ -1,0 +1,32 @@
+작업: 썸네일 cover scale / 흰 배경 제거 로직 정리 / ExpandedView 이미지 cover scale
+
+완료된 작업:
+
+1. Issue 1 — exportThumbnail 썸네일 항상 이미지 꽉차게
+   - SketchCanvas.tsx exportThumbnail(): 이미지 렌더링을 cover scale로 변경
+   - 이전: ct.x, ct.y 월드 좌표로 이미지 렌더 → 자연 크기 < 캔버스이면 흰 여백 발생
+   - 이후: Math.max(canvasW/ct.width, canvasH/ct.height) cover scale 사용 → 항상 꽉차게
+
+2. Issue 2 — 흰 배경 날아가는 로직 제거
+   - sketch-to-image/ExpandedView.tsx: loadImage(node.sketchData, true→false, true)
+   - sketch-to-plan/ExpandedView.tsx: loadImage(node.sketchData, true→false, true)
+   - sketch-to-plan/ExpandedView.tsx: loadImage(node.generatedImageData, true→) → 파라미터 제거
+   - 남은 흰 배경 제거: sketch-to-plan SketchCanvas의 removeWhiteOnUpload prop (Plan 업로드 기능)만 유지
+
+3. Issue 3 — ExpandedView 진입 시 이미지 cover scale로 꽉차게
+   - SketchCanvas.tsx uploadedImageData effect fitCanvas 경로:
+   - 이전: 자연 픽셀 1:1 크기 → 이미지 자연 크기 < 캔버스이면 작게 표시
+   - 이후: Math.max(canvasW/natW, canvasH/natH) cover scale → 캔버스를 항상 채움
+
+수정 파일:
+- project_canvas/components/SketchCanvas.tsx
+- project_canvas/sketch-to-image/ExpandedView.tsx
+- project_canvas/sketch-to-plan/ExpandedView.tsx
+
+다음 할 일:
+- 동작 검증 필요:
+  1. 노드 카드 썸네일이 이미지로 꽉차게 표시되는지 확인
+  2. ExpandedView 진입 시 이미지가 캔버스를 채우는지 확인 (cover: 약간 잘릴 수 있음)
+  3. 스케치 후 닫기 → 썸네일에 스케치가 꽉차게 표시되는지 확인
+  4. Plan ExpandedView에서 + 버튼으로 이미지 업로드 시 흰 배경만 제거되는지 확인
+  5. 다른 노드 타입(sketch-to-image, sketch-to-plan)에서 흰 배경이 보존되는지 확인

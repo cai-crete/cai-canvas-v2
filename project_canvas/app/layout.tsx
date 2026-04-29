@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { Bebas_Neue } from 'next/font/google';
-import '@cai-crete/print-components/styles/print-tokens.css';
 import './globals.css';
-import RenderWakeup from '@/components/RenderWakeup';
 
 const bebas = Bebas_Neue({
   weight: '400',
@@ -19,10 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={bebas.variable}>
-      <body>
-        <RenderWakeup />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
