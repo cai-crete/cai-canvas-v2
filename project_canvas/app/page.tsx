@@ -1268,6 +1268,7 @@ export default function CanvasPage() {
       {expandedNode ? (
         <ExpandedView
           node={expandedNode}
+          expandedViewMode={expandedViewMode}
           onCollapse={handleReturnFromExpand}
           onCollapseWithSketch={handleCollapseWithSketch}
           onGenerateError={handleGenerateError}
