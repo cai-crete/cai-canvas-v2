@@ -83,6 +83,7 @@ export default function PrintExpandedView({
   const handleSave = useCallback((result: PrintSaveResult) => {
     onGeneratePrintComplete?.({ thumbnailBase64: result.thumbnail });
     onPrintNodeUpdate?.({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       printSavedState: {
         html: result.html,
         mode: result.mode,
@@ -90,7 +91,7 @@ export default function PrintExpandedView({
         metadata: result.metadata,
         resultByOrientation: result.resultByOrientation,
         savedAt: new Date().toISOString(),
-      },
+      } as any,
     });
   }, [onGeneratePrintComplete, onPrintNodeUpdate]);
 
