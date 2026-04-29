@@ -1,0 +1,34 @@
+## 진행 상황 — 2026-04-29 16:20
+
+### 이번 세션에서 한 작업 (이전 세션 종합)
+
+**Planners GitHub PR 이식 작업 완료**
+
+1. `feat/planners-update` 브랜치 생성 → PR #4 merge → origin/main 반영
+2. Vercel 빌드 오류 반복 수정:
+   - `@cai-crete/print-components` 모듈 누락 → package.json origin/main 기반 유지
+   - `SketchState` 미노출 → types/canvas.ts origin/main 기반 유지 + Planners 타입만 추가
+   - `handleCadastralDataReceived` 시그니처 불일치 → page.tsx 패치
+   - `viewMode`, `printDraftState` prop 미존재 → ExpandedView JSX에서 제거
+3. CORS 수정: cai-planners-v2.vercel.app/api/law → cai-canvas-v2*.vercel.app 허용 패턴 추가
+4. VWorld DOMAIN 환경변수 처리: VWORLD_API_KEY, VWORLD_DOMAIN 환경변수로 분리
+5. Planners Expanded View 레이아웃 복구 (position:absolute + inset 패턴)
+6. ARTBOARD_COMPATIBLE_NODES.sketch에 'print' 추가
+
+### 현재 상태
+
+- origin/main ← PR #4 merge 완료
+- Vercel build 오류 해결됨
+- CORS 수정 → cai-planners-v2 레포 push 완료
+
+### 남아있는 작업 (사용자 액션 필요)
+
+1. **Vercel 환경변수 추가** (VWorld 502 오류 해결):
+   - `VWORLD_API_KEY`: 새 VWorld 키 (https://map.vworld.kr 에서 신규 발급, 도메인: cai-canvas-v2.vercel.app 등록)
+   - `VWORLD_DOMAIN`: `https://cai-canvas-v2.vercel.app`
+2. **Vercel "Promote to Production"**: Vercel 대시보드에서 최신 빌드를 Current로 승격
+
+### 다음에 해야 할 것
+
+- 브라우저에서 Planners 기능 전체 검증 (VWorld 지적도, 법제처, 공공데이터포탈)
+- sketch 아트보드 PRINT 버튼 활성화 검증
