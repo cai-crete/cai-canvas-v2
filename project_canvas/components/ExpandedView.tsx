@@ -43,6 +43,7 @@ interface Props {
   isGenerating?: boolean;
   onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
   onGenerateElevationComplete?: (params: ElevationGenerateResult) => void;
+  elevationSourceNodeId?: string;
   onPlannerMessagesChange?: (msgs: PlannerMessage[]) => void;
   onInsightDataChange?: (data: FetchLawsResult | null) => void;
   initialInsightData?: SavedInsightData | null;
@@ -155,6 +156,7 @@ export default function ExpandedView({
   isGenerating = false,
   onGeneratePrintComplete,
   onGenerateElevationComplete,
+  elevationSourceNodeId,
   onPlannerMessagesChange, onInsightDataChange, initialInsightData, onCadastralDataReceived, onExportCadastralImage,
   onExportMap3dImage,
 }: Props) {
@@ -169,6 +171,20 @@ export default function ExpandedView({
   const [insightData, setInsightData] = useState<FetchLawsResult | null>(
     (initialInsightData as FetchLawsResult | null) ?? null
   );
+
+  /* ── elevation 전용 뷰 (isSketchImageMode보다 먼저 체크) ──────────── */
+  if (node.type === 'elevation' || !!elevationSourceNodeId) {
+    return (
+      <ElevationExpandedView
+        node={node}
+        sourceNodeId={elevationSourceNodeId}
+        onCollapse={onCollapse}
+        onGeneratingChange={onGeneratingChange}
+        isGenerating={isGenerating}
+        onGenerateElevationComplete={onGenerateElevationComplete}
+      />
+    );
+  }
 
   /* ── sketch-to-image 전용 뷰 ────────────────────────────────────── */
   if (isSketchImageMode) {
@@ -273,19 +289,6 @@ export default function ExpandedView({
         />
         <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
       </div>
-    );
-  }
-
-  /* ── elevation 전용 뷰 ──────────────────────────────────────────── */
-  if (node.type === 'elevation') {
-    return (
-      <ElevationExpandedView
-        node={node}
-        onCollapse={onCollapse}
-        onGeneratingChange={onGeneratingChange}
-        isGenerating={isGenerating}
-        onGenerateElevationComplete={onGenerateElevationComplete}
-      />
     );
   }
 

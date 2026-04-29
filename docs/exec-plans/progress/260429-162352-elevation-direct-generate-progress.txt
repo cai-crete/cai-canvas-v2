@@ -1,0 +1,33 @@
+## 작업: Elevation 복제 노드 제거 → 원본에서 직접 전개도 생성
+
+### 완료된 작업
+모든 변경 완료. TypeScript 타입 검사 통과 (오류 없음).
+
+### 변경 파일 요약
+
+1. **project_canvas/app/page.tsx**
+   - `elevationSourceNodeId: string | null` state 추가 (line ~166)
+   - `handleNodeTabSelect` elevation 처리: `createChildNode` 제거 → `setElevationSourceNodeId(selectedNode.id)` + `setExpandedNodeId(selectedNode.id)` 로 변경 (line ~801)
+   - `handleReturnFromExpand`: elevation 모드 시 원본 노드 업데이트 없이 state만 정리하는 분기 추가 (line ~470)
+   - `handleGenerateElevationComplete`: `setElevationSourceNodeId(null)` 추가 (line ~631)
+   - ExpandedView 렌더링에 `elevationSourceNodeId={elevationSourceNodeId ?? undefined}` prop 전달 (line ~1203)
+
+2. **project_canvas/components/ExpandedView.tsx**
+   - Props에 `elevationSourceNodeId?: string` 추가
+   - elevation 라우터 조건: `node.type === 'elevation'` → `node.type === 'elevation' || !!elevationSourceNodeId`
+   - ElevationExpandedView에 `sourceNodeId={elevationSourceNodeId}` prop 전달
+
+3. **project_canvas/elevation/ExpandedView.tsx**
+   - Props에 `sourceNodeId?: string | null` 추가
+   - `handleGenerate`에서 `nodeId: node.id` → `nodeId: sourceNodeId ?? node.id` 로 변경
+
+### 변경된 흐름
+- 이전: image 노드 → 복제 elevation 노드 생성 → expand → GENERATE → 결과 노드 (노드 2개)
+- 이후: image 노드 → 직접 expand (원본 기반) → GENERATE → 결과 노드 (노드 1개)
+
+### 다음 할 일
+- 브라우저에서 동작 확인:
+  1. 신규 elevation 생성 시 결과 노드만 1개 생성되는지
+  2. GENERATE 없이 닫기 시 캔버스 변경 없는지
+  3. 기존 elevation 결과 노드 열기가 정상 작동하는지
+- exec-plans/active/260429-elevation-direct-generate.md 체크리스트 업데이트 후 completed로 이동

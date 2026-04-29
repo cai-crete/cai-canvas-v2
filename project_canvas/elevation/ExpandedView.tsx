@@ -14,6 +14,7 @@ export interface ElevationGenerateResult {
 
 interface Props {
   node: CanvasNode;
+  sourceNodeId?: string | null;
   onCollapse: () => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
@@ -78,7 +79,7 @@ function CrossGrid({ images }: { images: ElevationImages }) {
 
 /* ── Main ───────────────────────────────────────────────────────── */
 export default function ElevationExpandedView({
-  node, onCollapse, onGeneratingChange, isGenerating: externalIsGenerating = false,
+  node, sourceNodeId, onCollapse, onGeneratingChange, isGenerating: externalIsGenerating = false,
   onGenerateElevationComplete,
 }: Props) {
   const [elevPrompt, setElevPrompt] = useState(node.elevationPanelSettings?.prompt ?? '');
@@ -119,7 +120,7 @@ export default function ElevationExpandedView({
         sketchBase64: sourceImage,
         aepl:   result.aepl,
         images: result.images,
-        nodeId: node.id,
+        nodeId: sourceNodeId ?? node.id,
       });
     } else {
       onGeneratingChange?.(false);

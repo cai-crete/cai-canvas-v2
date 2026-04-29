@@ -171,9 +171,10 @@ export default function CanvasPage() {
   const savedViewRef      = useRef<{ scale: number; offset: { x: number; y: number } } | null>(null);
 
   /* ── 선택 / 확장 상태 ────────────────────────────────────────────── */
-  const [selectedNodeIds,      setSelectedNodeIds]      = useState<string[]>([]);
-  const [expandedNodeId,       setExpandedNodeId]       = useState<string | null>(null);
-  const [expandedViewMode,     setExpandedViewMode]     = useState<'image' | 'plan' | 'default'>('default');
+  const [selectedNodeIds,        setSelectedNodeIds]        = useState<string[]>([]);
+  const [expandedNodeId,         setExpandedNodeId]         = useState<string | null>(null);
+  const [expandedViewMode,       setExpandedViewMode]       = useState<'image' | 'plan' | 'default'>('default');
+  const [elevationSourceNodeId,  setElevationSourceNodeId]  = useState<string | null>(null);
   const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   /* expand 진입 시 planners ref를 기존 노드 데이터로 초기화 */
@@ -588,6 +589,13 @@ export default function CanvasPage() {
   const handleReturnFromExpand = useCallback(() => {
     setExpandedViewMode('default');
     if (!expandedNodeId) { setExpandedNodeId(null); return; }
+
+    if (elevationSourceNodeId) {
+      setElevationSourceNodeId(null);
+      setExpandedNodeId(null);
+      return;
+    }
+
     const node = nodes.find(n => n.id === expandedNodeId);
     const isSketchImage = node?.artboardType === 'sketch' && node?.type === 'image';
     const isSketchPlan  = node?.artboardType === 'sketch' && node?.type === 'plan';
@@ -600,7 +608,8 @@ export default function CanvasPage() {
         const next = prev.map(n => {
           if (n.id !== expandedNodeId) return n;
           const targetArtboardType = NODE_TARGET_ARTBOARD_TYPE[n.type] || n.artboardType;
-          const updates: Partial<CanvasNode> = { hasThumbnail: true, artboardType: targetArtboardType };
+          const updates: Partial<CanvasNode> = { artboardType: targetArtboardType };
+          if (n.thumbnailData) updates.hasThumbnail = true;
           if (isPlanners) {
             if (msgs.length > 0)  updates.plannerMessages    = msgs;
             if (insightData)      updates.plannerInsightData = insightData;
@@ -618,7 +627,7 @@ export default function CanvasPage() {
     setPrintDraftState(null);
     setPrintAutoGenerate(false);
     setExpandedNodeId(null);
-  }, [expandedNodeId, nodes, historyIndex]);
+  }, [expandedNodeId, elevationSourceNodeId, nodes, historyIndex]);
 
   /* ── sketch-image [<-]: 스케치 + 패널 설정 저장 ─────────────────── */
   const handleCollapseWithSketch = useCallback((sketchBase64: string, thumbnailBase64: string, panelSettings?: SketchPanelSettings, sketchPaths?: SketchState) => {
@@ -628,10 +637,12 @@ export default function CanvasPage() {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { sketchPanelSettings: panelSettings };
       if (sketchBase64) {
-        updates.hasThumbnail  = true;
-        updates.thumbnailData = thumbnailBase64;
-        updates.sketchData    = sketchBase64;
-        updates.sketchPaths   = sketchPaths;
+        if (thumbnailBase64) {
+          updates.hasThumbnail  = true;
+          updates.thumbnailData = thumbnailBase64;
+        }
+        updates.sketchData  = sketchBase64;
+        updates.sketchPaths = sketchPaths;
         /* image 아트보드의 경우, 원본 이미지가 유실되지 않도록 최초 1회 generatedImageData에 백업 */
         if (n.artboardType === 'image' && !n.generatedImageData) {
           updates.generatedImageData = n.thumbnailData;
@@ -649,10 +660,12 @@ export default function CanvasPage() {
       if (n.id !== expandedNodeId) return n;
       const updates: Partial<CanvasNode> = { planPanelSettings: planSettings };
       if (sketchBase64) {
-        updates.hasThumbnail  = true;
-        updates.thumbnailData = thumbnailBase64;
-        updates.sketchData    = sketchBase64;
-        updates.sketchPaths   = sketchPaths;
+        if (thumbnailBase64) {
+          updates.hasThumbnail  = true;
+          updates.thumbnailData = thumbnailBase64;
+        }
+        updates.sketchData  = sketchBase64;
+        updates.sketchPaths = sketchPaths;
         /* image 아트보드의 경우, 원본 이미지가 유실되지 않도록 최초 1회 generatedImageData에 백업 */
         if (n.artboardType === 'image' && !n.generatedImageData) {
           updates.generatedImageData = n.thumbnailData;
@@ -738,6 +751,7 @@ export default function CanvasPage() {
     aepl, images, nodeId,
   }: ElevationGenerateResult) => {
     setIsGenerating(false);
+    setElevationSourceNodeId(null);
 
     const thumbnail = await renderCrossGridThumbnail(images);
 
@@ -856,6 +870,8 @@ export default function CanvasPage() {
         setActiveSidebarNodeType(null);
         return;
       }
+      showToast('이미지를 선택해 주세요');
+      return;
     }
 
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
@@ -905,15 +921,12 @@ export default function CanvasPage() {
         return;
       }
 
-      /* elevation: image 아트보드에서 자식 노드 생성 + 즉시 expand */
+      /* elevation: image 아트보드에서 원본 노드 기반으로 직접 expand */
       if (type === 'elevation') {
         if (selectedNode.artboardType === 'image') {
-          const sourceImage = selectedNode.generatedImageData ?? selectedNode.thumbnailData;
           setGeneratingLabel('ELEVATION GENERATING');
-          const childId = createChildNode(selectedNode.id, type, 'image',
-            sourceImage ? { thumbnailData: sourceImage, hasThumbnail: true } : undefined
-          );
-          setExpandedNodeId(childId);
+          setElevationSourceNodeId(selectedNode.id);
+          setExpandedNodeId(selectedNode.id);
         } else {
           showToast('이미지를 선택해 주세요');
         }
@@ -953,7 +966,7 @@ export default function CanvasPage() {
     }
 
     /* ── 아트보드 미선택: 기존 동작 ─────────────────────────────── */
-    if (type === 'viewpoint') {
+    if (type === 'viewpoint' || type === 'elevation') {
       showToast('이미지를 선택해 주세요');
       return;
     }
@@ -1306,6 +1319,7 @@ export default function CanvasPage() {
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
           onGenerateElevationComplete={handleGenerateElevationComplete}
+          elevationSourceNodeId={elevationSourceNodeId ?? undefined}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
           onInsightDataChange={(data) => { plannerInsightDataRef.current = data as SavedInsightData | null; }}
           initialInsightData={expandedNode?.plannerInsightData}

@@ -1,0 +1,29 @@
+# GENERATE 없이 복귀 시 빈 썸네일 생성 로직 제거
+
+## 무엇을 했는가
+
+### 수정 1: sketch-to-image/ExpandedView.tsx — handleSketchCollapse
+- exportThumbnail() 호출을 조건부로 변경
+- exportState()로 paths/uploadedImageData/textItems 확인 → hasContent=true일 때만 exportThumbnail() 호출
+
+### 수정 2: sketch-to-plan/ExpandedView.tsx — handlePlanCollapse
+- 동일 패턴 적용
+
+### 수정 3: app/page.tsx — handleCollapseWithSketch
+- thumbnailBase64 truthy일 때만 hasThumbnail/thumbnailData 저장
+- sketchData/sketchPaths는 항상 저장 유지
+
+### 수정 4: app/page.tsx — handleCollapseWithPlanSketch
+- 동일 패턴 적용
+
+### 수정 5: app/page.tsx — handleReturnFromExpand
+- `{ hasThumbnail: true, artboardType }` 무조건 설정 → `{ artboardType }` + `n.thumbnailData 있을 때만 hasThumbnail: true`
+- Elevation, Planners, Print, Viewpoint 모두 적용
+
+## 완료 범위
+- 코드 수정 5곳 완료
+- 동작 확인은 사용자가 직접 테스트 필요
+
+## 다음 할 일
+- 사용자가 브라우저에서 동작 확인
+- 이상 없으면 exec-plan completed로 이동
