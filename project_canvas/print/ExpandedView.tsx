@@ -271,7 +271,7 @@ export default function PrintExpandedView({
       <PkgPrintExpandedView
         selectedImages={selectedImages}
         savedState={node.printSavedState}
-        apiBaseUrl="/api/print-proxy"
+        apiBaseUrl={`${process.env.NEXT_PUBLIC_RENDER_HEALTH_URL}/print-proxy`}
         initialAction={autoGenerate ? 'generate' : undefined}
         initialDraftState={initialDraftState ?? undefined}
         onSave={handleSave}

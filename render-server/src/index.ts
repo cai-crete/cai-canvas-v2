@@ -5,10 +5,10 @@ import sketchToImageRouter    from './routes/sketchToImage';
 import sketchToPlanRouter     from './routes/sketchToPlan';
 import imageToElevationRouter from './routes/imageToElevation';
 import changeViewpointRouter  from './routes/changeViewpoint';
+import printProxyRouter       from './routes/printProxy';
 
 const app = express();
 
-app.use(express.json({ limit: '50mb' }));
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = [
@@ -22,6 +22,12 @@ app.use(cors({
 
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// print-proxy: raw body (multipart 포함), 인증 없음 (print 서버 자체 auth로 보호)
+app.use('/print-proxy', express.raw({ type: '*/*', limit: '50mb' }));
+app.use('/print-proxy', printProxyRouter);
+
+// AI routes: JSON body + internal secret
+app.use('/api', express.json({ limit: '50mb' }));
 app.use('/api', verifySecret);
 app.use('/api/sketch-to-image',    sketchToImageRouter);
 app.use('/api/sketch-to-plan',     sketchToPlanRouter);
