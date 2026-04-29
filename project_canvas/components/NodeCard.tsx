@@ -346,7 +346,7 @@ export default function NodeCard({
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             {node.thumbnailData ? (
               <img
-                src={node.thumbnailData}
+                src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : `data:image/png;base64,${node.thumbnailData}`}
                 alt="지적도 썸네일"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
