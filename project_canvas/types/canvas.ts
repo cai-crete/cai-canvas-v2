@@ -234,7 +234,7 @@ export const NODE_ORDER: NodeType[] = [
 
 /* 아트보드 유형별 호환 노드 탭 */
 export const ARTBOARD_COMPATIBLE_NODES: Record<Exclude<ArtboardType, 'blank'>, NodeType[]> = {
-  sketch:    ['image', 'plan', 'print'],
+  sketch:    ['image', 'plan', 'print', 'cadastral', 'map3d'],
   image:     ['image', 'elevation', 'viewpoint', 'plan', 'diagram', 'print'],
   thumbnail: ['planners', 'print'],
 };
@@ -248,8 +248,8 @@ export const NODE_TO_ARTBOARD_TYPE: Partial<Record<NodeType, ArtboardType>> = {
   diagram:   'image',
   print:     'thumbnail',
   planners:  'thumbnail',
-  cadastral: 'image',
-  map3d:     'image',
+  cadastral: 'sketch',
+  map3d:     'sketch',
 };
 
 /* 아트보드 선택 + 탭 클릭 시 expand 진입하는 노드 */
