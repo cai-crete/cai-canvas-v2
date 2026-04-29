@@ -54,6 +54,7 @@ export interface FetchLawsResult {
     roadFrontage: string | null;
   } | null;
   parkingOrdinance?: LawEntry[];  // 지자체 주차장 조례 (조회 성공 시)
+  intendedUse?: string;           // 사용자 프롬프트에서 추출된 기획 용도
 }
 
 /**
@@ -127,7 +128,13 @@ export async function fetchRelevantLaws(
       console.log(`📍 [PNU] ${data.pnu} (주소: ${address || 'N/A'})`);
     }
 
-    if (!data.laws || data.laws.length === 0) return {
+    // land(브이월드 용도지역) 데이터를 formatted에 포함 — MCP 조례 검색 조건 생성용
+    const allLaws = [
+      ...(data.laws || []),
+      ...cat.land,
+    ];
+
+    if (allLaws.length === 0) return {
       ...emptyResult,
       pnu: data.pnu || null,
       landCharacteristics: data.landCharacteristics || null,
@@ -135,7 +142,7 @@ export async function fetchRelevantLaws(
     };
 
     return {
-      formatted: formatLawsForProtocol(data.laws),
+      formatted: formatLawsForProtocol(allLaws),
       categorized: cat,
       pnu: data.pnu || null,
       landCharacteristics: data.landCharacteristics || null,

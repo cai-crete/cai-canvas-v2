@@ -18,6 +18,7 @@ export interface ParkingResult {
   totalFloorArea: number;
   source: 'ordinance' | 'statute';  // 조례 기반 vs 법령 기본값
   ordinanceName?: string;            // 조례명 (source === 'ordinance' 일 때)
+  useSource: 'intended' | 'ledger';  // 기획 용도 vs 건물대장 용도
 }
 
 interface ParkingRule {
@@ -110,13 +111,19 @@ function parseOrdinanceAreaPerSpace(entries: LawEntry[]): number | null {
  * @param buildingUse       - 건축물대장 mainPurpsCdNm (예: "업무시설")
  * @param totalFloorArea    - 연면적 (㎡)
  * @param parkingOrdinance  - 법제처에서 조회된 지자체 주차장 조례 항목 (없으면 undefined)
+ * @param intendedUse       - 사용자가 의도한 용도 (우선 적용, 없으면 buildingUse 폴백)
  */
 export function calculateParkingRequirement(
   buildingUse: string,
   totalFloorArea: number,
   parkingOrdinance?: LawEntry[],
+  intendedUse?: string,
 ): ParkingResult | null {
-  if (!buildingUse || totalFloorArea <= 0) return null;
+  // intendedUse가 있으면 우선, 없으면 건물대장 용도 사용
+  const effectiveUse = intendedUse?.trim() || buildingUse;
+  const useSource: 'intended' | 'ledger' = intendedUse?.trim() ? 'intended' : 'ledger';
+
+  if (!effectiveUse || totalFloorArea <= 0) return null;
 
   // 1. 조례 파싱 시도
   if (parkingOrdinance && parkingOrdinance.length > 0) {
@@ -127,16 +134,17 @@ export function calculateParkingRequirement(
       return {
         requiredSpaces,
         calculationBasis: `시설면적 ${ordinanceAreaPerSpace}㎡당 1대 (${ordinanceName})`,
-        buildingUse,
+        buildingUse: effectiveUse,
         totalFloorArea,
         source: 'ordinance',
         ordinanceName,
+        useSource,
       };
     }
   }
 
   // 2. 폴백: 주차장법 시행령 별표1 법령 기본값
-  const rule = PARKING_RULES.find(r => r.pattern.test(buildingUse)) ?? DEFAULT_RULE;
+  const rule = PARKING_RULES.find(r => r.pattern.test(effectiveUse)) ?? DEFAULT_RULE;
   const requiredSpaces = Math.ceil(totalFloorArea / rule.areaPerSpace);
 
   // 조례 조회는 됐지만 수치 파싱 실패 → 조례명은 표시하되 법령 기본값 사용
@@ -153,16 +161,20 @@ export function calculateParkingRequirement(
     totalFloorArea,
     source: 'statute',
     ordinanceName,
+    useSource,
   };
 }
 
 /**
  * 건축물대장 LawEntry 배열에서 주용도와 연면적을 추출하여 주차대수를 산정합니다.
  * InsightPanel에서 호출됩니다.
+ *
+ * @param intendedUse - 사용자가 프롬프트에 입력한 기획 용도 (우선 적용)
  */
 export function calculateParkingFromBuildingData(
   buildings: { articleTitle?: string; content?: string }[],
   parkingOrdinance?: LawEntry[],
+  intendedUse?: string,
 ): ParkingResult | null {
   if (buildings.length === 0) return null;
 
@@ -175,7 +187,7 @@ export function calculateParkingFromBuildingData(
       const totalFloorArea = parseFloat(areaMatch[1].replace(/,/g, ''));
 
       if (totalFloorArea > 0) {
-        return calculateParkingRequirement(buildingUse, totalFloorArea, parkingOrdinance);
+        return calculateParkingRequirement(buildingUse, totalFloorArea, parkingOrdinance, intendedUse);
       }
     }
   }
