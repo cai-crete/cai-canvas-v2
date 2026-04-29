@@ -61,14 +61,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       signal:  AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
-    const elapsed   = Date.now() - startTime;
-    const resLength = upstream.headers.get('content-length') ?? 'unknown';
-    console.log(`[print-bff] ◀ ${upstream.status} (${elapsed}ms, ${resLength} bytes)`);
+    // 스트리밍 대신 전체 응답을 버퍼링: Render 연결 중단으로 인한 JSON 잘림 방지
+    const responseBody = await upstream.arrayBuffer();
+    const elapsed      = Date.now() - startTime;
+    console.log(`[print-bff] ◀ ${upstream.status} (${elapsed}ms, ${responseBody.byteLength} bytes)`);
 
     const resHeaders = new Headers(upstream.headers);
     resHeaders.delete('content-encoding');
 
-    return new NextResponse(upstream.body, {
+    // 5xx 응답에서 JSON이 잘린 경우 감지 → 명확한 오류 반환
+    const upstreamContentType = upstream.headers.get('content-type') ?? '';
+    if (upstream.status >= 500 && upstreamContentType.includes('application/json')) {
+      const text = new TextDecoder().decode(responseBody);
+      try {
+        JSON.parse(text);
+      } catch {
+        console.error(`[print-bff] ✕ Upstream returned ${upstream.status} with invalid JSON (${responseBody.byteLength}B):`, text.slice(0, 400));
+        return NextResponse.json(
+          { error: 'Print 서버가 잘못된 응답을 반환했습니다. 잠시 후 재시도해 주세요.' },
+          { status: 502 },
+        );
+      }
+    }
+
+    return new NextResponse(responseBody, {
       status:  upstream.status,
       headers: resHeaders,
     });
