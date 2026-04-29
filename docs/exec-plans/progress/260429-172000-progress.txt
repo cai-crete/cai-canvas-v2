@@ -1,0 +1,35 @@
+날짜: 2026-04-29
+세션: HTTP 200 JSON parse 오류 수정 완료 확인
+
+== 방금 한 일 ==
+
+1. 사용자 검증 완료
+   - cai-canvas-v2.vercel.app에서 Print 생성 성공 확인
+   - "서버 응답 처리 오류 (HTTP 200)" 미발생
+
+2. 계획서 정리
+   - docs/exec-plans/active/260429-http200-json-parse-error.md → completed/ 이동
+
+== 현재 상태 ==
+
+Print 생성 기능 정상 작동.
+
+== 수정 사항 요약 (이번 세션 전체) ==
+
+Fix 1: print-proxy 버퍼링 (이전 세션, 커밋 c49f446)
+  - upstream 스트리밍 → arrayBuffer() 버퍼링
+  - 5xx + invalid JSON 감지 → 502 반환
+
+Fix 2: callPrintApi 에러 핸들링 (이전 세션, 커밋 c49f446)
+  - res.json() → res.text() + JSON.parse try-catch
+  - @cai-crete/print-components@0.1.2 배포
+
+Fix 3: content-length 헤더 교정 (이번 세션, 커밋 1c434b1)
+  - resHeaders.delete('transfer-encoding')
+  - resHeaders.set('content-length', String(responseBody.byteLength))
+  → 이것이 실제 근본 원인 수정
+
+== 다음에 할 일 ==
+
+1. 260429-print-abort-toast.md — Print 생성 중 토스트 + 취소 버튼
+2. Canvas 사이드바 Print 패널 통합 (260428-print-canvas-integration.md Phase 2-5)

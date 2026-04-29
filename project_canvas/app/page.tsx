@@ -1326,6 +1326,9 @@ export default function CanvasPage() {
           onGeneratingChange={setIsGenerating}
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
+          onPrintNodeUpdate={handlePrintNodeUpdate}
+          autoGenerate={printAutoGenerate}
+          initialDraftState={printDraftState}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           elevationSourceNodeId={elevationSourceNodeId ?? undefined}
           onPlannerMessagesChange={(msgs) => { plannerMessagesRef.current = msgs; }}
