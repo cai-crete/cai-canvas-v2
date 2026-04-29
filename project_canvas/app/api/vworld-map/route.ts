@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const VWORLD_KEY = process.env.VWORLD_API_KEY || '2A63345D-557F-32C5-89D5-DE55A65CF23B';
-const VWORLD_DOMAIN = 'https://cai-planners-v2.vercel.app'; // 브이월드 키에 등록된 허용 도메인
+const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app';
 
 export async function POST(request: Request) {
   try {

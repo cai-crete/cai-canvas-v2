@@ -497,6 +497,7 @@ export default function InfiniteCanvas({
               artboardType={node.artboardType}
               portLeft={getPortLeft(node.id)}
               portRight={getPortRight(node.id)}
+              plannerMessages={node.plannerMessages}
             />
           </div>
         ))}
