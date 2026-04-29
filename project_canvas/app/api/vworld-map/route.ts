@@ -53,19 +53,8 @@ export async function POST(request: Request) {
       if (!bbox || !Array.isArray(bbox) || bbox.length !== 4) {
         return NextResponse.json({ error: 'road-wfs 요청에는 bbox [minLng, minLat, maxLng, maxLat]가 필요합니다.', data: { features: [] } }, { status: 400 });
       }
-      const roadParams = new URLSearchParams({
-        SERVICE: 'WFS',
-        REQUEST: 'GetFeature',
-        TYPENAME: 'lt_l_roa_lnm',
-        VERSION: '1.1.0',
-        SRSNAME: 'EPSG:4326',
-        OUTPUT: 'application/json',
-        MAXFEATURES: '50',
-        BBOX: `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`,
-        KEY: VWORLD_KEY,
-        DOMAIN: VWORLD_DOMAIN,
-      });
-      const roadUrl = `https://api.vworld.kr/req/wfs?${roadParams.toString()}`;
+      const bboxVal = `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`;
+      const roadUrl = `https://api.vworld.kr/req/wfs?SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lt_l_roa_lnm&VERSION=1.1.0&SRSNAME=EPSG:4326&OUTPUT=application/json&MAXFEATURES=50&BBOX=${encodeURIComponent(bboxVal)}&KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}`;
       try {
         const roadRes = await vworldFetch(roadUrl);
         if (roadRes.status < 200 || roadRes.status >= 300) {
@@ -91,37 +80,15 @@ export async function POST(request: Request) {
       if (!pnu) return NextResponse.json({ error: 'pnu required', data: { features: [] } }, { status: 400 });
       // XML Filter — lp_pa_cbnd_bubun 레이어는 CQL_FILTER 미지원, XML ogc:Filter 필수
       const xmlFilter = `<ogc:Filter><ogc:PropertyIsEqualTo matchCase="true"><ogc:PropertyName>pnu</ogc:PropertyName><ogc:Literal>${pnu}</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>`;
-      const params = new URLSearchParams({
-        KEY: VWORLD_KEY,
-        DOMAIN: VWORLD_DOMAIN,
-        SERVICE: 'WFS',
-        REQUEST: 'GetFeature',
-        TYPENAME: 'lp_pa_cbnd_bubun',
-        VERSION: '1.1.0',
-        MAXFEATURES: '40',
-        SRSNAME: 'EPSG:4326',
-        OUTPUT: 'application/json',
-        FILTER: xmlFilter,
-      });
-      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
+      // encodeURIComponent 사용 — URLSearchParams는 XML 특수문자를 VWorld가 해석 못하는 방식으로 인코딩
+      wfsUrl = `https://api.vworld.kr/req/wfs?KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=40&SRSNAME=EPSG:4326&OUTPUT=application/json&FILTER=${encodeURIComponent(xmlFilter)}`;
     } else if (action === 'wfs-bbox') {
       if (!bbox) return NextResponse.json({ error: 'bbox required', data: { features: [] } }, { status: 400 });
-      const params = new URLSearchParams({
-        KEY: VWORLD_KEY,
-        DOMAIN: VWORLD_DOMAIN,
-        SERVICE: 'WFS',
-        REQUEST: 'GetFeature',
-        TYPENAME: 'lp_pa_cbnd_bubun',
-        VERSION: '1.1.0',
-        MAXFEATURES: '1000',
-        SRSNAME: 'EPSG:4326',
-        OUTPUT: 'application/json',
-        BBOX: `${bbox},EPSG:4326`,
-      });
-      wfsUrl = `https://api.vworld.kr/req/wfs?${params.toString()}`;
+      const bboxVal = `${bbox},EPSG:4326`;
+      wfsUrl = `https://api.vworld.kr/req/wfs?KEY=${encodeURIComponent(VWORLD_KEY)}&DOMAIN=${encodeURIComponent(VWORLD_DOMAIN)}&SERVICE=WFS&REQUEST=GetFeature&TYPENAME=lp_pa_cbnd_bubun&VERSION=1.1.0&MAXFEATURES=1000&SRSNAME=EPSG:4326&OUTPUT=application/json&BBOX=${encodeURIComponent(bboxVal)}`;
     }
 
-    console.log(`[VWorld API] WFS Fetch 요청 — URL Length: ${wfsUrl.length}`);
+    console.log(`[VWorld API] WFS Fetch 요청 — URL Length: ${wfsUrl.length}, URL prefix: ${wfsUrl.slice(0, 120)}`);
 
     const res = await vworldFetch(wfsUrl);
 
