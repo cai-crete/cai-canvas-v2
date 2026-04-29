@@ -2,8 +2,9 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
-// Render 무료 티어 웨이크업(~50s) 대기: 3회 × 30s = 최대 90s
-const RETRY_DELAYS_MS = [30_000, 30_000, 30_000];
+// Render 무료 티어 웨이크업 대기: 5회, 최대 240s (4분)
+// 콜드 스타트 502 → 재시도. 깨어난 후 생성 시간은 타임아웃 없이 대기.
+const RETRY_DELAYS_MS = [30_000, 30_000, 60_000, 60_000, 60_000];
 
 async function proxyToPrint(req: Request, res: Response): Promise<void> {
   const PRINT_API_URL    = process.env.PRINT_API_URL?.replace(/\/+$/, '');
