@@ -1,0 +1,52 @@
+날짜: 2026-04-29
+세션: Phase 1 — Render Express 서버 구축 완료
+
+== 방금 한 일 ==
+
+render-server/ 디렉토리 신규 생성 (전체 구조):
+- render-server/package.json          ← @google/genai, @supabase/supabase-js, express, cors
+- render-server/tsconfig.json
+- render-server/.gitignore
+- render-server/src/index.ts          ← Express 앱 진입점, CORS 설정, 라우터 등록
+- render-server/src/middleware/verifySecret.ts  ← x-internal-secret 헤더 검증
+- render-server/src/lib/prompt.ts     ← buildSystemPrompt, loadProtocolFile (경로: ../../../project_canvas/)
+- render-server/src/lib/architectStyles.ts ← getStylePrompt (7개 건축가 스타일)
+- render-server/src/lib/supabaseUpload.ts  ← service role 키로 Storage 백그라운드 저장
+- render-server/src/routes/sketchToImage.ts     ← N03 Gemini 로직 이전
+- render-server/src/routes/sketchToPlan.ts      ← N02 Gemini 로직 이전
+- render-server/src/routes/imageToElevation.ts  ← N04 Gemini 로직 이전
+- render-server/src/routes/changeViewpoint.ts   ← N05 Gemini 로직 이전
+
+project_canvas/ 수정:
+- app/api/sketch-to-image/route.ts   ← 얇은 프록시로 교체
+- app/api/sketch-to-plan/route.ts    ← 얇은 프록시로 교체
+- app/api/image-to-elevation/route.ts ← 얇은 프록시로 교체
+- app/api/change-viewpoint/route.ts  ← 얇은 프록시로 교체
+- components/RenderWakeup.tsx         ← 신규, 앱 로드 시 Render 웨이크업
+- app/layout.tsx                      ← RenderWakeup 컴포넌트 추가
+
+TypeScript 검사:
+- render-server/: tsc --noEmit → 오류 없음 ✅
+- project_canvas/: print-proxy 관련 오류 1개 → 기존 pre-existing 오류 (우리 변경과 무관) ✅
+
+== 현재 상태 ==
+Phase 1 코드 작성 완료.
+아직 Render Web Service 미생성 (Phase 0에서 계정만 만든 상태).
+
+== 다음에 할 일 ==
+Phase 2 완료 절차:
+1. render-server/ 를 git commit & push (main)
+2. Render Dashboard → New Web Service → GitHub 연결
+   - Root Directory: render-server
+   - Build Command: npm install && npm run build
+   - Start Command: npm start
+   - Environment Variables 입력:
+     GEMINI_API_KEY_IMAGE, GEMINI_API_KEY_PLAN
+     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+     INTERNAL_SECRET
+3. Render 배포 완료 후 서비스 URL 확인
+4. Vercel 환경변수 업데이트:
+   RENDER_SERVER_URL = https://{your-app}.onrender.com
+   NEXT_PUBLIC_RENDER_HEALTH_URL = https://{your-app}.onrender.com
+5. GET https://{your-app}.onrender.com/health → { status: 'ok' } 확인
+6. Vercel 재배포 후 전체 E2E 테스트

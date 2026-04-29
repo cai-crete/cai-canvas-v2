@@ -1,0 +1,25 @@
+날짜: 2026-04-29
+세션: Print 생성 중단 토스트/Abort 계획서 작성
+
+== 방금 한 일 ==
+
+docs/exec-plans/active/260429-print-abort-toast.md 계획서 작성 완료.
+
+조사 내용:
+- sketch-to-image abort 패턴: AbortController → onAbortControllerReady → page.tsx abortControllerRef
+- print 현황: isGenerating이 true로 설정되지 않음, abortControllerRef는 null, onGeneratingChange 미연결
+- @cai-crete/print-components (PkgPrintExpandedView): onGeneratingChange/abortSignal prop 없음
+- cai-harness-print/project.10_print/components/Print_ExpandedView.tsx: fetch에 signal 전혀 없음
+- 프록시 라우트: AbortSignal.timeout() 전용, req.signal 전파 없음
+
+== 현재 상태 ==
+계획서 작성 완료. 구현 미착수. 사용자 승인 대기.
+
+== 다음에 할 일 ==
+승인 후 Phase 1부터 순차 구현:
+1. cai-harness-print 패키지 타입 + Print_ExpandedView.tsx 수정
+2. 패키지 빌드 + canvas 의존성 업데이트
+3. project_canvas/print/ExpandedView.tsx 수정 (AbortController 생성)
+4. project_canvas/components/ExpandedView.tsx prop 중계 추가
+5. project_canvas/app/page.tsx onAbortControllerReady 연결
+6. 프록시 라우트 req.signal 전파 추가

@@ -1,0 +1,21 @@
+## 세션 진행 상황 — 2026-04-28 20:05
+
+### 방금 한 일
+- 인수인계 보고서 작성: `docs/handover-print-canvas-integration.md`
+- Print ↔ Canvas 통합 작업의 전체 변경 파일 목록, 파일별 상세 변경 내용, 환경변수 설정, 검증 체크리스트, 구현 결정 사유를 상세히 문서화
+
+### 완료된 것
+- Phase 0: 버그 수정 (print 노드 선택 시 planners 대신 print 패널 표시)
+- Phase 1: Print Expanded View 사이드바 통합 (← 버튼, PRINT 탭, X 버튼 제거)
+- 인수인계 보고서 작성 완료
+
+### 다음에 해야 할 일
+- exec-plan 기준으로 Phase 2~5 구현 대기 중:
+  - Phase 2: RightSidebar.tsx — print 패널 교체 (PrintCanvasSidebarPanel 연결)
+  - Phase 3: page.tsx — print 사이드바 액션 연결 + draft 동기화
+  - Phase 4: autoGenerate + printUtils.ts 신규 생성
+  - Phase 5: 이미지 다중 선택 → Print 자동 삽입
+
+### 참고
+- 현재 exec-plan: `docs/exec-plans/active/260428-print-canvas-integration.md`
+- 인수인계 보고서: `docs/handover-print-canvas-integration.md`

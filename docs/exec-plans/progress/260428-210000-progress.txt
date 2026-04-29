@@ -1,0 +1,26 @@
+날짜: 2026-04-28
+세션: Firebase 백엔드 인프라 구축 계획서 작성
+
+== 방금 한 일 ==
+
+Firebase 백엔드 인프라 구축 계획서 작성:
+- 파일: docs/exec-plans/active/260428-firebase-backend-infra.md
+
+계획서 내용:
+- 현재 Vercel 한계 분석 (body 4.5MB, 타임아웃 60초, 메모리 1GB)
+- Firebase 4-서비스 구조 설계 (Storage, Functions, Firestore, Hosting 제외)
+- Phase 0: Firebase 초기화 (프로젝트 생성, SDK 설치, 환경변수)
+- Phase 1: Firebase Storage 연동 (이미지 URL 반환으로 Vercel body 한계 우회)
+- Phase 2: Firebase Functions 2nd gen 이전 (타임아웃·메모리 대폭 확대)
+- Phase 3: Firestore 캔버스 상태 영속화 (익명 세션 ID 기반, 로그인 없이 동작)
+- 무중단 마이그레이션 전략 (점진적 전환, 기존 Vercel 유지)
+- Storage 보안 규칙, Firestore 보안 규칙 초안 포함
+
+== 현재 상태 ==
+계획서만 작성 완료. 구현 미착수. 사용자 승인 대기.
+
+== 다음에 할 일 ==
+1. 사용자 계획서 승인 후 Phase 0부터 순차 구현
+2. Firebase Console에서 프로젝트 생성 (수동 작업 필요)
+3. Firebase CLI 로그인 후 project_canvas/에서 초기화
+4. lib/firebase.ts 생성 → Phase 1 Storage 연동 시작

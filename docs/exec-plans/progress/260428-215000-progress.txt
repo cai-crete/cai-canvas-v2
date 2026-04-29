@@ -1,0 +1,29 @@
+날짜: 2026-04-28
+세션: Firebase 백엔드 인프라 계획서 수정
+
+== 방금 한 일 ==
+
+docs/exec-plans/active/260428-firebase-backend-infra.md 수정:
+
+변경 핵심:
+- Phase 1의 "API 응답 형식 변경(base64 → URL)" 방식을 제거
+- 프론트엔드 코드 무변경 원칙 수립 (핵심 설계 원칙 섹션 신설)
+- Firebase Storage는 서버(Functions) 내부에서만 사용, 클라이언트 비노출
+- 클라이언트는 기존과 동일한 base64 응답을 그대로 받음
+- printUtils.ts / nodeImageToSelectedImage / page.tsx 등 기존 코드 보호
+
+구조 변경:
+- 기존 Phase 1(Storage) + Phase 2(Functions) 분리 → Phase 1(Functions+Storage 통합)으로 단순화
+- Phase 2를 Storage 보안 규칙으로 재정의
+- Vercel API Route는 얇은 프록시로만 남김
+
+== 현재 상태 ==
+계획서 수정 완료. 구현 미착수. 사용자 승인 대기.
+
+== 다음에 할 일 ==
+승인 후 Phase 0부터 순차 구현:
+1. Firebase Console에서 프로젝트 생성 (수동 작업)
+2. firebase init functions storage
+3. functions/ 디렉토리 구조 생성
+4. 기존 API Route 로직 Functions으로 이전
+5. Vercel Route를 프록시로 교체
