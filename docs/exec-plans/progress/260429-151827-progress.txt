@@ -1,0 +1,47 @@
+## 진행 상황 — 2026-04-29 15:18
+
+### 이번 세션에서 한 작업
+
+**Planners Expanded View 레이아웃 복구**
+
+#### 근본 원인
+`ExpandedView.tsx`의 planners 케이스 래퍼 div가 `display: flex`도, 명시적 height도 없었음.
+- PlannersPanel 루트 div: `flex-1 h-full` Tailwind 클래스 사용
+- 부모가 flex container가 아니면 `flex-1` 무효, `h-full`도 동작 안 함 → 레이아웃 붕괴
+
+#### 수정 내용
+- **파일**: `project_canvas/components/ExpandedView.tsx` (planners 케이스, 204~223행)
+- **변경**: 기존 `display: flex` + `marginRight` 조합 →
+  `position: absolute, inset: 0, right: calc(var(--sidebar-w) + 2rem), display: flex, flexDirection: column`
+- 이는 `cadastral`, `map3d` 뷰와 동일한 패턴 (프로젝트 내 검증된 레이아웃)
+- tsc 에러 없음
+
+#### 수정 전
+```jsx
+<div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: ..., display: 'flex' }}>
+  <div style={{ flex: 1, overflow: 'hidden', marginRight: 'calc(var(--sidebar-w) + 2rem)' }}>
+    <PlannersPanel .../>
+  </div>
+  <ExpandedSidebar .../>
+</div>
+```
+
+#### 수정 후
+```jsx
+<div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: ... }}>
+  <div style={{ position: 'absolute', inset: 0, right: 'calc(var(--sidebar-w) + 2rem)', display: 'flex', flexDirection: 'column' }}>
+    <PlannersPanel .../>
+  </div>
+  <ExpandedSidebar .../>
+</div>
+```
+
+### 수정 파일
+- project_canvas/components/ExpandedView.tsx (planners 케이스 레이아웃)
+
+### 다음에 해야 할 것
+- **브라우저에서 실제 확인** (가장 중요):
+  1. Planners 노드 expanded 시 캔버스 영역이 제대로 채워지는지
+  2. 우측 InsightPanel 사이드바가 올바른 위치에 표시되는지
+  3. PlannersPanel의 채팅 입력창이 하단에 정상 표시되는지
+  4. 이전 작업(3D Map 카메라 최적화)도 정상 동작하는지

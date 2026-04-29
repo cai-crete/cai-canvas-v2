@@ -127,7 +127,11 @@ export const CadastralMapView = memo(forwardRef<CadastralMapViewRef, CadastralMa
         
         const rect = container.getBoundingClientRect();
         const clone = svg.cloneNode(true) as SVGSVGElement;
-        
+
+        // 독립 SVG로 렌더링 시 100%가 참조할 부모가 없으므로 명시적 픽셀 크기 설정
+        clone.setAttribute('width', String(rect.width));
+        clone.setAttribute('height', String(rect.height));
+
         const images = Array.from(clone.querySelectorAll('image'));
         await Promise.all(images.map(async (img) => {
           const href = img.getAttribute('href');
