@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// VWorld는 한국 정부 API — 서울 리전에서 호출해야 안정적
+export const preferredRegion = ['icn1', 'hnd1'];
 
 const VWORLD_KEY = process.env.VWORLD_API_KEY || '2A63345D-557F-32C5-89D5-DE55A65CF23B';
 const VWORLD_DOMAIN = process.env.VWORLD_DOMAIN || 'https://cai-planners-v2.vercel.app/';
