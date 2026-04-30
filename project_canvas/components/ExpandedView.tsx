@@ -387,10 +387,8 @@ export default function ExpandedView({
     );
   }
 
-  /* ── artboardType=image + [IMAGE] 버튼 or 더블클릭 → sketch-to-image ExpandedView ──
-     단, 스케치 데이터 없이 생성 완료된 노드(multi-source 결과 등)는 단순 이미지 뷰로 */
-  const hasSketchContent = !!(node.sketchData || node.sketchPaths);
-  if (node.artboardType === 'image' && (expandedViewMode === 'image' || expandedViewMode === 'default') && (hasSketchContent || !node.generatedImageData)) {
+  /* ── artboardType=image + [IMAGE] 버튼 or 더블클릭 → sketch-to-image ExpandedView ── */
+  if (node.artboardType === 'image' && (expandedViewMode === 'image' || expandedViewMode === 'default')) {
     return (
       <SketchToImageExpandedView
         node={node}
@@ -402,48 +400,6 @@ export default function ExpandedView({
         onGeneratingChange={onGeneratingChange}
         isGenerating={isGenerating}
       />
-    );
-  }
-
-  /* ── 생성 이미지 뷰 (image/plan → generate 결과, artboardType=image) ── */
-  if (node.artboardType === 'image' && (node.type === 'image' || node.type === 'plan')) {
-    const imgSrc = node.generatedImageData ?? node.thumbnailData;
-    const displaySrc = imgSrc
-      ? (imgSrc.startsWith('data:') ? imgSrc : `data:image/jpeg;base64,${imgSrc}`)
-      : null;
-    return (
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-app-bg)', display: 'flex' }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          left: 'calc(4rem + 1.5rem)',
-          right: 'calc(var(--sidebar-w) + 2rem)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '2rem',
-        }}>
-          {displaySrc ? (
-            <img
-              src={displaySrc}
-              alt={node.title}
-              style={{
-                maxWidth: '100%', maxHeight: '100%',
-                objectFit: 'contain',
-                borderRadius: 'var(--radius-box)',
-                boxShadow: 'var(--shadow-float)',
-              }}
-            />
-          ) : (
-            <span className="text-body-3" style={{ color: 'var(--color-gray-300)' }}>이미지가 없습니다</span>
-          )}
-        </div>
-        <LeftToolbar
-          activeTool={activeTool} scale={scale}
-          canUndo={canUndo} canRedo={canRedo}
-          onToolChange={onToolChange} onUndo={onUndo} onRedo={onRedo}
-          onZoomIn={onZoomIn} onZoomOut={onZoomOut} onZoomReset={onZoomReset}
-          onAddArtboard={onAddArtboard}
-        />
-        <ExpandedSidebar currentNodeType={node.type} onCollapse={onCollapse} />
-      </div>
     );
   }
 
