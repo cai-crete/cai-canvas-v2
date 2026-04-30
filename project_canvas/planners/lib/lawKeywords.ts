@@ -67,9 +67,9 @@ const PROVINCES = [
 const DISTRICT_PATTERN = /([가-힣]{2,6}(?:특별시|광역시|특별자치시|특별자치도|시|도))\s*([가-힣]{2,5}(?:구|시|군))/;
 
 export interface DetectedAddress {
-  city: string;    // 예: "서울시", "부산광역시"
-  district: string; // 예: "강남구", "해운대구"
-  full: string;    // 예: "서울시 강남구"
+  city: string;     // 예: "서울시", "부산광역시" — 부분 주소 시 빈 문자열
+  district: string; // 예: "강남구", "해운대구" — 부분 주소 시 빈 문자열
+  full: string;     // 예: "서울시 강남구 학동로 218" 또는 "학동로 218" (부분 주소)
 }
 
 /**
@@ -133,6 +133,34 @@ export function extractAddress(context: string): DetectedAddress | null {
         };
       }
     }
+  }
+
+  // 패턴 F: 구/군 + 로/길 조합 (시 없이) — "강남구 학동로 218"
+  const districtRoadMatch = context.match(
+    /([가-힣]{2,5}(?:구|군))\s+([가-힣]+(?:로|길)\d*(?:번?길)?\s*\d+(?:-\d+)?)/
+  );
+  if (districtRoadMatch) {
+    const district = districtRoadMatch[1];
+    const detail = districtRoadMatch[2].trim();
+    return { city: '', district, full: `${district} ${detail}` };
+  }
+
+  // 패턴 G: 로명+번지 단독 — "학동로 218", "테헤란로 152-5"
+  const roadOnlyMatch = context.match(
+    /([가-힣]+(?:로|길)\d*(?:번?길)?\s*\d+(?:-\d+)?)/
+  );
+  if (roadOnlyMatch) {
+    const detail = roadOnlyMatch[1].trim();
+    return { city: '', district: '', full: detail };
+  }
+
+  // 패턴 H: 동명+번지 단독 — "논현동 208-7", "역삼동 123"
+  const lotOnlyMatch = context.match(
+    /([가-힣]+(?:동|읍|면)(?:\d+가)?\s*\d+(?:-\d+)?(?:번지)?)/
+  );
+  if (lotOnlyMatch) {
+    const detail = lotOnlyMatch[1].trim();
+    return { city: '', district: '', full: detail };
   }
 
   // 패턴 D: 시/구 레벨만 (폴백 — 상세 주소 없는 경우)
