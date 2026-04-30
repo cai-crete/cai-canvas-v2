@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { compressImageBase64 } from '@/lib/compressImage';
+import { supabase } from '@/lib/supabaseClient';
 
 export interface PlanGenerationParams {
   userPrompt?: string;
@@ -52,9 +53,13 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
           grid_module:  params.gridModule ?? 4000,
         };
 
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
         const res = await fetch('/api/sketch-to-plan', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
           body: JSON.stringify(body),
           signal,
         });

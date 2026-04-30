@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile, buildReportExtractionPrompt } from '../lib/prompt';
-import { uploadToStorage } from '../lib/supabaseUpload';
+import { uploadToStorage, getUserFromToken } from '../lib/supabaseUpload';
 
 const router = Router();
 
@@ -36,6 +36,9 @@ async function callWithFallback<T>(primary: () => Promise<T>, fallback: () => Pr
 }
 
 router.post('/', async (req, res) => {
+  const token = (req.headers.authorization as string | undefined)?.replace('Bearer ', '');
+  const userIdPromise = getUserFromToken(token);
+
   const { image_base64, mime_type = 'image/png', viewpoint, user_prompt = '', nodeId = 'unknown' } = req.body;
 
   if (!image_base64) { res.status(400).json({ error: 'image_base64 is required' }); return; }
@@ -160,7 +163,8 @@ router.post('/', async (req, res) => {
     ? generatedImageBase64
     : `data:${generatedMimeType};base64,${generatedImageBase64}`;
 
-  uploadToStorage(nodeId, generatedImageBase64, generatedMimeType).catch(() => {});
+  const userId = await userIdPromise;
+  uploadToStorage(nodeId, generatedImageBase64, generatedMimeType, userId ?? undefined, 'viewpoint').catch(() => {});
 
   res.json({ generated_image: imageDataUrl, analysis: executionPrompt, report: viewpointReport });
 });

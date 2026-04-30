@@ -3,6 +3,7 @@ import { Bebas_Neue } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import RenderWakeup from '@/components/RenderWakeup';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const bebas = Bebas_Neue({
   weight: '400',
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="afterInteractive"
         />
         <RenderWakeup />
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

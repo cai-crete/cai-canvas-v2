@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '../lib/prompt';
-import { uploadToStorage } from '../lib/supabaseUpload';
+import { uploadToStorage, getUserFromToken } from '../lib/supabaseUpload';
 
 const router = Router();
 
@@ -26,6 +26,9 @@ async function callWithFallback<T>(primary: () => Promise<T>, fallback: () => Pr
 }
 
 router.post('/', async (req, res) => {
+  const token = (req.headers.authorization as string | undefined)?.replace('Bearer ', '');
+  const userIdPromise = getUserFromToken(token);
+
   const {
     sketch_image,
     mime_type = 'image/png',
@@ -149,7 +152,8 @@ router.post('/', async (req, res) => {
     res.status(503).json({ error: `Image generation failed: ${msg}` }); return;
   }
 
-  uploadToStorage(nodeId, generatedImageBase64, 'image/png').catch(() => {});
+  const userId = await userIdPromise;
+  uploadToStorage(nodeId, generatedImageBase64, 'image/png', userId ?? undefined, 'plan').catch(() => {});
 
   res.json({ generated_plan_image: generatedImageBase64, room_analysis: roomAnalysisText, analysis_spec: analysisSpec });
 });
