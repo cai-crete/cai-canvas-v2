@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@cai-crete/print-components": "^0.1.4",
+    "@cai-crete/print-components": "^0.1.6",
     "@google/genai": "^1.50.1",
     "@turf/helpers": "^7.3.5",
     "@turf/union": "^7.3.5",

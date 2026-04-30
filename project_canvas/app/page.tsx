@@ -13,6 +13,7 @@ import {
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
 import type { PrintDraftState } from '@cai-crete/print-components';
+import { usePrintProcessor } from '@cai-crete/print-components';
 import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
 import { compressImageBase64 } from '@/lib/compressImage';
@@ -206,7 +207,27 @@ export default function CanvasPage() {
   /* ── 통합 사이드바 상태 ──────────────────────────────────────────── */
   const [activeSidebarNodeType, setActiveSidebarNodeType] = useState<NodeType | null>(null);
   const [printDraftState,       setPrintDraftState]       = useState<PrintDraftState | null>(null);
-  const [printAutoGenerate,     setPrintAutoGenerate]     = useState(false);
+
+  /* ── 브라우저 이탈 방어 (생성 중) ─────────────────────────────────── */
+  useEffect(() => {
+    if (!isGenerating) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '문서 생성이 진행 중입니다. 페이지를 나가시겠습니까?';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isGenerating]);
+
+  /* ── Print 백그라운드 생성 훅 ────────────────────────────────────── */
+  const { generatePrintAssets } = usePrintProcessor({
+    apiBaseUrl: '/api/print-proxy',
+    onAbortControllerReady: (ctrl) => { abortControllerRef.current = ctrl; },
+    onGeneratingChange: (v) => {
+      setIsGenerating(v);
+      if (v) setGeneratingLabel('PRINT GENERATING');
+    }
+  });
 
   /* ── Toast 시스템 ─────────────────────────────────────────────── */
   type ToastType = 'warning' | 'success';
@@ -616,7 +637,6 @@ export default function CanvasPage() {
     plannerMessagesRef.current    = [];
     plannerInsightDataRef.current = null;
     setPrintDraftState(null);
-    setPrintAutoGenerate(false);
     setExpandedNodeId(null);
   }, [expandedNodeId, elevationSourceNodeId, nodes, historyIndex]);
 
@@ -1006,17 +1026,36 @@ export default function CanvasPage() {
   }, [selectedNodeId, nodes, createAndExpandNode]);
 
   /* ── print 사이드바 액션 (generate / export) ─────────────────────── */
-  const handlePrintSidebarAction = useCallback((action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => {
+  const handlePrintSidebarAction = useCallback(async (action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => {
     if (!selectedNodeId) return;
     if (action === 'generate') {
-      setPrintDraftState(draft);
-      setPrintAutoGenerate(true);
+      setActiveSidebarNodeType(null);
+      const targetNodeId = selectedNodeId;
+      try {
+        const result = await generatePrintAssets(draft);
+        const { thumbnail, ...restResult } = result;
+        setNodes(prev => prev.map(n =>
+          n.id === targetNodeId
+            ? {
+                ...n,
+                hasThumbnail: true,
+                thumbnailData: thumbnail,
+                generatedImageData: n.generatedImageData ?? n.thumbnailData,
+                printSavedState: { ...restResult, savedAt: new Date().toISOString() },
+              }
+            : n
+        ));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const msg = err instanceof Error ? err.message : '생성 중 오류가 발생했습니다.';
+        showToast(msg, 'warning');
+      }
     } else {
-      setPrintAutoGenerate(false);
+      setPrintDraftState(draft);
+      setExpandedNodeId(selectedNodeId);
+      setActiveSidebarNodeType(null);
     }
-    setExpandedNodeId(selectedNodeId);
-    setActiveSidebarNodeType(null);
-  }, [selectedNodeId]);
+  }, [selectedNodeId, generatePrintAssets, showToast]);
 
   /* ── 썸네일 단일 클릭 → 선택 + 패널 열기 ───────────────────────── */
   const handleNodeCardSelect = useCallback((id: string) => {
@@ -1327,7 +1366,6 @@ export default function CanvasPage() {
           isGenerating={isGenerating}
           onGeneratePrintComplete={handleGeneratePrintComplete}
           onPrintNodeUpdate={handlePrintNodeUpdate}
-          autoGenerate={printAutoGenerate}
           initialDraftState={printDraftState}
           onGenerateElevationComplete={handleGenerateElevationComplete}
           elevationSourceNodeId={elevationSourceNodeId ?? undefined}
@@ -1398,7 +1436,7 @@ export default function CanvasPage() {
 
       {isGenerating && (
         <GeneratingToast
-          label={expandedNode?.type === 'print' ? 'PRINT GENERATING' : generatingLabel}
+          label={generatingLabel}
           onCancel={() => {
             abortControllerRef.current?.abort();
             setIsGenerating(false);

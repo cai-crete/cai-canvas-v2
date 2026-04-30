@@ -45,7 +45,6 @@ interface Props {
   isGenerating?: boolean;
   onGeneratePrintComplete?: (result: PrintGenerateResult) => void;
   onPrintNodeUpdate?: (updates: Partial<CanvasNode>) => void;
-  autoGenerate?: boolean;
   initialDraftState?: PrintDraftState | null;
   onGenerateElevationComplete?: (params: ElevationGenerateResult) => void;
   elevationSourceNodeId?: string;
@@ -162,7 +161,6 @@ export default function ExpandedView({
   isGenerating = false,
   onGeneratePrintComplete,
   onPrintNodeUpdate,
-  autoGenerate,
   initialDraftState,
   onGenerateElevationComplete,
   elevationSourceNodeId,
@@ -256,9 +254,9 @@ export default function ExpandedView({
         node={node}
         onCollapse={onCollapse}
         onGeneratingChange={onGeneratingChange}
+        isGenerating={isGenerating}
         onGeneratePrintComplete={onGeneratePrintComplete}
         onPrintNodeUpdate={onPrintNodeUpdate}
-        autoGenerate={autoGenerate}
         initialDraftState={initialDraftState}
       />
     );
