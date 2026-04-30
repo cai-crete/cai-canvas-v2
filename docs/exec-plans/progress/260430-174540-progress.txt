@@ -1,0 +1,49 @@
+## 진행 상황 — 260430-174540
+
+### 완료된 작업
+계획서: docs/exec-plans/active/Frontend/260430-print-generation-on-canvas.md
+브랜치: fix/print-bug1-bug2-layout
+
+모든 6개 Step 완료:
+
+[Step 1] ✅ types/print-canvas.ts — PrintExpandedViewProps에 콜백 3개 추가
+  - onGeneratingChange, onDirtyChange, onAbortControllerReady
+
+[Step 2] ✅ Print_ExpandedView.tsx (패키지) — 콜백 연결
+  - handleGenerate에서 onGeneratingChange 호출
+  - history push 후 onDirtyChange 호출
+
+[Step 3] ✅ hooks/usePrintProcessor.ts 신규 생성 + lib/index.ts export 추가
+  - generatePrintAssets(draft) 반환
+  - generateThumbnail() 재사용 (thumbnailUtils.ts)
+
+[Step 4] ✅ 패키지 빌드 · 버전 0.1.6 발행 · Canvas 로컬 파일 링크 설치
+  - package.json files 배열에 "hooks/" 추가
+  - GitHub Packages 401 오류로 로컬 file: 링크 방식 사용
+
+[Step 5] ✅ project_canvas/app/page.tsx — 백그라운드 생성 전환
+  - usePrintProcessor 훅 도입
+  - handlePrintSidebarAction: generate 액션 → generatePrintAssets(draft) 직접 호출
+  - printAutoGenerate 상태 제거
+  - beforeunload 이탈 방어 추가
+  - generatingLabel: onGeneratingChange에서 직접 'PRINT GENERATING' 설정
+  - 버그 수정: apiBaseUrl '/api/proxy' → '/api/print-proxy'
+
+[Step 6] ✅ project_canvas/print/ExpandedView.tsx — 자동 저장 + UI 정리
+  - isDirty, isSaving 상태 추가
+  - saveActionRef로 tools.onSave 캡처
+  - handleGoBack: isDirty 시 자동 저장 후 복귀
+  - onGeneratingChange, onDirtyChange 패키지에 전달
+  - IconSave 버튼 제거 (데드 코드)
+  - ReadOnly 오버레이 (isGenerating), 저장 스피너 (isSaving) 추가
+  - 버그 수정 1: apiBaseUrl 경로 오류 (Step 5에서 수정)
+  - 버그 수정 2: renderSidebarWrapper deps [onCollapse] → [handleGoBack] (stale closure 수정)
+  - 버그 수정 3: IconSave 미사용 데드 코드 제거
+
+### 다음 단계
+- 계획서를 completed로 이동 필요
+- 실제 브라우저에서 백그라운드 Print 생성 흐름 통합 테스트 권장
+  - 사이드바 GENERATE 클릭 → 백그라운드 토스트 확인
+  - ExpandedView 진입 → 편집 → ← 버튼 → 자동 저장 확인
+  - 생성 중 이탈 시도 → beforeunload 경고 확인
+  - AbortController 취소 확인
