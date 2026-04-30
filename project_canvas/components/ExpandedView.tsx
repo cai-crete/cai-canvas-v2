@@ -387,8 +387,10 @@ export default function ExpandedView({
     );
   }
 
-  /* ── artboardType=image + [IMAGE] 버튼 or 더블클릭 → sketch-to-image ExpandedView ── */
-  if (node.artboardType === 'image' && (expandedViewMode === 'image' || expandedViewMode === 'default')) {
+  /* ── artboardType=image + [IMAGE] 버튼 or 더블클릭 → sketch-to-image ExpandedView ──
+     단, 스케치 데이터 없이 생성 완료된 노드(multi-source 결과 등)는 단순 이미지 뷰로 */
+  const hasSketchContent = !!(node.sketchData || node.sketchPaths);
+  if (node.artboardType === 'image' && (expandedViewMode === 'image' || expandedViewMode === 'default') && (hasSketchContent || !node.generatedImageData)) {
     return (
       <SketchToImageExpandedView
         node={node}

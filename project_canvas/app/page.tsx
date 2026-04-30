@@ -910,6 +910,7 @@ export default function CanvasPage() {
           artboardType: 'sketch',
           parentId: slot0.id, autoPlaced: true,
           sketchInputImages,
+          isPendingGeneration: true,
           ...nodeOrchestratorInit('image'),
         };
 
@@ -1141,20 +1142,50 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      /* 다중 선택(sketchInputImages 있음) → 빈 플레이스홀더 노드를 in-place 업데이트 */
+      /* 다중 선택(sketchInputImages 있음) → temp 노드 제거 후 slot0 옆에 새 이미지 노드 생성 */
       if (origin.sketchInputImages) {
-        const updatedNode: CanvasNode = {
-          ...origin,
+        const prevWithoutPending = prev.filter(n => n.id !== nodeId);
+        const existingOfType = prevWithoutPending.filter(n => n.type === 'image');
+        const num = existingOfType.length + 1;
+        const parentId = origin.parentId ?? nodeId;
+        const { position, pushdowns } = placeNewChild(parentId, prevWithoutPending, edgesRef.current);
+        const newNode: CanvasNode = {
+          id: generateId(),
+          type: 'image',
           artboardType: 'image',
+          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
+          position,
+          instanceNumber: num,
           hasThumbnail: true,
           thumbnailData: generatedBase64,
           generatedImageData: generatedBase64,
+          parentId,
+          autoPlaced: true,
           ...(multiSourceAnalysisReport ? { multiSourceAnalysisReport } : {}),
+          ...nodeOrchestratorInit('image'),
         };
-        const next = prev.map(n => n.id === nodeId ? updatedNode : n);
-        pushHistory(next, edgesRef.current);
+
+        let nextNodes = [...prevWithoutPending, newNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        /* temp 노드를 가리키던 엣지를 새 노드로 재연결 */
+        const oldEdges = edgesRef.current.filter(e => e.targetId !== nodeId);
+        const sourceIds = edgesRef.current
+          .filter(e => e.targetId === nodeId)
+          .map(e => e.sourceId);
+        const newEdges: CanvasEdge[] = sourceIds.map(srcId => ({
+          id: generateId(), sourceId: srcId, targetId: newNode.id,
+        }));
+        const nextEdges = [...oldEdges, ...newEdges];
+
+        pushHistory(nextNodes, nextEdges);
         setExpandedNodeId(null);
-        return next;
+        return nextNodes;
       }
 
       /* 단일 선택 일반 스케치 → 원본 노드 유지, 새 이미지 노드를 오른쪽에 생성 */
@@ -1423,7 +1454,7 @@ export default function CanvasPage() {
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <InfiniteCanvas
-            nodes={nodes}
+            nodes={nodes.filter(n => !n.isPendingGeneration)}
             edges={edges}
             newEdgeIds={newEdgeIds}
             scale={scale}
