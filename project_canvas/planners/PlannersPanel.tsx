@@ -875,10 +875,10 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
                   {isGenerating ? (
                     <button
                       onClick={handleStop}
-                      className="p-2.5 rounded-full bg-red-500 text-white hover:bg-red-600 hover:scale-105 active:scale-95 transition-all shadow-lg"
+                      className="p-2.5 rounded-full bg-black text-white hover:scale-105 active:scale-95 transition-all shadow-lg"
                       title="정지"
                     >
-                      <Square className="w-4 h-4 fill-current" />
+                      <Square className="w-4 h-4 fill-white" />
                     </button>
                   ) : (
                     <button
