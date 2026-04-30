@@ -1,7 +1,9 @@
 # 반드시 해야 하는 것들
 - 노드 앱 개발 시 프로젝트 이름(`node_name`), 프로토콜(`protocol`), API 키(`.env.local`)를 입력하세요
 - @AGENTS.md 파일을 읽으세요
-- 사용자의 모든 명령은 작업지시서 형태로 @docs/exec-plans/active/ 생성하세요
+- 사용자의 모든 명령은 작업지시서 형태로 `docs/exec-plans/active/` 생성하세요
+  - 파일명 형식: `YYMMDD-HHMMSS-exec-제목.md` (예: `260424-153012-exec-스케치이미지.md`)
+  - **파일 생성 직전에 반드시 Bash 툴로 `date +%y%m%d-%H%M%S` 를 실행하고, 그 출력값을 파일명으로 사용하세요** (시간을 추정하거나 임의로 입력하지 마세요)
 - 체크리스트 항목이 모두 완료된 `docs/exec-plans/active/` 파일은 `docs/exec-plans/completed/`로 이동 후 `active/`에서 삭제하세요
   - 당일 기준 하루 이상 지난 파일은 `docs/exec-plans/completed/old/` 폴더로 이동하세요 (폴더 없으면 생성)
 - 작업을 마치면 `docs/exec-plans/progress/` 폴더에 새 파일로 진행 상황을 저장하세요
