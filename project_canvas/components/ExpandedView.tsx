@@ -39,7 +39,7 @@ interface Props {
   onZoomReset: () => void;
   onAddArtboard: () => void;
   onUploadImage?: () => void;
-  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => void;
+  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string; multiSourceAnalysisReport?: import('@/types/canvas').MultiSourceAnalysisReport }) => void;
   onGeneratePlanComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedPlanBase64: string; roomAnalysis: string; nodeId: string }) => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;

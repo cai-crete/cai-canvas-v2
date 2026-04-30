@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { compressImageBase64 } from '@/lib/compressImage';
 import type { SelectedImage } from '@cai-crete/print-components';
+import type { MultiSourceAnalysisReport } from '@/types/canvas';
 
 export interface GenerationParams {
   userPrompt?: string;
@@ -14,7 +15,7 @@ export interface GenerationParams {
 
 export interface GenerationResult {
   generatedImage: string | null;
-  analysisReport: Record<string, unknown> | null;
+  analysisReport: MultiSourceAnalysisReport | Record<string, unknown> | null;
 }
 
 export interface UseBlueprintGenerationReturn extends GenerationResult {
@@ -33,7 +34,7 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
   const [isLoading,      setIsLoading]      = useState(false);
   const [error,          setError]          = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [analysisReport, setAnalysisReport] = useState<Record<string, unknown> | null>(null);
+  const [analysisReport, setAnalysisReport] = useState<MultiSourceAnalysisReport | Record<string, unknown> | null>(null);
 
   const generate = useCallback(
     async (
@@ -81,9 +82,9 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
           throw new Error((data as { error?: string }).error ?? `API 오류: ${res.status}`);
         }
 
-        const data = await res.json() as { generated_image: string; analysis_report: Record<string, unknown> };
+        const data = await res.json() as { generated_image: string; analysis_report: MultiSourceAnalysisReport | Record<string, unknown> };
         setGeneratedImage(data.generated_image);
-        setAnalysisReport(data.analysis_report);
+        setAnalysisReport(data.analysis_report ?? null);
         return data.generated_image;
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {

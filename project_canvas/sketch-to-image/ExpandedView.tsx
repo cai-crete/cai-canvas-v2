@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { CanvasNode, SketchPanelSettings, SketchState } from '@/types/canvas';
+import { CanvasNode, SketchPanelSettings, SketchState, MultiSourceAnalysisReport } from '@/types/canvas';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchCanvas, { SketchCanvasHandle, SketchTool, PEN_STROKE_WIDTHS, ERASER_STROKE_WIDTHS, DOT_VISUAL_SIZES } from '@/components/SketchCanvas';
 import SketchToImagePanel from '@/components/panels/SketchToImagePanel';
@@ -15,7 +15,7 @@ export interface SketchToImageExpandedViewProps {
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings, sketchPaths?: SketchState) => void;
   onGenerateError?: (nodeId: string) => void;
   onAbortControllerReady?: (ctrl: AbortController) => void;
-  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => void;
+  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string; multiSourceAnalysisReport?: MultiSourceAnalysisReport }) => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
 }
@@ -129,7 +129,7 @@ export default function SketchToImageExpandedView({
     node.sketchInputImages ?? []
   );
 
-  const { isLoading, error, generate } = useBlueprintGeneration();
+  const { isLoading, error, generate, analysisReport } = useBlueprintGeneration();
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
@@ -234,7 +234,11 @@ export default function SketchToImageExpandedView({
 
     const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal, validInputSources.length > 0 ? validInputSources : undefined);
     if (generatedBase64) {
-      onGenerateComplete?.({ sketchBase64, thumbnailBase64, generatedBase64, nodeId: node.id });
+      const isMultiSource = validInputSources.length >= 2;
+      const multiSourceAnalysisReport = isMultiSource && analysisReport && 'floorPlan' in analysisReport
+        ? (analysisReport as MultiSourceAnalysisReport)
+        : undefined;
+      onGenerateComplete?.({ sketchBase64, thumbnailBase64, generatedBase64, nodeId: node.id, multiSourceAnalysisReport });
     } else {
       onGeneratingChange?.(false);
       onGenerateError?.(node.id);
@@ -421,6 +425,7 @@ export default function SketchToImageExpandedView({
           onGenerate={handleGenerate}
           inputImages={inputImages}
           onInputImagesChange={setInputImages}
+          analysisReport={node.multiSourceAnalysisReport}
         />
       </ExpandedSidebar>
     </div>

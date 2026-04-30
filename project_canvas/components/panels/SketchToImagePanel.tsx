@@ -2,6 +2,7 @@
 
 import { useState, Dispatch, SetStateAction } from 'react';
 import type { SelectedImage } from '@cai-crete/print-components';
+import type { MultiSourceAnalysisReport } from '@/types/canvas';
 
 const STYLE_DESCRIPTIONS: Record<string, {
   title: { ko: string; en: string };
@@ -32,6 +33,7 @@ export interface SketchToImagePanelProps {
   onGenerate: () => void;
   inputImages?: (SelectedImage | null)[];
   onInputImagesChange?: (imgs: (SelectedImage | null)[]) => void;
+  analysisReport?: MultiSourceAnalysisReport;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -72,6 +74,7 @@ export default function SketchToImagePanel({
   onGenerate,
   inputImages,
   onInputImagesChange,
+  analysisReport,
 }: SketchToImagePanelProps) {
   const [activeDetailStyle, setActiveDetailStyle] = useState<string | null>(null);
 
@@ -363,7 +366,117 @@ export default function SketchToImagePanel({
           </div>
         </div>
 
-        {/* RESOLUTION */}
+        {/* ANALYSIS REPORT — 다중 소스 생성 노드에서만 표시 */}
+        {analysisReport && (
+          <div>
+            <span style={sectionLabel}>Analysis Report</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {/* 평면도 섹션 */}
+              <div style={{
+                borderRadius: '0.75rem',
+                border: '1px solid var(--color-gray-100)',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.02)',
+              }}>
+                <div style={{
+                  fontFamily: 'var(--font-family-bebas)',
+                  fontSize: '0.625rem',
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-gray-400)',
+                  marginBottom: '0.5rem',
+                }}>
+                  평면도
+                  <span style={{
+                    marginLeft: '0.375rem',
+                    fontSize: '0.5625rem',
+                    color: analysisReport.floorPlan.confidence === 'HIGH' ? '#16a34a'
+                         : analysisReport.floorPlan.confidence === 'MID'  ? '#d97706'
+                         : '#dc2626',
+                  }}>
+                    {analysisReport.floorPlan.confidence}
+                  </span>
+                </div>
+                {[
+                  { label: 'Zoning',    value: analysisReport.floorPlan.zoning },
+                  { label: 'Axis',      value: analysisReport.floorPlan.axis },
+                  { label: 'Hierarchy', value: analysisReport.floorPlan.spatialHierarchy },
+                  { label: 'Depth',     value: analysisReport.floorPlan.depthLayers },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                    <span style={{
+                      fontFamily: 'var(--font-family-bebas)',
+                      fontSize: '0.5625rem',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      flexShrink: 0,
+                      width: '4rem',
+                      paddingTop: 1,
+                    }}>{row.label}</span>
+                    <span style={{
+                      fontFamily: 'var(--font-family-pretendard)',
+                      fontSize: '0.625rem',
+                      color: 'var(--color-gray-600)',
+                      lineHeight: 1.4,
+                    }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* 입면도 섹션 */}
+              <div style={{
+                borderRadius: '0.75rem',
+                border: '1px solid var(--color-gray-100)',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.02)',
+              }}>
+                <div style={{
+                  fontFamily: 'var(--font-family-bebas)',
+                  fontSize: '0.625rem',
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-gray-400)',
+                  marginBottom: '0.5rem',
+                }}>
+                  입면도
+                  <span style={{
+                    marginLeft: '0.375rem',
+                    fontSize: '0.5625rem',
+                    color: analysisReport.elevation.confidence === 'HIGH' ? '#16a34a'
+                         : analysisReport.elevation.confidence === 'MID'  ? '#d97706'
+                         : '#dc2626',
+                  }}>
+                    {analysisReport.elevation.confidence}
+                  </span>
+                </div>
+                {[
+                  { label: 'Geometry',  value: analysisReport.elevation.geometrySanctuary },
+                  { label: 'Material',  value: analysisReport.elevation.materiality },
+                  { label: 'Facade',    value: analysisReport.elevation.facadeRhythm },
+                  { label: 'Ratio',     value: analysisReport.elevation.proportions },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                    <span style={{
+                      fontFamily: 'var(--font-family-bebas)',
+                      fontSize: '0.5625rem',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      flexShrink: 0,
+                      width: '4rem',
+                      paddingTop: 1,
+                    }}>{row.label}</span>
+                    <span style={{
+                      fontFamily: 'var(--font-family-pretendard)',
+                      fontSize: '0.625rem',
+                      color: 'var(--color-gray-600)',
+                      lineHeight: 1.4,
+                    }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESOLUTION — 일시 비활성화 (추후 복구용)
         <div>
           <span style={sectionLabel}>Resolution</span>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -383,6 +496,7 @@ export default function SketchToImagePanel({
             ))}
           </div>
         </div>
+        */}
       </div>
 
       {/* Error message */}

@@ -1132,8 +1132,8 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
-  }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId, multiSourceAnalysisReport,
+  }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string; multiSourceAnalysisReport?: import('@/types/canvas').MultiSourceAnalysisReport }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
@@ -1159,6 +1159,7 @@ export default function CanvasPage() {
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,
+        ...(multiSourceAnalysisReport ? { multiSourceAnalysisReport } : {}),
         ...nodeOrchestratorInit('image'),
       };
 
