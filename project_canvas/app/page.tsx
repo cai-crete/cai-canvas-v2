@@ -872,7 +872,7 @@ export default function CanvasPage() {
     if (type === 'image') {
       const sketchInputNodes = selectedNodeIds
         .map(id => nodes.find(n => n.id === id))
-        .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch'));
+        .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch' || n.type === 'sketch'));
 
       if (sketchInputNodes.length >= 2) {
         const isSketchArtboard = (n: CanvasNode) =>
@@ -882,7 +882,9 @@ export default function CanvasPage() {
         const planNode = sketchInputNodes.find(n => !isSketchArtboard(n));
 
         const slot0 = planNode ?? sketchInputNodes[0];  // 평면도
-        const slot1 = elevNode ?? sketchInputNodes[1];  // 입면도
+        const slot1 = (elevNode && elevNode.id !== slot0.id)  // 입면도 (slot0과 다른 노드 보장)
+          ? elevNode
+          : sketchInputNodes.find(n => n.id !== slot0.id) ?? sketchInputNodes[1];
 
         const getNodeBase64 = (n: CanvasNode) =>
           n.generatedImageData ?? n.sketchData ?? n.thumbnailData;
