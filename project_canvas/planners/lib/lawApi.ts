@@ -47,6 +47,7 @@ export interface FetchLawsResult {
     land: LawEntry[];
   };
   pnu: string | null;
+  address?: string | null;
   landCharacteristics?: {
     landArea: string | null;
     landCategory: string | null;
@@ -76,6 +77,7 @@ export async function fetchRelevantLaws(
     formatted: '',
     categorized: { law: [], building: [], land: [] },
     pnu: null,
+    address: address || null,
   };
 
   if (keywords.length === 0 && !address) return emptyResult;
@@ -137,6 +139,7 @@ export async function fetchRelevantLaws(
     if (allLaws.length === 0) return {
       ...emptyResult,
       pnu: data.pnu || null,
+      address: address || null,
       landCharacteristics: data.landCharacteristics || null,
       parkingOrdinance: data.parkingOrdinance,
     };
@@ -145,6 +148,7 @@ export async function fetchRelevantLaws(
       formatted: formatLawsForProtocol(allLaws),
       categorized: cat,
       pnu: data.pnu || null,
+      address: address || null,
       landCharacteristics: data.landCharacteristics || null,
       parkingOrdinance: data.parkingOrdinance,
     };

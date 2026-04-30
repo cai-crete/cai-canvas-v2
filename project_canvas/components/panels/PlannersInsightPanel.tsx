@@ -118,7 +118,7 @@ export const PlannersInsightPanel = memo(({
             {/* ① 대지위치 섹션 */}
             {isLandApiEnabled && hasSiteInfo && (
               <SiteInfoSection
-                address={null}
+                address={apiInsightData.address ?? null}
                 pnu={apiInsightData.pnu}
                 zones={apiInsightData.categorized.land}
                 landCharacteristics={apiInsightData.landCharacteristics}
