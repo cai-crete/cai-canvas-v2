@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '../lib/prompt';
-import { uploadToStorage } from '../lib/supabaseUpload';
+import { uploadToStorage, getUserFromToken } from '../lib/supabaseUpload';
 
 const router = Router();
 
@@ -74,6 +74,9 @@ function buildViewPrompt(view: 'rear' | 'left' | 'right' | 'top', aepl: AeplData
 }
 
 router.post('/', async (req, res) => {
+  const token = (req.headers.authorization as string | undefined)?.replace('Bearer ', '');
+  const userIdPromise = getUserFromToken(token);
+
   const { imageBase64, mimeType = 'image/jpeg', prompt: userPrompt = '', nodeId = 'unknown' } = req.body;
 
   if (!imageBase64) { res.status(400).json({ error: 'imageBase64 is required' }); return; }
@@ -182,10 +185,13 @@ router.post('/', async (req, res) => {
   const images = { front: frontDataUrl, ...generatedViews };
   const aeplResult = { width: aepl.width, height: aepl.height, depth: aepl.depth, voidRatio: aepl.voidRatio, baseMaterial: aepl.baseMaterial, secondaryMaterial: aepl.secondaryMaterial };
 
-  // 백그라운드 Storage 저장 (front 제외)
+  // 백그라운드 Storage 저장 (front 제외) — 첫 번째 뷰만 DB에 기록
+  const userId = await userIdPromise;
+  let isFirst = true;
   for (const [view, dataUrl] of Object.entries(generatedViews)) {
     const b64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
-    uploadToStorage(`${nodeId}-${view}`, b64, 'image/png').catch(() => {});
+    uploadToStorage(`${nodeId}-${view}`, b64, 'image/png', isFirst ? (userId ?? undefined) : undefined, isFirst ? 'elevation' : undefined).catch(() => {});
+    isFirst = false;
   }
 
   console.log(`[elevation] total elapsed=${Date.now() - startTime}ms`);

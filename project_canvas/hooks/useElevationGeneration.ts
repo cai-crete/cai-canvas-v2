@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { compressImageBase64 } from '@/lib/compressImage';
+import { supabase } from '@/lib/supabaseClient';
 import type { ElevationAeplData, ElevationImages } from '@/types/canvas';
 
 export interface ElevationResult {
@@ -25,9 +26,13 @@ export function useElevationGeneration() {
       try {
         const compressed = await compressImageBase64(imageBase64, mimeType);
 
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
         const res = await fetch('/api/image-to-elevation', {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
           body: JSON.stringify({
             imageBase64: compressed.base64,
             mimeType:    compressed.mimeType,

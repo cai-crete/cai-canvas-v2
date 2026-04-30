@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt, loadProtocolFile } from '../lib/prompt';
 import { getStylePrompt } from '../lib/architectStyles';
-import { uploadToStorage } from '../lib/supabaseUpload';
+import { uploadToStorage, getUserFromToken } from '../lib/supabaseUpload';
 
 const router = Router();
 
@@ -89,6 +89,9 @@ function buildMultiSourceReport(
 }
 
 router.post('/', async (req, res) => {
+  const token = (req.headers.authorization as string | undefined)?.replace('Bearer ', '');
+  const userIdPromise = getUserFromToken(token);
+
   const {
     sketch_image,
     mime_type = 'image/png',
@@ -224,7 +227,8 @@ router.post('/', async (req, res) => {
       res.status(503).json({ error: `Image generation failed: ${msg}` }); return;
     }
 
-    uploadToStorage(nodeId, generatedImageBase64, 'image/png').catch(() => {});
+    const userId = await userIdPromise;
+    uploadToStorage(nodeId, generatedImageBase64, 'image/png', userId ?? undefined, 'sketch-to-image').catch(() => {});
     res.json({ generated_image: generatedImageBase64, analysis_report: analysisSpec });
     return;
   }
@@ -359,7 +363,8 @@ router.post('/', async (req, res) => {
 
   const multiSourceReport = buildMultiSourceReport(floorplanSpec, elevationSpec);
 
-  uploadToStorage(nodeId, generatedImageBase64, 'image/png').catch(() => {});
+  const userId = await userIdPromise;
+  uploadToStorage(nodeId, generatedImageBase64, 'image/png', userId ?? undefined, 'sketch-to-image').catch(() => {});
   res.json({ generated_image: generatedImageBase64, analysis_report: multiSourceReport });
 });
 

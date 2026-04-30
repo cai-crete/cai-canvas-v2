@@ -1,0 +1,31 @@
+## 작업 진행 상황
+
+### 방금 완료한 작업
+260430-auth-library-supabase.md Phase 2 (Library Modal UI Shell) 완료
+
+#### 생성/수정된 파일
+- [신규] project_canvas/components/LibraryModal.tsx — 라이브러리 모달 UI
+  - 메인 탭 4개: SKETCH / IMAGE / DOCUMENT / VIDEO (Bebas Neue, 44px)
+  - DOCUMENT 서브탭 4개: REPORT / PANEL L / PANEL P / DRAWING (36px)
+  - 빈 상태(empty state) 메시지 — NO {TAB} ITEMS
+  - 80vw × 80vh, min 800×600px, 반투명 오버레이
+- [수정] project_canvas/app/page.tsx
+  - import LibraryModal 추가
+  - {libraryOpen && <LibraryModal onClose={() => setLibraryOpen(false)} />} 마운트
+
+### 현재 상태
+- Phase 1, 2 완료, 타입 에러 없음
+- 라이브러리 모달은 현재 UI 셸만 존재 (데이터 없는 빈 상태)
+
+### 다음에 해야 할 작업
+Phase 3: Data Layer
+- Render 서버 라우트 — JWT 추출, user_id 획득, generated_images DB에 저장
+- Vercel 프록시 라우트 — Authorization 헤더 전달
+- 프론트엔드 AI 요청 — JWT 포함
+- LibraryModal — Supabase에서 데이터 fetch, 탭별 필터링, 썸네일 그리드 렌더링
+
+### 검증 필요 항목 (배포 후)
+- LIBRARY 버튼 클릭 → 모달 열림 확인
+- 탭 전환 동작 확인
+- DOCUMENT → 서브탭 전환 확인
+- 외부 클릭 → 모달 닫힘 확인

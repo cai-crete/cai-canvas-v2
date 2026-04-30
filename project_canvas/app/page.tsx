@@ -23,6 +23,10 @@ import LeftToolbar       from '@/components/LeftToolbar';
 import RightSidebar      from '@/components/RightSidebar';
 import ExpandedView      from '@/components/ExpandedView';
 import GeneratingToast   from '@/components/GeneratingToast';
+import AuthModal         from '@/components/AuthModal';
+import LibraryModal      from '@/components/LibraryModal';
+import { useAuth }       from '@/contexts/AuthContext';
+import { supabase }      from '@/lib/supabaseClient';
 
 /* ── UUID 생성 (비보안 컨텍스트 폴백: HTTP 로컬 IP 접속 대응) ───── */
 function generateId(): string {
@@ -198,6 +202,11 @@ export default function CanvasPage() {
   // expandedNodeId 변경 시에만 초기화 (nodes 변경마다 리셋하면 안 됨)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedNodeId]);
+
+  /* ── Auth / Library 모달 ───────────────────────────────────────── */
+  const { user } = useAuth();
+  const [authOpen,    setAuthOpen]    = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   /* ── 생성 상태 ──────────────────────────────────────────────────── */
   const [isGenerating,    setIsGenerating]    = useState(false);
@@ -1316,9 +1325,13 @@ export default function CanvasPage() {
       /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
       const compressed = await compressImageBase64(base64, mimeType);
 
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
       const res = await fetch('/api/change-viewpoint', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
         body: JSON.stringify({
           image_base64: compressed.base64,
           mime_type:    compressed.mimeType,
@@ -1460,8 +1473,44 @@ export default function CanvasPage() {
       <span className="text-title" style={{ fontSize: '1.25rem', letterSpacing: '0.05em' }}>
         CAI&nbsp;&nbsp;CANVAS
       </span>
+      <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+        <button
+          onClick={() => setLibraryOpen(true)}
+          style={headerBtnStyle}
+        >
+          LIBRARY
+        </button>
+        {user ? (
+          <button
+            onClick={() => supabase.auth.signOut()}
+            style={{ ...headerBtnStyle, background: 'var(--color-black)', color: 'var(--color-white)' }}
+          >
+            {user.email?.split('@')[0].toUpperCase()}
+          </button>
+        ) : (
+          <button
+            onClick={() => setAuthOpen(true)}
+            style={{ ...headerBtnStyle, background: 'var(--color-black)', color: 'var(--color-white)' }}
+          >
+            LOGIN
+          </button>
+        )}
+      </div>
     </header>
   );
+
+  const headerBtnStyle: React.CSSProperties = {
+    height: 'var(--h-cta-lg)',
+    padding: '0 var(--space-2)',
+    border: '1px solid var(--color-gray-200)',
+    background: 'var(--color-white)',
+    color: 'var(--color-black)',
+    cursor: 'pointer',
+    borderRadius: 'var(--radius-box)',
+    fontFamily: 'var(--font-bebas), sans-serif',
+    fontSize: '0.875rem',
+    letterSpacing: '0.08em',
+  };
 
   /* ── render ─────────────────────────────────────────────────────── */
   return (
@@ -1606,6 +1655,9 @@ export default function CanvasPage() {
           </div>
         </div>
       )}
+
+      {authOpen    && <AuthModal    onClose={() => setAuthOpen(false)} />}
+      {libraryOpen && <LibraryModal onClose={() => setLibraryOpen(false)} />}
     </div>
   );
 }

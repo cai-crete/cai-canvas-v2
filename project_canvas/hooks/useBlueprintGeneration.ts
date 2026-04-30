@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { compressImageBase64 } from '@/lib/compressImage';
+import { supabase } from '@/lib/supabaseClient';
 import type { SelectedImage } from '@cai-crete/print-components';
 import type { MultiSourceAnalysisReport } from '@/types/canvas';
 
@@ -79,9 +80,13 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
           }));
         }
 
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
         const res = await fetch('/api/sketch-to-image', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
           body: JSON.stringify(body),
           signal,
         });

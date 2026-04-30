@@ -11,11 +11,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'RENDER_SERVER_URL is not configured' }, { status: 500 });
   }
 
+  const authHeader = req.headers.get('Authorization') ?? '';
   const response = await fetch(`${renderUrl}/api/change-viewpoint`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-internal-secret': process.env.INTERNAL_SECRET ?? '',
+      ...(authHeader && { Authorization: authHeader }),
     },
     body: JSON.stringify(body),
   });
