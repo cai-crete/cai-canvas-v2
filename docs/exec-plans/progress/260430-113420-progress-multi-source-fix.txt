@@ -1,0 +1,27 @@
+## 방금 한 것
+- 다중 선택 Sketch-to-Image 두 가지 버그 수정
+
+## 완료된 것
+
+### 문제 1: 빈 아트보드가 먼저 나타나는 문제
+- `types/canvas.ts` — `isPendingGeneration?: boolean` 필드 추가
+- `app/page.tsx` (line ~912) — 다중 선택 imageNode 생성 시 `isPendingGeneration: true` 설정
+- `app/page.tsx` (InfiniteCanvas) — `nodes.filter(n => !n.isPendingGeneration)` 로 pending 노드를 canvas에서 숨김
+- `app/page.tsx` — `handleGenerateComplete` 다중 선택 분기 변경:
+  - 기존: temp 노드를 in-place 업데이트
+  - 변경: temp 노드 제거 + slot0(parentId) 옆에 새 이미지 노드 생성 (단일 선택과 동일한 흐름)
+  - temp 노드를 가리키던 엣지를 새 노드로 재연결
+
+### 문제 2: 생성 완료 이미지 Expand 시 이미지 손실
+- `components/ExpandedView.tsx` (line ~391) — SketchToImageExpandedView 라우팅 조건 수정:
+  - 기존: artboardType=image + default/image 모드이면 무조건 SketchToImageExpandedView
+  - 변경: sketchData/sketchPaths 없고 generatedImageData 있으면 단순 이미지 뷰로 라우팅
+  - 단일 선택 생성 노드(sketchData 있음)는 기존과 동일하게 SketchToImageExpandedView 유지
+
+## 다음에 해야 할 것
+- 실제 동작 테스트:
+  1. 캔버스에서 image 아트보드 2개 다중선택 후 IMAGE 탭 클릭
+  2. ExpandedView에서 GENERATE 클릭 → ExpandedView 닫힐 때 빈 아트보드 보이지 않아야 함
+  3. 생성 완료 후 새 이미지 노드가 slot0 옆에 나타나야 함
+  4. 생성된 이미지 노드 더블클릭 → 전체 이미지가 제대로 표시되어야 함
+  5. 단일 선택 Sketch-to-Image 기존 동작 유지 확인

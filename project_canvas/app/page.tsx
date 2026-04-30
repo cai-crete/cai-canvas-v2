@@ -12,7 +12,7 @@ import {
   CadastralGeoJson,
 } from '@/types/canvas';
 import type { ElevationGenerateResult } from '@/elevation/ExpandedView';
-import type { PrintDraftState } from '@cai-crete/print-components';
+import type { PrintDraftState, SelectedImage } from '@cai-crete/print-components';
 import { usePrintProcessor } from '@cai-crete/print-components';
 import { nodeImageToSelectedImage } from '@/lib/printUtils';
 import { placeNewChild } from '@/lib/autoLayout';
@@ -888,6 +888,73 @@ export default function CanvasPage() {
       return;
     }
 
+    /* IMAGE 탭 + 다중 아트보드 선택(≥2) → 새 image 노드 생성 + INPUT IMAGES 사전 로드 */
+    if (type === 'image') {
+      const sketchInputNodes = selectedNodeIds
+        .map(id => nodes.find(n => n.id === id))
+        .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch' || n.type === 'sketch'));
+
+      if (sketchInputNodes.length >= 2) {
+        const isSketchArtboard = (n: CanvasNode) =>
+          n.artboardType === 'sketch' || !!n.sketchPaths || !!n.sketchData;
+
+        const elevNode = sketchInputNodes.find(isSketchArtboard);
+        const planNode = sketchInputNodes.find(n => !isSketchArtboard(n));
+
+        const slot0 = planNode ?? sketchInputNodes[0];  // 평면도
+        const slot1 = (elevNode && elevNode.id !== slot0.id)  // 입면도 (slot0과 다른 노드 보장)
+          ? elevNode
+          : sketchInputNodes.find(n => n.id !== slot0.id) ?? sketchInputNodes[1];
+
+        const getNodeBase64 = (n: CanvasNode) =>
+          n.generatedImageData ?? n.sketchData ?? n.thumbnailData;
+
+        const toSelectedImage = (n: CanvasNode): SelectedImage | null => {
+          const raw = getNodeBase64(n);
+          return raw ? nodeImageToSelectedImage(raw, n.id) : null;
+        };
+
+        const sketchInputImages: (SelectedImage | null)[] = [
+          toSelectedImage(slot0),
+          toSelectedImage(slot1),
+        ];
+
+        const currentNodes = nodes;
+        const currentEdges = edgesRef.current;
+        const num = currentNodes.filter(n => n.type === 'image').length + 1;
+        const newId = generateId();
+        const { position, pushdowns } = placeNewChild(slot0.id, currentNodes, currentEdges);
+
+        const imageNode: CanvasNode = {
+          id: newId, type: 'image',
+          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
+          position, instanceNumber: num, hasThumbnail: false,
+          artboardType: 'sketch',
+          parentId: slot0.id, autoPlaced: true,
+          sketchInputImages,
+          isPendingGeneration: true,
+          ...nodeOrchestratorInit('image'),
+        };
+
+        let nextNodes = [...currentNodes, imageNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        const newEdges: CanvasEdge[] = sketchInputNodes.map(srcNode => ({
+          id: generateId(), sourceId: srcNode.id, targetId: newId,
+        }));
+
+        pushHistory(nextNodes, [...currentEdges, ...newEdges]);
+        setExpandedNodeId(newId);
+        setActiveSidebarNodeType(null);
+        return;
+      }
+    }
+
     /* ── 아트보드가 선택된 경우: 직접 액션 ──────────────────────── */
     if (selectedNode) {
       /* PLAN 탭 + image 아트보드 노드(plan/image/viewpoint) → Plan ExpandedView */
@@ -1061,14 +1128,28 @@ export default function CanvasPage() {
   const handleNodeCardSelect = useCallback((id: string) => {
     const node = nodes.find(n => n.id === id);
     if (!node) return;
-    setSelectedNodeIds([id]);
-    /* thumbnail 아트보드: 노드 종류별 패널 표시 (print와 planners 구분) */
-    if (node.artboardType === 'thumbnail') {
-      setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
-    } else {
+
+    const isCurrentlySelected = selectedNodeIds.includes(id);
+    const hasOtherSelected = selectedNodeIds.length > 0;
+
+    if (isCurrentlySelected) {
+      /* 이미 선택된 노드 재클릭 → 선택 해제 */
+      setSelectedNodeIds(prev => prev.filter(sid => sid !== id));
       setActiveSidebarNodeType(null);
+    } else if (hasOtherSelected) {
+      /* 다른 노드 선택 중 → 다중 선택에 추가 */
+      setSelectedNodeIds(prev => [...prev, id]);
+      setActiveSidebarNodeType(null);
+    } else {
+      /* 첫 번째 선택 */
+      setSelectedNodeIds([id]);
+      if (node.artboardType === 'thumbnail') {
+        setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
+      } else {
+        setActiveSidebarNodeType(null);
+      }
     }
-  }, [nodes]);
+  }, [nodes, selectedNodeIds]);
 
   /* ── 빈 캔버스 클릭 → 선택 해제 + 패널 닫기 ────────────────────── */
   const handleNodeDeselect = useCallback(() => {
@@ -1107,8 +1188,8 @@ export default function CanvasPage() {
 
   /* ── Sketch-to-Image 생성 완료 핸들러 ───────────────────────────── */
   const handleGenerateComplete = useCallback(({
-    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId,
-  }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => {
+    sketchBase64: _sketchBase64, thumbnailBase64: _thumbnailBase64, generatedBase64, nodeId, multiSourceAnalysisReport,
+  }: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string; multiSourceAnalysisReport?: import('@/types/canvas').MultiSourceAnalysisReport }) => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
@@ -1116,7 +1197,53 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      /* 원본 노드는 변경하지 않음 — handleCollapseWithSketch에서 이미 저장 완료 */
+      /* 다중 선택(sketchInputImages 있음) → temp 노드 제거 후 slot0 옆에 새 이미지 노드 생성 */
+      if (origin.sketchInputImages) {
+        const prevWithoutPending = prev.filter(n => n.id !== nodeId);
+        const existingOfType = prevWithoutPending.filter(n => n.type === 'image');
+        const num = existingOfType.length + 1;
+        const parentId = origin.parentId ?? nodeId;
+        const { position, pushdowns } = placeNewChild(parentId, prevWithoutPending, edgesRef.current);
+        const newNode: CanvasNode = {
+          id: generateId(),
+          type: 'image',
+          artboardType: 'image',
+          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
+          position,
+          instanceNumber: num,
+          hasThumbnail: true,
+          thumbnailData: generatedBase64,
+          generatedImageData: generatedBase64,
+          parentId,
+          autoPlaced: true,
+          ...(multiSourceAnalysisReport ? { multiSourceAnalysisReport } : {}),
+          ...nodeOrchestratorInit('image'),
+        };
+
+        let nextNodes = [...prevWithoutPending, newNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        /* temp 노드를 가리키던 엣지를 새 노드로 재연결 */
+        const oldEdges = edgesRef.current.filter(e => e.targetId !== nodeId);
+        const sourceIds = edgesRef.current
+          .filter(e => e.targetId === nodeId)
+          .map(e => e.sourceId);
+        const newEdges: CanvasEdge[] = sourceIds.map(srcId => ({
+          id: generateId(), sourceId: srcId, targetId: newNode.id,
+        }));
+        const nextEdges = [...oldEdges, ...newEdges];
+
+        pushHistory(nextNodes, nextEdges);
+        setExpandedNodeId(null);
+        return nextNodes;
+      }
+
+      /* 단일 선택 일반 스케치 → 원본 노드 유지, 새 이미지 노드를 오른쪽에 생성 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
@@ -1134,6 +1261,7 @@ export default function CanvasPage() {
         generatedImageData: generatedBase64,
         parentId: nodeId,
         autoPlaced: true,
+        ...(multiSourceAnalysisReport ? { multiSourceAnalysisReport } : {}),
         ...nodeOrchestratorInit('image'),
       };
 
@@ -1380,7 +1508,7 @@ export default function CanvasPage() {
       ) : (
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <InfiniteCanvas
-            nodes={nodes}
+            nodes={nodes.filter(n => !n.isPendingGeneration)}
             edges={edges}
             newEdgeIds={newEdgeIds}
             scale={scale}

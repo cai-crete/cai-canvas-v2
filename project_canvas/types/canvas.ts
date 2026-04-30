@@ -165,6 +165,23 @@ export interface ElevationAeplData {
   voidRatio: number; baseMaterial: string; secondaryMaterial: string;
 }
 
+export interface MultiSourceAnalysisReport {
+  floorPlan: {
+    zoning: string;
+    axis: string;
+    spatialHierarchy: string;
+    depthLayers: string;
+    confidence: 'HIGH' | 'MID' | 'LOW';
+  };
+  elevation: {
+    geometrySanctuary: string;
+    materiality: string;
+    facadeRhythm: string;
+    proportions: string;
+    confidence: 'HIGH' | 'MID' | 'LOW';
+  };
+}
+
 export interface ViewpointAnalysisReport {
   optical: {
     viewpoint: string;
@@ -237,6 +254,9 @@ export interface CanvasNode {
   elevationAeplData?: ElevationAeplData;
   printSavedState?: PrintSavedState;
   printSelectedImages?: SelectedImage[];
+  sketchInputImages?: (SelectedImage | null)[];      // 다중 아트보드 입력 [인덱스0=평면도, 인덱스1=입면도]
+  multiSourceAnalysisReport?: MultiSourceAnalysisReport; // v2.3-multi 생성 후 저장되는 분석 리포트
+  isPendingGeneration?: boolean; // 생성 진행 중인 임시 노드 (canvas에서 숨김)
   /* ── Orchestrator v2.0 상태 필드 ────────────────────────────────── */
   artboardStatus?: ArtboardStatus;     // 오케스트레이터 상태 전환 (VOID→VERIFYING→REALIZED)
   cumulativeScore?: number;            // Red Team 누적 성공 횟수

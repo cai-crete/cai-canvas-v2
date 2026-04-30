@@ -41,7 +41,7 @@ type HistoryEntry = {
 
 export interface SketchCanvasHandle {
   exportAsBase64: () => string;
-  exportThumbnail: () => string;
+  exportThumbnail: (transparent?: boolean) => string;
   uploadTrigger: () => void;
   clearAll: () => void;
   loadImage: (base64: string, removeBackground?: boolean, fitCanvas?: boolean) => void;
@@ -792,7 +792,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   }, [onInternalZoomChange, onInternalOffsetChange, clampOffset]);
 
   /* ── exportThumbnail: 100% zoom/offset={0,0} ────────────────────── */
-  const exportThumbnail = useCallback((): string => {
+  const exportThumbnail = useCallback((transparent = false): string => {
     const canvas = canvasRef.current;
     if (!canvas) return '';
 
@@ -802,8 +802,10 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const ctx = offscreen.getContext('2d');
     if (!ctx) return '';
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    if (!transparent) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    }
 
     const expZs = internalZoom / 100;
     const expOx = internalOffset.x + canvas.width  / 2;

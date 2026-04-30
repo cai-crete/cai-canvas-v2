@@ -7,7 +7,7 @@ import {
   X, Copy, ChevronRight, Settings,
   Bot, Layers, Check, Loader2, ChevronDown, MessageSquare, Sparkles, Info,
   Orbit, Search, GitBranch, Shield, Zap, Compass, Wind, Hash,
-  History, Target, Cpu, PenTool, Box, Scale, LayoutPanelLeft, User, RotateCcw, RefreshCw, Send,
+  History, Target, Cpu, PenTool, Box, Scale, LayoutPanelLeft, User, RotateCcw, RefreshCw, Send, Square,
   Archive, PanelRightClose, PanelRightOpen, Plus as PlusIcon, FileText, Image as ImageIcon, Library, Download,
   Mic, Paperclip, Sparkles as WandSparkles, Link2, ExternalLink, Building2, LandPlot
 } from 'lucide-react';
@@ -583,6 +583,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [chatInput, setChatInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [chatImages, setChatImages] = useState<string[]>(initialImages ?? []);
@@ -625,10 +626,19 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
     e.target.value = '';
   };
 
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsGenerating(false);
+  };
+
   const handleChatSubmit = async () => {
     const text = chatInput.trim();
     if (!text && chatImages.length === 0) return;
     if (isGenerating) return;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     const currentImages = [...chatImages];
     setMessages(prev => [...prev, { type: 'user', text: text || '(이미지 첨부)', images: currentImages.length > 0 ? currentImages : undefined }]);
@@ -646,7 +656,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
         enableLaw: isLawApiEnabled,
         enableBuilding: isBuildingApiEnabled,
         enableLand: isLandApiEnabled
-      });
+      }, controller.signal);
 
       // 사용자 프롬프트에서 기획 용도 추출 → 주차 산정에 우선 적용
       const intendedUse = extractIntendedUse(text);
@@ -669,6 +679,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
           const wfsRes = await fetch('/api/vworld-map', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({ action: 'wfs', pnu: insightData.pnu }),
           });
           console.log(`[지적도 DIAG] WFS 응답 status=${wfsRes.status}, ok=${wfsRes.ok}`);
@@ -712,6 +723,7 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
       const res = await fetch('/api/planners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ userInput: text || '(이미지 첨부)', relevantLaws: insightData.formatted, images: currentImages.length > 0 ? currentImages : undefined })
       });
 
@@ -725,9 +737,11 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
 
       setMessages(prev => [...prev, { type: 'ai', data: json.data as TurnGroupNodeData }]);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error(err);
       alert('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
+      abortControllerRef.current = null;
       setIsGenerating(false);
     }
   };
@@ -858,18 +872,28 @@ export default function PlannersPanel({ onInsightDataUpdate, onCadastralDataRece
 
                 <div className="flex items-center gap-2 pointer-events-auto">
                   <div className="w-px h-4 bg-neutral-200 mx-1" />
-                  <button
-                    onClick={handleChatSubmit}
-                    disabled={(!chatInput.trim() && chatImages.length === 0) || isGenerating}
-                    className={cn(
-                      "p-2.5 rounded-full transition-all shadow-sm",
-                      (chatInput.trim() || chatImages.length > 0) && !isGenerating
-                        ? "bg-black text-white hover:scale-105 active:scale-95 shadow-lg"
-                        : "bg-neutral-200 text-neutral-400"
-                    )}
-                  >
-                    {isGenerating ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Send className="w-4.5 h-4.5" />}
-                  </button>
+                  {isGenerating ? (
+                    <button
+                      onClick={handleStop}
+                      className="p-2.5 rounded-full bg-black text-white hover:scale-105 active:scale-95 transition-all shadow-lg"
+                      title="정지"
+                    >
+                      <Square className="w-4 h-4 fill-white" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleChatSubmit}
+                      disabled={!chatInput.trim() && chatImages.length === 0}
+                      className={cn(
+                        "p-2.5 rounded-full transition-all shadow-sm",
+                        (chatInput.trim() || chatImages.length > 0)
+                          ? "bg-black text-white hover:scale-105 active:scale-95 shadow-lg"
+                          : "bg-neutral-200 text-neutral-400"
+                      )}
+                    >
+                      <Send className="w-4.5 h-4.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

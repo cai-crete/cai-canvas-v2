@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { CanvasNode, SketchPanelSettings, SketchState } from '@/types/canvas';
+import { CanvasNode, SketchPanelSettings, SketchState, MultiSourceAnalysisReport } from '@/types/canvas';
 import ExpandedSidebar from '@/components/ExpandedSidebar';
 import SketchCanvas, { SketchCanvasHandle, SketchTool, PEN_STROKE_WIDTHS, ERASER_STROKE_WIDTHS, DOT_VISUAL_SIZES } from '@/components/SketchCanvas';
 import SketchToImagePanel from '@/components/panels/SketchToImagePanel';
 import { useBlueprintGeneration, GenerationParams } from '@/hooks/useBlueprintGeneration';
+import type { SelectedImage } from '@cai-crete/print-components';
 
 export interface SketchToImageExpandedViewProps {
   node: CanvasNode;
@@ -14,7 +15,7 @@ export interface SketchToImageExpandedViewProps {
   onCollapseWithSketch?: (sketchBase64: string, thumbnailBase64: string, panelSettings: SketchPanelSettings, sketchPaths?: SketchState) => void;
   onGenerateError?: (nodeId: string) => void;
   onAbortControllerReady?: (ctrl: AbortController) => void;
-  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string }) => void;
+  onGenerateComplete?: (params: { sketchBase64: string; thumbnailBase64: string; generatedBase64: string; nodeId: string; multiSourceAnalysisReport?: MultiSourceAnalysisReport }) => void;
   onGeneratingChange?: (v: boolean) => void;
   isGenerating?: boolean;
 }
@@ -121,30 +122,25 @@ export default function SketchToImageExpandedView({
 
   const sketchCanvasRef = useRef<SketchCanvasHandle>(null);
   const abortRef        = useRef<AbortController | null>(null);
-  const [refImage, setRefImage] = useState<string | null>(null);
 
-  const { isLoading, error, generate } = useBlueprintGeneration();
+  /* ── 다중 아트보드 입력 이미지 [인덱스0=평면도, 인덱스1=입면도] ── */
+  const [inputImages, setInputImages] = useState<(SelectedImage | null)[]>(
+    node.sketchInputImages ?? []
+  );
+
+  const { isLoading, error, generate, analysisReport } = useBlueprintGeneration();
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 sketchPaths(벡터) 우선 복원. 없으면 sketchData(flat PNG) 로드.
-     generatedImageData는 참조 오버레이로만 표시 (exportAsBase64에 포함 안 됨). */
+  /* Expand 시 sketchPaths(벡터) 우선 복원. 없으면 generatedImageData/thumbnailData 로드. */
   useEffect(() => {
-    setRefImage(null);
-    
-    if (node.generatedImageData) {
-      const src = node.generatedImageData.startsWith('data:')
-        ? node.generatedImageData
-        : `data:image/png;base64,${node.generatedImageData}`;
-      setRefImage(src);
-    }
-
     if (node.sketchPaths) {
       sketchCanvasRef.current?.loadState(node.sketchPaths);
     } else if (node.sketchData) {
       sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
-    } else if (node.thumbnailData && !node.generatedImageData) {
-      sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
+    } else {
+      const imgSrc = node.generatedImageData ?? node.thumbnailData;
+      if (imgSrc) sketchCanvasRef.current?.loadImage(imgSrc, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
@@ -206,8 +202,8 @@ export default function SketchToImageExpandedView({
     if (!canvas) return;
 
     const sketchBase64    = canvas.exportAsBase64();
-    const thumbnailBase64 = canvas.exportThumbnail();
     if (!sketchBase64) return;
+    const thumbnailBase64 = canvas.exportThumbnail();
 
     abortRef.current = new AbortController();
     onAbortControllerReady?.(abortRef.current);
@@ -220,13 +216,19 @@ export default function SketchToImageExpandedView({
       aspectRatio: aspectRatio ?? '4:3',
     };
 
+    const validInputSources = inputImages.filter((img): img is SelectedImage => img !== null);
+
     onGeneratingChange?.(true);
     onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings());
     onCollapse();
 
-    const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal);
+    const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal, validInputSources.length > 0 ? validInputSources : undefined);
     if (generatedBase64) {
-      onGenerateComplete?.({ sketchBase64, thumbnailBase64, generatedBase64, nodeId: node.id });
+      const isMultiSource = validInputSources.length >= 2;
+      const multiSourceAnalysisReport = isMultiSource && analysisReport && 'floorPlan' in analysisReport
+        ? (analysisReport as MultiSourceAnalysisReport)
+        : undefined;
+      onGenerateComplete?.({ sketchBase64, thumbnailBase64, generatedBase64, nodeId: node.id, multiSourceAnalysisReport });
     } else {
       onGeneratingChange?.(false);
       onGenerateError?.(node.id);
@@ -263,7 +265,6 @@ export default function SketchToImageExpandedView({
           onInternalZoomChange={setInternalZoom}
           onInternalOffsetChange={setInternalOffset}
           fitOnUpload
-          referenceImageUrl={refImage ?? undefined}
         />
       </div>
 
@@ -411,6 +412,9 @@ export default function SketchToImageExpandedView({
           resolution={resolution}
           setResolution={setResolution}
           onGenerate={handleGenerate}
+          inputImages={inputImages}
+          onInputImagesChange={setInputImages}
+          analysisReport={node.multiSourceAnalysisReport}
         />
       </ExpandedSidebar>
     </div>
