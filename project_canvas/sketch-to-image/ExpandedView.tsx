@@ -122,7 +122,6 @@ export default function SketchToImageExpandedView({
 
   const sketchCanvasRef = useRef<SketchCanvasHandle>(null);
   const abortRef        = useRef<AbortController | null>(null);
-  const [refImage, setRefImage] = useState<string | null>(null);
 
   /* ── 다중 아트보드 입력 이미지 [인덱스0=평면도, 인덱스1=입면도] ── */
   const [inputImages, setInputImages] = useState<(SelectedImage | null)[]>(
@@ -133,24 +132,15 @@ export default function SketchToImageExpandedView({
 
   const effectiveIsGenerating = globalIsGenerating || isLoading;
 
-  /* Expand 시 sketchPaths(벡터) 우선 복원. 없으면 sketchData(flat PNG) 로드.
-     generatedImageData는 참조 오버레이로만 표시 (exportAsBase64에 포함 안 됨). */
+  /* Expand 시 sketchPaths(벡터) 우선 복원. 없으면 generatedImageData/thumbnailData 로드. */
   useEffect(() => {
-    setRefImage(null);
-    
-    if (node.generatedImageData) {
-      const src = node.generatedImageData.startsWith('data:')
-        ? node.generatedImageData
-        : `data:image/png;base64,${node.generatedImageData}`;
-      setRefImage(src);
-    }
-
     if (node.sketchPaths) {
       sketchCanvasRef.current?.loadState(node.sketchPaths);
     } else if (node.sketchData) {
       sketchCanvasRef.current?.loadImage(node.sketchData, false, true);
-    } else if (node.thumbnailData && !node.generatedImageData) {
-      sketchCanvasRef.current?.loadImage(node.thumbnailData, false, true);
+    } else {
+      const imgSrc = node.generatedImageData ?? node.thumbnailData;
+      if (imgSrc) sketchCanvasRef.current?.loadImage(imgSrc, false, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
@@ -183,45 +173,15 @@ export default function SketchToImageExpandedView({
     }
   }, [sketchTool]);
 
-  /* refImage(원본)를 배경으로 투명 sketch thumbnail을 오버레이하여 합성 */
-  const compositeRefWithSketch = useCallback((sketchThumbB64: string): Promise<string> => {
-    if (!refImage || !sketchThumbB64) return Promise.resolve(sketchThumbB64);
-    return new Promise((resolve) => {
-      const bgImg = new Image();
-      bgImg.onerror = () => resolve(sketchThumbB64);
-      bgImg.onload = () => {
-        const fgImg = new Image();
-        fgImg.onerror = () => resolve(sketchThumbB64);
-        fgImg.onload = () => {
-          const c = document.createElement('canvas');
-          c.width  = bgImg.naturalWidth  || 800;
-          c.height = bgImg.naturalHeight || 600;
-          const ctx = c.getContext('2d')!;
-          ctx.drawImage(bgImg, 0, 0, c.width, c.height);
-          ctx.drawImage(fgImg, 0, 0, c.width, c.height);
-          resolve(c.toDataURL('image/png').split(',')[1]);
-        };
-        fgImg.src = sketchThumbB64.startsWith('data:')
-          ? sketchThumbB64
-          : `data:image/png;base64,${sketchThumbB64}`;
-      };
-      bgImg.src = refImage;
-    });
-  }, [refImage]);
-
   /* ── [<-] 버튼: 스케치 + 패널 설정 저장 후 collapse ────────────── */
-  const handleSketchCollapse = useCallback(async () => {
+  const handleSketchCollapse = useCallback(() => {
     const sketchBase64 = sketchCanvasRef.current?.exportAsBase64() ?? '';
     const sketchPaths  = sketchCanvasRef.current?.exportState();
     const hasContent   = !!(sketchPaths?.paths.length || sketchPaths?.uploadedImageData || sketchPaths?.textItems?.length);
-    let thumbnailBase64 = '';
-    if (hasContent) {
-      const rawThumb = sketchCanvasRef.current?.exportThumbnail(!!refImage) ?? '';
-      thumbnailBase64 = refImage ? await compositeRefWithSketch(rawThumb) : rawThumb;
-    }
+    const thumbnailBase64 = hasContent ? (sketchCanvasRef.current?.exportThumbnail() ?? '') : '';
     onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings(), sketchPaths);
     onCollapse();
-  }, [onCollapse, onCollapseWithSketch, collectPanelSettings, refImage, compositeRefWithSketch]);
+  }, [onCollapse, onCollapseWithSketch, collectPanelSettings]);
 
   /* ESC 키 캡처 */
   useEffect(() => {
@@ -241,10 +201,9 @@ export default function SketchToImageExpandedView({
     const canvas = sketchCanvasRef.current;
     if (!canvas) return;
 
-    const sketchBase64 = canvas.exportAsBase64();
+    const sketchBase64    = canvas.exportAsBase64();
     if (!sketchBase64) return;
-    const rawThumb        = canvas.exportThumbnail(!!refImage);
-    const thumbnailBase64 = refImage ? await compositeRefWithSketch(rawThumb) : rawThumb;
+    const thumbnailBase64 = canvas.exportThumbnail();
 
     abortRef.current = new AbortController();
     onAbortControllerReady?.(abortRef.current);
@@ -278,7 +237,6 @@ export default function SketchToImageExpandedView({
     effectiveIsGenerating, sketchPrompt, sketchMode, sketchStyle, resolution, aspectRatio,
     generate, onGenerateComplete, onGenerateError, onGeneratingChange,
     onCollapseWithSketch, onCollapse, onAbortControllerReady, node.id, collectPanelSettings,
-    refImage, compositeRefWithSketch,
   ]);
 
   /* ── Sketch undo/redo ──────────────────────────────────────────── */
@@ -307,7 +265,6 @@ export default function SketchToImageExpandedView({
           onInternalZoomChange={setInternalZoom}
           onInternalOffsetChange={setInternalOffset}
           fitOnUpload
-          referenceImageUrl={refImage ?? undefined}
         />
       </div>
 
