@@ -72,6 +72,7 @@ export async function fetchRelevantLaws(
   address?: string,
   zoneKeyword?: string,
   toggles?: ApiToggleFlags,
+  signal?: AbortSignal,
 ): Promise<FetchLawsResult> {
   const emptyResult: FetchLawsResult = {
     formatted: '',
@@ -86,6 +87,7 @@ export async function fetchRelevantLaws(
     const res = await fetch('https://cai-planners-v2.vercel.app/api/law', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal,
       body: JSON.stringify({
         keywords,
         address,
