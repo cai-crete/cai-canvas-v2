@@ -1,0 +1,42 @@
+날짜: 2026-04-29
+세션: HTTP 200 JSON parse 오류 수정 (print-proxy content-length 헤더 교정)
+
+== 방금 한 일 ==
+
+1. 계획서 작성
+   - docs/exec-plans/active/260429-http200-json-parse-error.md 생성
+   - 원인: gzip 압축 해제 후 content-length가 압축 전 크기(N)로 남아
+     브라우저가 N bytes만 읽고 연결 종료 → JSON 잘림 → parse 실패
+
+2. Fix A 적용
+   - 파일: project_canvas/app/api/print-proxy/api/print/route.ts
+   - 추가: resHeaders.delete('transfer-encoding')
+   - 추가: resHeaders.set('content-length', String(responseBody.byteLength))
+   - 커밋: 1c434b1 (260429) print-proxy: content-length를 압축 해제 크기로 교정
+
+3. cai-canvas-v2 remote에 push 완료
+   - remote에 21개 신규 커밋 있어서 rebase 후 push
+   - Vercel 자동 재배포 트리거됨
+
+== 현재 상태 ==
+
+Vercel 재배포 진행 중.
+재배포 완료 후 cai-canvas-v2.vercel.app에서 PANEL 모드 Print 생성 테스트 필요.
+
+== 다음에 할 일 ==
+
+1. 사용자: cai-canvas-v2.vercel.app에서 Print 생성 테스트
+   - PANEL 모드 → 이미지 업로드 → GENERATE → "서버 응답 처리 오류" 미발생 확인
+   - 정상 PDF 생성 확인
+
+2. 테스트 성공 시:
+   - docs/exec-plans/active/260429-http200-json-parse-error.md → completed/ 이동
+   - docs/exec-plans/active/260429-502-fix.md 완료 체크리스트 업데이트
+
+3. 다음 대기 작업:
+   - 260429-print-abort-toast.md (Print 생성 중 토스트 + 취소 버튼)
+   - Canvas 사이드바 Print 패널 통합 (260428-print-canvas-integration.md Phase 2-5)
+
+== 참고: remote 신규 커밋 내역 ==
+cai-canvas-v2/main에 새로 들어온 커밋들 (Planners, VWorld, Orchestrator 등) 위에
+fix 커밋을 rebase하여 히스토리 보존.

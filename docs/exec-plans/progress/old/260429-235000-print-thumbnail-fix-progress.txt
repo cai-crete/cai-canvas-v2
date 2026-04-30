@@ -1,0 +1,20 @@
+DATE: 2026-04-29 23:50
+SESSION: Print 노드 썸네일 액박 수정
+
+=== 완료된 작업 ===
+
+[원인 분석] ✅
+- @cai-crete/print-components/lib/thumbnailUtils.ts:100
+  → thumbCanvas.toDataURL('image/jpeg', 0.65) 로 완전한 data URL 반환
+- node.thumbnailData에 "data:image/jpeg;base64,..." (full data URL) 저장됨
+- NodeCard.tsx hasThumbnail 브랜치에서 data: prefix 체크 없이
+  src={`data:image/png;base64,${node.thumbnailData}`} 사용
+  → 이중 prefix: "data:image/png;base64,data:image/jpeg;base64,..." → 액박
+
+[수정] ✅
+파일: project_canvas/components/NodeCard.tsx (line ~387)
+변경전: src={`data:image/png;base64,${node.thumbnailData}`}
+변경후: src={node.thumbnailData.startsWith('data:') ? node.thumbnailData : `data:image/png;base64,${node.thumbnailData}`}
+
+=== 남은 작업 ===
+없음. exec-plan → completed 이동 가능 (체크리스트 전체 완료).

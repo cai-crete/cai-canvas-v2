@@ -1,0 +1,22 @@
+## 방금 한 것
+/api/sketch-to-image 413 Content Too Large 오류 수정
+
+## 원인
+useBlueprintGeneration.ts에서 sketch_image는 compressImageBase64로 압축하지만,
+input_sources(평면도, 입면도)는 압축 없이 원본 크기로 전송 → Vercel 4.5MB 제한 초과
+
+## 수정 내용
+1. project_canvas/lib/compressImage.ts
+   - compressImageBase64에 3번째 파라미터 maxBytes: number = DEFAULT_MAX_BYTES 추가
+   - 내부 MAX_IMAGE_BYTES 하드코딩 → maxBytes 파라미터로 교체
+
+2. project_canvas/hooks/useBlueprintGeneration.ts
+   - input_sources가 있을 때 sketch_image 제한을 1MB로 낮춤 (기존 3MB)
+   - input_sources 각 이미지도 1MB 제한으로 compressImageBase64 압축 후 전송
+   - 총 페이로드 예산: sketch ~1MB + input×2 ~2MB = ~3MB binary → base64 ~4MB ≤ 4.5MB 제한
+
+## 완료 여부
+코드 수정 완료. 배포 후 테스트 필요.
+
+## 다음 할 것
+Vercel 배포 후 동일 이미지로 재테스트하여 413 오류 해소 확인

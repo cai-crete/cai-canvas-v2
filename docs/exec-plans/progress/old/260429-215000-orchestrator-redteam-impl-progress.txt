@@ -1,0 +1,57 @@
+DATE: 2026-04-29 21:50
+SESSION: Orchestrator v2.0 + Red Team v2 이식 실행 (Phase 1~4 완료)
+
+=== 완료된 작업 ===
+
+[Phase 1 — Agent Protocol Layer] ✅
+- docs/references/orchestrator-v2.md 신규 생성 (메인 프로토콜)
+- docs/references/red-team-v2.md 신규 생성 (검증 서브시스템)
+- docs/references/loop-orchestrator.txt 하단에 계층 관계 주석 추가
+- AGENTS.md 업데이트:
+  - Agent B에 Red Team v2 연동 명시
+  - "메인 프로토콜 — Orchestrator v2.0" 섹션 신규 추가
+  - Cut-off 테이블, 상태 전환 다이어그램 포함
+
+[Phase 2 — App State Layer 타입 확장] ✅
+- project_canvas/types/canvas.ts에 추가:
+  - ArtboardStatus 타입 ('VOID' | 'VERIFYING' | 'REALIZED')
+  - RedTeamReport 인터페이스 (3원칙 binary check + 승인/재시도)
+  - NODE_CUTOFF_MAP 상수 (N1~N7 오케스트레이터 기준과 1:1 동기화)
+  - CanvasNode에 artboardStatus, cumulativeScore, nodeCutoff, redTeamLastResult 추가
+
+[Phase 3 — App State Layer 스토리지] ✅
+- project_canvas/lib/orchestrator.ts 신규 생성:
+  - loadScoreMap() / saveScoreMap() — LocalStorage 'cai-canvas-score-map'
+  - initScoreEntry() — 노드 초기 상태 엔트리
+  - nodeOrchestratorInit() — CanvasNode spread용 초기 필드 반환
+  - applyOrchestratorDecision() — REALIZED 잠금 guard (Red Team FAIL 차단)
+  - logRedTeamResult() / logOrchestratorTransition() — 콘솔 그룹 로그
+  - initOrchestratorInspector() — window.__cai_orchestrator 전역 노출
+
+- page.tsx 업데이트:
+  - nodeOrchestratorInit import 추가
+  - useEffect로 mount 시 initOrchestratorInspector() 호출
+  - 전체 노드 생성 지점 11곳에 ...nodeOrchestratorInit(type) spread 추가:
+    createAndExpandNode(×2), createChildNode, handleUploadImage,
+    handleCadastralDataReceived, handleExportCadastralImage,
+    handleExportMap3dImage, handleGeneratePlanComplete,
+    handleGenerateElevationComplete, handleGenerateComplete,
+    handleNodeTabSelect(print), handleGenerateViewpoint
+
+[Phase 4 — Dev Console Layer] ✅
+- window.__cai_orchestrator 전역 객체 (orchestrator.ts에 구현, mount 시 초기화)
+- inspect(nodeId) / reset(nodeId) / score_map getter 모두 작동
+
+=== TypeScript 검사 결과 ===
+tsc --noEmit: 에러 0개
+
+=== 남은 작업 ===
+Phase 5 (선택): docs/product-specs/red-team-criteria.md 문서 작성
+  → 노드별 3대 원칙 적용 기준 상세 문서 (언제든 독립 실행 가능)
+
+=== 사용 방법 (브라우저 콘솔) ===
+window.__cai_orchestrator.inspect('<nodeId>')  // 노드 상태 조회
+window.__cai_orchestrator.score_map            // 전체 점수 맵
+window.__cai_orchestrator.reset('<nodeId>')    // 노드 점수 초기화
+
+Red Team 결과 주입 시 applyOrchestratorDecision() 호출 → 자동 상태 전환 + 콘솔 로그

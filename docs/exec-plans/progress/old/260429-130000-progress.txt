@@ -1,0 +1,42 @@
+날짜: 2026-04-29
+세션: 백엔드 인프라 구축 완료 + Print 웨이크업 추가
+
+== 방금 한 일 ==
+
+1. 백엔드 인프라 구축 (Render) 완료 확인
+   - Canvas AI 서버 (cai-canvas-v2 Render): sketch-to-image, sketch-to-plan, image-to-elevation, change-viewpoint 모두 정상
+   - Print 서버 (cai-print-v3 Render): 사용자가 직접 배포 성공, canvas → print 생성 정상 동작 확인
+   - Canvas → Render print-proxy → Print 서버 경로로 Vercel 4.5MB 제한 우회 완료
+
+2. 보안 검토
+   - GEMINI_API_KEY: Render 환경변수에만 존재, 클라이언트 미노출 ✅
+   - AI 라우트: x-internal-secret으로 보호 ✅
+   - Print proxy: 베타 수준 허용 위험으로 합의
+   - Supabase: 베타 단계에서 불필요, 추후 별도 계획서 추진 결정
+
+3. RenderWakeup 컴포넌트 수정
+   - 파일: project_canvas/components/RenderWakeup.tsx
+   - 기존: canvas AI 서버만 /health 웨이크업
+   - 추가: print 서버도 /print-proxy/ HEAD 요청으로 동시 웨이크업
+   - 효과: 다른 사용자가 앱 접속 시 두 Render 서비스 모두 사전 웨이크업
+
+4. 계획서 정리
+   - active/260429-render-supabase-backend-infra.md → completed/260429-render-supabase-backend-infra.md 이동
+   - 완료된 체크리스트 항목 모두 마크
+
+== 현재 상태 ==
+
+백엔드 인프라 작업 완전 완료.
+Vercel 재배포 필요: RenderWakeup 변경사항 반영을 위해 Vercel에서 redeploy 필요.
+
+== 다음에 할 일 ==
+
+대기 중인 작업 (우선순위 순):
+1. Vercel redeploy (RenderWakeup 변경 반영)
+2. 260428-print-canvas-integration.md Phase 2-5
+   - RightSidebar에 Print 패널 추가 (ImageInsert, PurposeSelector, PromptInput, GENERATE 버튼)
+   - page.tsx: print 사이드바 액션 연결 + draft 동기화
+   - autoGenerate + printUtils.ts
+   - 이미지 다중 선택 → Print 자동 삽입
+3. 260429-print-abort-toast.md
+   - Print 생성 중 토스트 표시 + X(취소) 버튼 작동

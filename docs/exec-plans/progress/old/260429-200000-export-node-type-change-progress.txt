@@ -1,0 +1,42 @@
+## 방금 무엇을 했는지
+EXPORT TO IMAGE NODE 클릭 시 생성되는 노드 유형 변경 작업 완료.
+
+## 변경 파일 및 내용
+
+### project_canvas/types/canvas.ts
+- NODE_TO_ARTBOARD_TYPE: cadastral/map3d → 'image'에서 'sketch'로 변경
+- ARTBOARD_COMPATIBLE_NODES.sketch: ['image','plan','print'] → ['image','plan','print','cadastral','map3d'] 추가
+
+### project_canvas/app/page.tsx
+- handleExportCadastralImage:
+  - type: 'image' → 'cadastral', artboardType: 'image' → 'sketch'
+  - title: '지적도 Export #N' → '지적도 #N'
+  - num 카운터: n.type === 'image' → 'cadastral'
+  - 원본 노드에서 cadastral 데이터 필드 복사 (pnu, geoJson, mapCenter, tmsType 등)
+  - generatedImageData 제거 (thumbnailData만 유지)
+- handleExportMap3dImage:
+  - type: 'image' → 'map3d', artboardType: 'image' → 'sketch'
+  - title: '3D View Export #N' → '3D 버드아이 뷰 #N'
+  - num 카운터: n.type === 'image' → 'map3d'
+  - 원본 노드에서 map3d 데이터 필드 복사 (center, heading, height, offsetAngle 등)
+- onNodeExpand 핸들러:
+  - cadastral(sketch) 노드 → setExpandedViewMode('plan')
+  - map3d(sketch) 노드 → setExpandedViewMode('image')
+  - 그 외 → setExpandedViewMode('default') (기존 동작 유지)
+
+### project_canvas/components/ExpandedView.tsx
+- cadastral 분기: node.type === 'cadastral' → node.type === 'cadastral' && node.artboardType !== 'sketch'
+- map3d 분기: node.type === 'map3d' → node.type === 'map3d' && node.artboardType !== 'sketch'
+- sketch artboardType일 때 해당 분기를 skip → 아래 sketch-to-plan / sketch-to-image 분기로 fall-through
+
+## 어디까지 완료됐는지
+모든 체크리스트 항목 완료. exec-plan 파일은 completed 이동 미처리 (브라우저 검증 후 이동 예정).
+
+## 다음에 무엇을 해야 하는지
+- 브라우저에서 검증:
+  1. cadastral ExpandedView → EXPORT TO IMAGE NODE → 새 cadastral(sketch) 노드 카드 생성 확인
+  2. map3d ExpandedView → EXPORT TO IMAGE NODE → 새 map3d(sketch) 노드 카드 생성 확인
+  3. cadastral(sketch) 노드 expand → sketch-to-plan ExpandedView 진입 확인
+  4. map3d(sketch) 노드 expand → sketch-to-image ExpandedView 진입 확인
+  5. 기존 cadastral(image)/map3d(image) 노드 expand 정상 동작 확인 (회귀 테스트)
+- 검증 완료 후 exec-plan active → completed 이동

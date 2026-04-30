@@ -1,0 +1,45 @@
+## 방금 완료한 작업 (260430-160000)
+
+### 완료된 exec-plan 파일 정리
+
+**작업 내용:**
+1. 260428 progress 파일 → docs/exec-plans/progress/old/ 이동
+2. active/의 모든 파일 → completed/ 이동 (사용자 확인 후)
+
+**이동된 파일 목록 (active/ → completed/):**
+- 260428-expandedview-generated-image-fit-reference.md
+- 260428-firebase-backend-infra.md
+- 260428-plan-image-bugs-full.md
+- 260428-print-canvas-integration.md
+- 260428-rollback-to-220000.md
+- 260428-sketch-persist-plan-image-fix.md
+- 260428-three-expandedview-fixes.md
+- 260429-502-fix.md
+- 260429-cadastral-expand-routing.md
+- 260429-cadastral-export-broken-image.md
+- 260429-elevation-direct-generate.md
+- 260429-export-node-type-change.md
+- 260429-fix-expandedview-sketch-persistence.md
+- 260429-multi-artboard-sketch-to-image.md
+- 260429-planners-image-attach.md
+- 260429-print-abort-toast.md
+- 260429-print-node-broken-image-fix.md
+- 260429-print-sketch-image-artboard.md
+- 260429-print-three-bugs-fix.md
+- 260429-remove-collapse-thumbnail.md
+- 260429-render-supabase-backend-infra.md
+- 260429-three-bugs-export-3d-planners.md
+- plan-button-image-node-260428.md
+- upload-image-viewer-expandedview.md
+- Frontend/Frontend_template.md
+- Frontend/print-api-integration-260425.md
+- Protocol/Protocol_template.md
+- Review/260428-canvas-print-integration-review.md
+- Review/Review_template.md
+
+### 현재 상태
+- active/ 폴더: 빈 폴더(Frontend, Protocol, Review)만 남아 있음
+- 모든 이전 작업 계획서 정리 완료
+
+### 다음 해야 할 일
+사용자 지시 대기

@@ -1,0 +1,40 @@
+날짜: 2026-04-29
+세션: Print 3대 버그 수정 완료
+
+== 방금 한 일 ==
+
+Phase 2-B 완료:
+- project_canvas/app/page.tsx 1328번째 줄 이후에 3개 prop 추가
+  - onPrintNodeUpdate={handlePrintNodeUpdate}
+  - autoGenerate={printAutoGenerate}
+  - initialDraftState={printDraftState}
+
+== 전체 수정 요약 ==
+
+Phase 1 (NodeCard.tsx):
+  - project_canvas/components/NodeCard.tsx 387번째 줄
+  - hasThumbnail 브랜치 thumbnailData data URL 이중 접두사 버그 수정
+
+Phase 2-A (components/ExpandedView.tsx):
+  - PrintDraftState import 추가
+  - Props 인터페이스에 3개 prop 추가 (onPrintNodeUpdate, autoGenerate, initialDraftState)
+  - 함수 시그니처에 3개 param 추가
+  - print 분기 JSX에 3개 prop 전달
+
+Phase 2-B (app/page.tsx):
+  - <ExpandedView> 호출부에 3개 prop 추가
+
+== 현재 상태 ==
+
+코드 수정 완료. 검증 대기 중.
+계획서: docs/exec-plans/active/260429-print-three-bugs-fix.md (체크리스트 업데이트됨)
+
+== 다음에 할 일 ==
+
+사용자 검증:
+1. print 노드 생성 → 저장 → Canvas 복귀 시 썸네일 표시 확인 (Issue 1)
+2. Canvas에서 print 썸네일 클릭 → 사이드바 이미지 슬롯 표시 확인 (Issue 2)
+3. 생성 → 저장 → Canvas 복귀 → Expand 재진입 시 문서 유지 확인 (Issue 3)
+
+검증 완료 후:
+- 계획서 → docs/exec-plans/completed/ 이동

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, Dispatch, SetStateAction } from 'react';
+import type { SelectedImage } from '@cai-crete/print-components';
+import type { MultiSourceAnalysisReport } from '@/types/canvas';
 
 const STYLE_DESCRIPTIONS: Record<string, {
   title: { ko: string; en: string };
@@ -29,6 +31,9 @@ export interface SketchToImagePanelProps {
   resolution: string;
   setResolution: Dispatch<SetStateAction<string>>;
   onGenerate: () => void;
+  inputImages?: (SelectedImage | null)[];
+  onInputImagesChange?: (imgs: (SelectedImage | null)[]) => void;
+  analysisReport?: MultiSourceAnalysisReport;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -42,6 +47,23 @@ const IconX = () => (
   <svg viewBox="0 0 20 20" width={14} height={14} {...IC}><path d="M5 5L15 15M15 5L5 15" /></svg>
 );
 
+const IconSwap = () => (
+  <svg viewBox="0 0 20 20" width={16} height={16}
+    stroke="currentColor" fill="none" strokeWidth={1.5}
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 7h12M13 4l3 3-3 3" />
+    <path d="M16 13H4M7 10l-3 3 3 3" />
+  </svg>
+);
+
+const IconClose = () => (
+  <svg viewBox="0 0 20 20" width={10} height={10}
+    stroke="currentColor" fill="none" strokeWidth={2}
+    strokeLinecap="round">
+    <path d="M4 4L16 16M16 4L4 16" />
+  </svg>
+);
+
 export default function SketchToImagePanel({
   isGenerating, error,
   sketchPrompt, setSketchPrompt,
@@ -50,8 +72,26 @@ export default function SketchToImagePanel({
   aspectRatio, setAspectRatio,
   resolution, setResolution,
   onGenerate,
+  inputImages,
+  onInputImagesChange,
+  analysisReport,
 }: SketchToImagePanelProps) {
   const [activeDetailStyle, setActiveDetailStyle] = useState<string | null>(null);
+
+  const slotLabels = ['평면도', '입면도'];
+  const hasAnyInput = inputImages?.some(Boolean) ?? false;
+  const bothFilled  = (inputImages?.length ?? 0) >= 2 && inputImages![0] != null && inputImages![1] != null;
+
+  const handleRemoveSlot = (idx: number) => {
+    if (!inputImages || !onInputImagesChange) return;
+    const next = inputImages.map((img, i) => i === idx ? null : img);
+    onInputImagesChange(next);
+  };
+
+  const handleSwap = () => {
+    if (!inputImages || !onInputImagesChange || inputImages.length < 2) return;
+    onInputImagesChange([inputImages[1], inputImages[0]]);
+  };
 
   const sectionLabel: React.CSSProperties = {
     fontFamily: 'var(--font-family-bebas)',
@@ -94,6 +134,98 @@ export default function SketchToImagePanel({
         padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem',
         minHeight: 0,
       }}>
+
+        {/* INPUT IMAGES — 다중 아트보드 선택 시에만 표시 */}
+        {hasAnyInput && (
+          <div>
+            <span style={sectionLabel}>Input Images</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {[0, 1].map(idx => {
+                const img = inputImages?.[idx] ?? null;
+                return (
+                  <div key={idx} style={{ position: 'relative', flex: 1 }}>
+                    {img ? (
+                      <>
+                        <img
+                          src={`data:${img.mimeType};base64,${img.base64}`}
+                          alt={slotLabels[idx]}
+                          style={{
+                            width: '100%', aspectRatio: '1/1',
+                            objectFit: 'cover',
+                            borderRadius: '0.5rem',
+                            display: 'block',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRemoveSlot(idx)}
+                          title="제거"
+                          style={{
+                            position: 'absolute', top: 4, right: 4,
+                            width: 18, height: 18,
+                            border: 'none', borderRadius: '50%',
+                            background: 'rgba(0,0,0,0.5)',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: 0,
+                          }}
+                        >
+                          <IconClose />
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{
+                        width: '100%', aspectRatio: '1/1',
+                        border: '1px dashed var(--color-gray-200)',
+                        borderRadius: '0.5rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'var(--color-gray-300)',
+                        fontSize: '0.5625rem',
+                        fontFamily: 'var(--font-family-pretendard)',
+                      }}>
+                        비어있음
+                      </div>
+                    )}
+                    <div style={{
+                      textAlign: 'center',
+                      fontSize: '0.5625rem',
+                      fontFamily: 'var(--font-family-bebas)',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      marginTop: '0.25rem',
+                    }}>
+                      {slotLabels[idx]}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Swap 버튼 */}
+              <button
+                onClick={handleSwap}
+                disabled={!bothFilled}
+                title="순서 바꾸기"
+                style={{
+                  width: 28, height: 28, flexShrink: 0,
+                  border: 'none', borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.04)',
+                  color: 'var(--color-gray-500)',
+                  cursor: bothFilled ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: bothFilled ? 1 : 0.3,
+                  transition: 'background-color 100ms ease, opacity 100ms ease',
+                  alignSelf: 'center',
+                  marginBottom: '1.125rem',
+                }}
+                onMouseEnter={e => { if (bothFilled) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)'; }}
+              >
+                <IconSwap />
+              </button>
+            </div>
+            <div style={{ borderBottom: '1px solid var(--color-gray-100)', marginTop: '0.75rem' }} />
+          </div>
+        )}
 
         {/* PROMPT */}
         <div>
@@ -234,7 +366,117 @@ export default function SketchToImagePanel({
           </div>
         </div>
 
-        {/* RESOLUTION */}
+        {/* ANALYSIS REPORT — 다중 소스 생성 노드에서만 표시 */}
+        {analysisReport && (
+          <div>
+            <span style={sectionLabel}>Analysis Report</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {/* 평면도 섹션 */}
+              <div style={{
+                borderRadius: '0.75rem',
+                border: '1px solid var(--color-gray-100)',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.02)',
+              }}>
+                <div style={{
+                  fontFamily: 'var(--font-family-bebas)',
+                  fontSize: '0.625rem',
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-gray-400)',
+                  marginBottom: '0.5rem',
+                }}>
+                  평면도
+                  <span style={{
+                    marginLeft: '0.375rem',
+                    fontSize: '0.5625rem',
+                    color: analysisReport.floorPlan.confidence === 'HIGH' ? '#16a34a'
+                         : analysisReport.floorPlan.confidence === 'MID'  ? '#d97706'
+                         : '#dc2626',
+                  }}>
+                    {analysisReport.floorPlan.confidence}
+                  </span>
+                </div>
+                {[
+                  { label: 'Zoning',    value: analysisReport.floorPlan.zoning },
+                  { label: 'Axis',      value: analysisReport.floorPlan.axis },
+                  { label: 'Hierarchy', value: analysisReport.floorPlan.spatialHierarchy },
+                  { label: 'Depth',     value: analysisReport.floorPlan.depthLayers },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                    <span style={{
+                      fontFamily: 'var(--font-family-bebas)',
+                      fontSize: '0.5625rem',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      flexShrink: 0,
+                      width: '4rem',
+                      paddingTop: 1,
+                    }}>{row.label}</span>
+                    <span style={{
+                      fontFamily: 'var(--font-family-pretendard)',
+                      fontSize: '0.625rem',
+                      color: 'var(--color-gray-600)',
+                      lineHeight: 1.4,
+                    }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* 입면도 섹션 */}
+              <div style={{
+                borderRadius: '0.75rem',
+                border: '1px solid var(--color-gray-100)',
+                padding: '0.75rem',
+                background: 'rgba(0,0,0,0.02)',
+              }}>
+                <div style={{
+                  fontFamily: 'var(--font-family-bebas)',
+                  fontSize: '0.625rem',
+                  letterSpacing: '0.1em',
+                  color: 'var(--color-gray-400)',
+                  marginBottom: '0.5rem',
+                }}>
+                  입면도
+                  <span style={{
+                    marginLeft: '0.375rem',
+                    fontSize: '0.5625rem',
+                    color: analysisReport.elevation.confidence === 'HIGH' ? '#16a34a'
+                         : analysisReport.elevation.confidence === 'MID'  ? '#d97706'
+                         : '#dc2626',
+                  }}>
+                    {analysisReport.elevation.confidence}
+                  </span>
+                </div>
+                {[
+                  { label: 'Geometry',  value: analysisReport.elevation.geometrySanctuary },
+                  { label: 'Material',  value: analysisReport.elevation.materiality },
+                  { label: 'Facade',    value: analysisReport.elevation.facadeRhythm },
+                  { label: 'Ratio',     value: analysisReport.elevation.proportions },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                    <span style={{
+                      fontFamily: 'var(--font-family-bebas)',
+                      fontSize: '0.5625rem',
+                      letterSpacing: '0.06em',
+                      color: 'var(--color-gray-400)',
+                      flexShrink: 0,
+                      width: '4rem',
+                      paddingTop: 1,
+                    }}>{row.label}</span>
+                    <span style={{
+                      fontFamily: 'var(--font-family-pretendard)',
+                      fontSize: '0.625rem',
+                      color: 'var(--color-gray-600)',
+                      lineHeight: 1.4,
+                    }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RESOLUTION — 일시 비활성화 (추후 복구용)
         <div>
           <span style={sectionLabel}>Resolution</span>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -254,6 +496,7 @@ export default function SketchToImagePanel({
             ))}
           </div>
         </div>
+        */}
       </div>
 
       {/* Error message */}
