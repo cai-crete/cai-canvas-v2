@@ -47,8 +47,13 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
       setError(null);
 
       try {
-        /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
-        const compressed = await compressImageBase64(sketchBase64, 'image/png');
+        /* Vercel 4.5MB body 제한 대응: 이미지 압축
+         * 멀티소스 시 총 페이로드 예산:
+         *   sketch ~1MB binary, 각 input_source ~1MB binary → base64 합계 ≈ 4MB 이하
+         */
+        const hasInputSources = inputSources && inputSources.length > 0;
+        const sketchMaxBytes  = hasInputSources ? 1 * 1024 * 1024 : 3 * 1024 * 1024;
+        const compressed = await compressImageBase64(sketchBase64, 'image/png', sketchMaxBytes);
 
         const body: Record<string, unknown> = {
           sketch_image: compressed.base64,
@@ -60,12 +65,16 @@ export function useBlueprintGeneration(): UseBlueprintGenerationReturn {
           aspect_ratio: params.aspectRatio ?? '4:3',
         };
 
-        if (inputSources && inputSources.length > 0) {
+        if (hasInputSources) {
           const roles = ['평면도', '입면도'];
-          body.input_sources = inputSources.map((img, idx) => ({
+          const INPUT_MAX_BYTES = 1 * 1024 * 1024; // 각 입력 이미지 1MB 제한
+          const compressedSources = await Promise.all(
+            inputSources!.map((img) => compressImageBase64(img.base64, img.mimeType, INPUT_MAX_BYTES))
+          );
+          body.input_sources = inputSources!.map((img, idx) => ({
             id:        img.id,
-            data:      img.base64,
-            mime_type: img.mimeType,
+            data:      compressedSources[idx].base64,
+            mime_type: compressedSources[idx].mimeType,
             role:      roles[idx] ?? `소스 ${idx + 1}`,
           }));
         }

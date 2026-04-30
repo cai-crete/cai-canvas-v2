@@ -22,7 +22,7 @@
 ## 체크리스트
 
 ### Tier 0 — 프로토콜 문서 생성
-- [ ] `project_canvas/sketch-to-image/_context/protocol-sketch-to-image-v2.3-multi.txt` 생성
+- [x] `project_canvas/sketch-to-image/_context/protocol-sketch-to-image-v2.3-multi.txt` 생성
   - 6-ROOM 구조 (소스 선언 / 평면도 해부 / 입면도 해부 / 합성 전략 / 시공 / 검증)
   - 3-Phase 실행 플로우 명세
   - `floorplan-analysis-spec` JSON 스키마
@@ -31,7 +31,7 @@
   - Conflict Resolution Protocol 명세
 
 ### Tier 1 — types/canvas.ts
-- [ ] `MultiSourceAnalysisReport` 인터페이스 추가
+- [x] `MultiSourceAnalysisReport` 인터페이스 추가
   ```typescript
   export interface MultiSourceAnalysisReport {
     floorPlan: {
@@ -50,31 +50,31 @@
     };
   }
   ```
-- [ ] `CanvasNode`에 `multiSourceAnalysisReport?: MultiSourceAnalysisReport` 추가
+- [x] `CanvasNode`에 `multiSourceAnalysisReport?: MultiSourceAnalysisReport` 추가
 
 ### Tier 2 — render-server/src/routes/sketchToImage.ts
-- [ ] `isMultiSource` 시 `protocol-sketch-to-image-v2.3-multi.txt` 로드
-- [ ] 3-Phase 분기 구현:
+- [x] `isMultiSource` 시 `protocol-sketch-to-image-v2.3-multi.txt` 로드
+- [x] 3-Phase 분기 구현:
   - **Phase 1**: 평면도 이미지 단독 → ROOM 2 실행 → `floorplan-analysis-spec` 추출
   - **Phase 2**: 입면도 이미지 + Phase 1 스펙(텍스트) → ROOM 3 실행 → `elevation-analysis-spec` 추출
   - **Phase 3**: 평면도 이미지 + 입면도 이미지 + 두 스펙 모두 → ROOM 4+5+6 실행 → 이미지 생성
-- [ ] 응답에 `analysis_report: { floorPlan, elevation }` 포함
+- [x] 응답에 `analysis_report: { floorPlan, elevation }` 포함
 
 ### Tier 3 — hooks/useBlueprintGeneration.ts
-- [ ] `MultiSourceAnalysisReport` import 추가
-- [ ] `analysisReport` 타입을 `MultiSourceAnalysisReport | Record<string, unknown> | null`로 확장 (또는 union)
+- [x] `MultiSourceAnalysisReport` import 추가
+- [x] `analysisReport` 타입을 `MultiSourceAnalysisReport | Record<string, unknown> | null`로 확장 (또는 union)
 
 ### Tier 4 — ExpandedView.tsx (sketch-to-image)
-- [ ] `useBlueprintGeneration` 에서 `analysisReport` 추가 destructure
-- [ ] `onGenerateComplete` 콜백에 `multiSourceAnalysisReport` 필드 추가 전달
+- [x] `useBlueprintGeneration` 에서 `analysisReport` 추가 destructure
+- [x] `onGenerateComplete` 콜백에 `multiSourceAnalysisReport` 필드 추가 전달
   - 조건: `validInputSources.length >= 2`인 경우만
-- [ ] `SketchToImagePanel`에 `analysisReport={node.multiSourceAnalysisReport}` prop 전달
+- [x] `SketchToImagePanel`에 `analysisReport={node.multiSourceAnalysisReport}` prop 전달
 
 ### Tier 5 — app/page.tsx
-- [ ] `onGenerateComplete` 핸들러에서 `multiSourceAnalysisReport` 수신 시 해당 노드에 저장
+- [x] `onGenerateComplete` 핸들러에서 `multiSourceAnalysisReport` 수신 시 해당 노드에 저장
 
 ### Tier 6 — SketchToImagePanel.tsx (UI 변경)
-- [ ] **Feature 1**: RESOLUTION 섹션 주석 처리 (소스 삭제 안 함)
+- [x] **Feature 1**: RESOLUTION 섹션 주석 처리 (소스 삭제 안 함)
   ```tsx
   {/* RESOLUTION — 일시 비활성화 (추후 복구용)
   <div>
@@ -82,8 +82,8 @@
   </div>
   */}
   ```
-- [ ] **Feature 2**: `analysisReport?: MultiSourceAnalysisReport` prop 추가
-- [ ] ANALYSIS REPORT 섹션 추가 (RESOLUTION 자리, 다중 소스 노드에서만 표시):
+- [x] **Feature 2**: `analysisReport?: MultiSourceAnalysisReport` prop 추가
+- [x] ANALYSIS REPORT 섹션 추가 (RESOLUTION 자리, 다중 소스 노드에서만 표시):
   ```
   ANALYSIS REPORT
   ├── [평면도]

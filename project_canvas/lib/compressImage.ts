@@ -7,9 +7,9 @@
  * 실제 이미지 바이트는 약 3MB 이하를 목표로 합니다.
  */
 
-const MAX_IMAGE_BYTES = 3 * 1024 * 1024;   // 3MB (base64 인코딩 후 ~4MB)
-const MAX_DIMENSION   = 2048;               // 최대 폭/높이
-const JPEG_QUALITY    = 0.82;               // JPEG 품질
+const DEFAULT_MAX_BYTES = 3 * 1024 * 1024;  // 3MB (base64 인코딩 후 ~4MB)
+const MAX_DIMENSION     = 2048;
+const JPEG_QUALITY      = 0.82;
 
 /**
  * base64 문자열의 실제 바이트 크기를 추정합니다.
@@ -30,10 +30,11 @@ function estimateBase64Bytes(base64: string): number {
  */
 export async function compressImageBase64(
   base64: string,
-  mimeType: string = 'image/png'
+  mimeType: string = 'image/png',
+  maxBytes: number = DEFAULT_MAX_BYTES
 ): Promise<{ base64: string; mimeType: string }> {
   // 이미 충분히 작으면 원본 반환
-  if (estimateBase64Bytes(base64) <= MAX_IMAGE_BYTES) {
+  if (estimateBase64Bytes(base64) <= maxBytes) {
     return { base64, mimeType };
   }
 
@@ -73,14 +74,14 @@ export async function compressImageBase64(
         let result  = canvas.toDataURL('image/jpeg', quality).split(',')[1];
 
         // 여전히 크면 품질을 낮춤
-        while (estimateBase64Bytes(result) > MAX_IMAGE_BYTES && quality > 0.3) {
+        while (estimateBase64Bytes(result) > maxBytes && quality > 0.3) {
           quality -= 0.1;
           result = canvas.toDataURL('image/jpeg', quality).split(',')[1];
         }
 
         // 3단계: 여전히 크면 해상도 추가 축소
-        if (estimateBase64Bytes(result) > MAX_IMAGE_BYTES) {
-          const scale = Math.sqrt(MAX_IMAGE_BYTES / estimateBase64Bytes(result));
+        if (estimateBase64Bytes(result) > maxBytes) {
+          const scale = Math.sqrt(maxBytes / estimateBase64Bytes(result));
           const newW = Math.round(width * scale);
           const newH = Math.round(height * scale);
 

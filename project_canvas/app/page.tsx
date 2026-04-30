@@ -1141,7 +1141,23 @@ export default function CanvasPage() {
       const origin = prev.find(n => n.id === nodeId);
       if (!origin) return prev;
 
-      /* 원본 노드는 변경하지 않음 — handleCollapseWithSketch에서 이미 저장 완료 */
+      /* 다중 선택(sketchInputImages 있음) → 빈 플레이스홀더 노드를 in-place 업데이트 */
+      if (origin.sketchInputImages) {
+        const updatedNode: CanvasNode = {
+          ...origin,
+          artboardType: 'image',
+          hasThumbnail: true,
+          thumbnailData: generatedBase64,
+          generatedImageData: generatedBase64,
+          ...(multiSourceAnalysisReport ? { multiSourceAnalysisReport } : {}),
+        };
+        const next = prev.map(n => n.id === nodeId ? updatedNode : n);
+        pushHistory(next, edgesRef.current);
+        setExpandedNodeId(null);
+        return next;
+      }
+
+      /* 단일 선택 일반 스케치 → 원본 노드 유지, 새 이미지 노드를 오른쪽에 생성 */
       const existingOfType = prev.filter(n => n.type === origin.type);
       const num = existingOfType.length + 1;
       const newNode: CanvasNode = {
