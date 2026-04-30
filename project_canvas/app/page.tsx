@@ -1089,14 +1089,28 @@ export default function CanvasPage() {
   const handleNodeCardSelect = useCallback((id: string) => {
     const node = nodes.find(n => n.id === id);
     if (!node) return;
-    setSelectedNodeIds([id]);
-    /* thumbnail 아트보드: 노드 종류별 패널 표시 (print와 planners 구분) */
-    if (node.artboardType === 'thumbnail') {
-      setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
-    } else {
+
+    const isCurrentlySelected = selectedNodeIds.includes(id);
+    const hasOtherSelected = selectedNodeIds.length > 0;
+
+    if (isCurrentlySelected) {
+      /* 이미 선택된 노드 재클릭 → 선택 해제 */
+      setSelectedNodeIds(prev => prev.filter(sid => sid !== id));
       setActiveSidebarNodeType(null);
+    } else if (hasOtherSelected) {
+      /* 다른 노드 선택 중 → 다중 선택에 추가 */
+      setSelectedNodeIds(prev => [...prev, id]);
+      setActiveSidebarNodeType(null);
+    } else {
+      /* 첫 번째 선택 */
+      setSelectedNodeIds([id]);
+      if (node.artboardType === 'thumbnail') {
+        setActiveSidebarNodeType(node.type === 'print' ? 'print' : 'planners');
+      } else {
+        setActiveSidebarNodeType(null);
+      }
     }
-  }, [nodes]);
+  }, [nodes, selectedNodeIds]);
 
   /* ── 빈 캔버스 클릭 → 선택 해제 + 패널 닫기 ────────────────────── */
   const handleNodeDeselect = useCallback(() => {

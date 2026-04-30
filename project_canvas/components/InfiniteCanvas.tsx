@@ -243,8 +243,6 @@ export default function InfiniteCanvas({
             }
           }
           onNodePositionCommit(committedId);
-        } else {
-          onNodeSelect(pendingNodeId.current);
         }
         pendingNodeId.current = null;
         dragMoved.current = false;
