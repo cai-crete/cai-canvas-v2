@@ -89,6 +89,7 @@ export default function PrintExpandedView({
         html: r.html,
         mode: r.mode,
         orientation: r.orientation,
+        pageCount: r.pageCount,
         metadata: r.metadata,
         resultByOrientation: r.resultByOrientation,
         savedAt: new Date().toISOString(),
