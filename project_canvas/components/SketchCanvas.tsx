@@ -41,6 +41,7 @@ type HistoryEntry = {
 
 export interface SketchCanvasHandle {
   exportAsBase64: () => string;
+  exportStrokesOnly: () => string;
   exportThumbnail: (transparent?: boolean) => string;
   uploadTrigger: () => void;
   clearAll: () => void;
@@ -910,8 +911,52 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   }, [pushSnapshot, removeWhiteOnUpload, fitOnUpload]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
+  /* ── exportStrokesOnly: 배경 이미지 제외, 스트로크+텍스트만 export ── */
+  const exportStrokesOnly = useCallback((): string => {
+    const canvas = canvasRef.current;
+    if (!canvas) return '';
+
+    if (editingTextId !== null) {
+      setTextItems(prev => prev.filter(t => t.text.trim() !== '' || t.id !== editingTextId));
+      setEditingTextId(null);
+    }
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = canvas.width;
+    offscreen.height = canvas.height;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return '';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+
+    const expZs = internalZoom / 100;
+    const expOx = internalOffset.x + canvas.width  / 2;
+    const expOy = internalOffset.y + canvas.height / 2;
+
+    ctx.drawImage(
+      renderDrawingLayer(pathsRef.current, canvas.width, canvas.height, expOx, expOy, expZs),
+      0, 0,
+    );
+
+    ctx.save();
+    ctx.translate(expOx, expOy);
+    ctx.scale(expZs, expZs);
+    ctx.font         = '14px sans-serif';
+    ctx.fillStyle    = '#000000';
+    ctx.textBaseline = 'top';
+    for (const item of textItems) {
+      if (item.text.trim()) ctx.fillText(item.text, item.x + 8, item.y + 8);
+    }
+    ctx.restore();
+
+    return offscreen.toDataURL('image/png').split(',')[1];
+  }, [editingTextId, textItems, internalZoom, internalOffset]);
+
+  /* ── Imperative handle ──────────────────────────────────────────── */
   useImperativeHandle(ref, () => ({
     exportAsBase64,
+    exportStrokesOnly,
     exportThumbnail,
     uploadTrigger: () => fileInputRef.current?.click(),
     clearAll: () => {
@@ -975,7 +1020,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
       redoStack.current = [];
       notifyHistory();
     },
-  }), [exportAsBase64, exportThumbnail, notifyHistory, handleUndo, handleRedo, applyImageTransform]);
+  }), [exportAsBase64, exportStrokesOnly, exportThumbnail, notifyHistory, handleUndo, handleRedo, applyImageTransform]);
 
   /* ── Cursor style per tool ──────────────────────────────────────── */
   const canvasCursorStyle = (): string => {

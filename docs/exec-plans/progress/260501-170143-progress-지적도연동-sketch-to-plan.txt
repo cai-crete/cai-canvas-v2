@@ -1,0 +1,57 @@
+## 완료한 작업 (260501-170143)
+
+### 작업: 지적도/위성사진 연동 Sketch-to-Plan 구현
+
+모든 체크리스트 항목 완료.
+
+### 변경된 파일
+
+1. project_canvas/components/SketchCanvas.tsx
+   - exportStrokesOnly() 메서드 추가 (SketchCanvasHandle 인터페이스 + 구현)
+   - 배경 이미지 제외, 스트로크+텍스트만 흰색 바탕에 export
+
+2. project_canvas/sketch-to-plan/ExpandedView.tsx
+   - handleGenerate(): sketchPaths를 exportState()로 추출 후 onCollapseWithPlanSketch에 전달 (sketchPaths 보존 버그 수정)
+   - strokesBase64 = exportStrokesOnly() → AI에 전달
+   - cadastralBase64 = sketchPaths.uploadedImageData → 별도 분리 전달
+   - sketchData(합성본)는 썸네일/노드 저장용으로 유지
+
+3. project_canvas/hooks/usePlanGeneration.ts
+   - PlanGenerationParams에 cadastralImageBase64?: string 추가
+   - cadastral_image, cadastral_mime_type를 body에 포함하여 API 전송
+
+4. project_canvas/app/api/sketch-to-plan/route.ts
+   - 변경 없음 (body 전체를 그대로 proxying하므로 자동 전달됨)
+
+5. render-server/src/routes/sketchToPlan.ts
+   - cadastral_image, cadastral_mime_type 수신
+   - sketchPart / cadastralPart 분리 생성
+   - imageParts 배열: [cadastralPart, sketchPart] (지적도 앞 배치) 또는 [sketchPart]
+   - cadastralContext 문자열: 두 이미지 역할 정의 + 절대 앵커 규칙 → analysisPrompt, generationPrompt 앞에 삽입
+   - protocol v3.9 로드로 변경
+
+6. project_canvas/sketch-to-plan/_context/protocol-sketch-to-plan-v3.9.txt (신규)
+   - Section 0 추가: 최우선 입력 위계 프로토콜
+     - 0.1 듀얼 이미지 모드 우선순위 정의
+     - 0.2 지적도/위성사진 감지 규칙
+     - 0.3 Site Anchor 추출 절차
+     - 0.4 절대 금지 규칙 (Hard-Stop Rules x3)
+   - Section 2.2 업데이트: IMAGE_1=Site Absolute Anchor, IMAGE_2=Topological Anchor
+   - Section 2.4 업데이트: Hard-Stop 조항 추가
+   - Section 3.1 업데이트: Site Boundary Recognition 단계 추가
+   - Section 5.1 POSI 업데이트: Site Fidelity 최상위 항목 추가
+   - Section 5.1 GUARD 업데이트: Site Boundary Hard Stop 추가
+   - Section 6.1 업데이트: Site Boundary Check 검증 항목 추가
+
+### 핵심 동작 변화
+
+- 이전: 지적도+스트로크 합성 PNG 1장 → AI 전달
+- 이후: cadastral_image(지적도 원본) + sketch_image(스트로크만) 2장 분리 → AI에 별도 역할로 전달
+- 지적도 감지 시: 대지 경계·스케일·방향이 절대 불변 앵커로 작동
+- Generate 이후 스트로크 편집 가능 (sketchPaths 보존 버그 수정)
+
+### 다음에 해야 할 것
+
+- 실제 테스트: 지적도 배경이 있는 스케치 노드에서 Generate 후 평면도 위치 확인
+- 단일 이미지 모드(배경 없음) 정상 동작 확인
+- render-server 재배포 필요 (프로토콜 v3.9 및 코드 변경)

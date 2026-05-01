@@ -8,6 +8,7 @@ export interface PlanGenerationParams {
   userPrompt?: string;
   floorType?: string;
   gridModule?: number;
+  cadastralImageBase64?: string;
 }
 
 export interface PlanGenerationResult {
@@ -45,7 +46,7 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
         /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
         const compressed = await compressImageBase64(sketchBase64, 'image/png');
 
-        const body = {
+        const body: Record<string, unknown> = {
           sketch_image: compressed.base64,
           mime_type:    compressed.mimeType,
           user_prompt:  params.userPrompt ?? '',
@@ -53,7 +54,14 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
           grid_module:  params.gridModule ?? 4000,
         };
 
+        if (params.cadastralImageBase64) {
+          const compCadastral = await compressImageBase64(params.cadastralImageBase64, 'image/png');
+          body.cadastral_image      = compCadastral.base64;
+          body.cadastral_mime_type  = compCadastral.mimeType;
+        }
+
         const token = (await supabase.auth.getSession()).data.session?.access_token;
+
         const res = await fetch('/api/sketch-to-plan', {
           method: 'POST',
           headers: {

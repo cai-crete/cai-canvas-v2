@@ -236,20 +236,31 @@ export default function SketchToPlanExpandedView({
     const canvas = sketchCanvasRef.current;
     if (!canvas) return;
 
-    const sketchBase64    = canvas.exportAsBase64();
+    const sketchPaths     = canvas.exportState();
+    const strokesBase64   = canvas.exportStrokesOnly();
     const thumbnailBase64 = canvas.exportThumbnail();
-    if (!sketchBase64) return;
+    if (!strokesBase64) return;
 
-    const settings = collectPlanSettings();
+    // 지적도/위성사진 배경이 있으면 별도 분리하여 절대 앵커로 전달
+    const cadastralBase64 = sketchPaths.uploadedImageData
+      ? (sketchPaths.uploadedImageData.startsWith('data:')
+          ? sketchPaths.uploadedImageData.split(',')[1]
+          : sketchPaths.uploadedImageData)
+      : undefined;
+
+    // 썸네일·sketchData는 합성본(합성 PNG) 유지, sketchPaths 반드시 보존
+    const sketchBase64 = canvas.exportAsBase64();
+    const settings     = collectPlanSettings();
 
     onGeneratingChange?.(true);
-    onCollapseWithPlanSketch?.(sketchBase64, thumbnailBase64, settings);
+    onCollapseWithPlanSketch?.(sketchBase64, thumbnailBase64, settings, sketchPaths);
     onCollapse();
 
-    const result = await generate(sketchBase64, {
-      userPrompt: settings.prompt,
-      floorType:  settings.floorType,
-      gridModule: settings.gridModule,
+    const result = await generate(strokesBase64, {
+      userPrompt:           settings.prompt,
+      floorType:            settings.floorType,
+      gridModule:           settings.gridModule,
+      cadastralImageBase64: cadastralBase64,
     });
 
     if (result.image) {

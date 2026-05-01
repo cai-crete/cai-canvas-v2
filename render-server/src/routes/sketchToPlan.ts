@@ -32,6 +32,8 @@ router.post('/', async (req, res) => {
   const {
     sketch_image,
     mime_type = 'image/png',
+    cadastral_image,
+    cadastral_mime_type = 'image/png',
     user_prompt = '',
     floor_type = 'RESIDENTIAL',
     grid_module = 4000,
@@ -47,13 +49,16 @@ router.post('/', async (req, res) => {
   if (Buffer.from(sketch_image, 'base64').length > MAX_IMAGE_BYTES) {
     res.status(400).json({ error: 'Image size exceeds 10MB limit' }); return;
   }
+  if (cadastral_image && Buffer.from(cadastral_image, 'base64').length > MAX_IMAGE_BYTES) {
+    res.status(400).json({ error: 'Cadastral image size exceeds 10MB limit' }); return;
+  }
   if (user_prompt.length > MAX_PROMPT_LENGTH) {
     res.status(400).json({ error: `Prompt exceeds ${MAX_PROMPT_LENGTH} character limit` }); return;
   }
 
   let systemPrompt: string;
   try {
-    const protocol       = loadProtocolFile('protocol-sketch-to-plan-v3.8.txt');
+    const protocol       = loadProtocolFile('protocol-sketch-to-plan-v3.9.txt');
     const knowledgeWpGrid   = loadProtocolFile('knowledge-wp-grid-mapping.txt');
     const knowledgeArchStd  = loadProtocolFile('knowledge-architectural-standards.txt');
     const knowledgeTemplateA = loadProtocolFile('knowledge-template-a.txt');
@@ -67,12 +72,32 @@ router.post('/', async (req, res) => {
   if (!apiKey) { res.status(500).json({ error: 'GEMINI_API_KEY_PLAN is missing' }); return; }
 
   const ai = new GoogleGenAI({ apiKey });
-  const imagePart = { inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image } };
+  const sketchPart   = { inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image } };
+  const cadastralPart = cadastral_image
+    ? { inlineData: { mimeType: (cadastral_mime_type.toLowerCase()) as AllowedMimeType, data: cadastral_image } }
+    : null;
+
+  // 지적도/위성사진 유무에 따라 파트 배열 구성 (cadastral이 있으면 앞에 배치하여 최우선 앵커 역할 명시)
+  const imageParts = cadastralPart
+    ? [cadastralPart, sketchPart]
+    : [sketchPart];
+
+  const cadastralContext = cadastralPart
+    ? [
+        '---',
+        '【입력 이미지 역할 정의】',
+        '- 첫 번째 이미지 (IMAGE_1): 지적도 또는 위성사진 — 대지 경계·스케일·방향의 절대 기준 (Immutable Site Anchor)',
+        '- 두 번째 이미지 (IMAGE_2): 스케치 스트로크 — 대지 내 건물의 위상학적 평면 (Room Topology)',
+        '절대 규칙: IMAGE_1에서 파악된 대지 경계와 방향은 어떤 경우에도 변경 불가. 평면도는 반드시 이 대지 경계 안에 위치해야 합니다.',
+        '---',
+      ].join('\n')
+    : '';
 
   // Phase 1: Spatial Analysis
   let analysisSpec: Record<string, unknown> = {};
   try {
     const analysisPrompt = [
+      cadastralContext,
       '스케치 이미지를 분석하여 위상적 평면 데이터로 변환하세요.',
       '',
       `건물 용도: ${floor_type}`,
@@ -81,13 +106,13 @@ router.post('/', async (req, res) => {
       '',
       '4단계 보정 위계 프로토콜(Hierarchy 0→3)을 순서대로 실행하고,',
       '최종 SPATIAL_SPEC JSON 블록을 출력하세요.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const makeAnalysisCall = (model: string) => () => Promise.race([
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt },
-        contents: [{ role: 'user', parts: [imagePart, { text: analysisPrompt }] }],
+        contents: [{ role: 'user', parts: [...imageParts, { text: analysisPrompt }] }],
       }).then(r => r.text ?? ''),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), TIMEOUT_ANALYSIS)),
     ]);
@@ -111,6 +136,7 @@ router.post('/', async (req, res) => {
   let roomAnalysisText = '';
   try {
     const generationPrompt = [
+      cadastralContext,
       'TEMPLATE-A 스타일의 미니멀리스트 CAD 평면도를 생성하세요.',
       '',
       'spatial-spec (위상 분석 결과):',
@@ -130,7 +156,7 @@ router.post('/', async (req, res) => {
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt, responseModalities: ['IMAGE', 'TEXT'] },
-        contents: [{ role: 'user', parts: [imagePart, { text: generationPrompt }] }],
+        contents: [{ role: 'user', parts: [...imageParts, { text: generationPrompt }] }],
       }).then(r => {
         const parts = r.candidates?.[0]?.content?.parts ?? [];
         const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>
