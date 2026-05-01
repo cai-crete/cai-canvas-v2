@@ -204,6 +204,7 @@ export default function SketchToImageExpandedView({
     const sketchBase64    = canvas.exportAsBase64();
     if (!sketchBase64) return;
     const thumbnailBase64 = canvas.exportThumbnail();
+    const sketchPaths     = canvas.exportState();
 
     abortRef.current = new AbortController();
     onAbortControllerReady?.(abortRef.current);
@@ -219,7 +220,7 @@ export default function SketchToImageExpandedView({
     const validInputSources = inputImages.filter((img): img is SelectedImage => img !== null);
 
     onGeneratingChange?.(true);
-    onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings());
+    onCollapseWithSketch?.(sketchBase64, thumbnailBase64, collectPanelSettings(), sketchPaths);
     onCollapse();
 
     const generatedBase64 = await generate(sketchBase64, params, abortRef.current.signal, validInputSources.length > 0 ? validInputSources : undefined);

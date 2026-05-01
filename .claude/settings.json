@@ -19,6 +19,17 @@
   "hooks": {
     "PostToolUse": [
       {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);const bs=String.fromCharCode(92);const p=((j.tool_input||{}).file_path||'').split(bs).join('/');const idx=p.indexOf('docs/exec-plans/');if(idx<0)return;const root=p.slice(0,idx);const fs=require('fs');const nd=new Date();const today=String(nd.getFullYear()).slice(-2)+String(nd.getMonth()+1).padStart(2,'0')+String(nd.getDate()).padStart(2,'0');['docs/exec-plans/completed','docs/exec-plans/progress'].forEach(rel=>{try{const dir=root+rel;const od=dir+'/old';if(!fs.existsSync(od))fs.mkdirSync(od,{recursive:true});fs.readdirSync(dir).forEach(f=>{try{if(!fs.statSync(dir+'/'+f).isFile())return;const fd=f.slice(0,6);if(/^\\d{6}$/.test(fd)&&fd<today)fs.renameSync(dir+'/'+f,od+'/'+f);}catch(e){}});}catch(e){}});});}catch(e){}});\" 2>/dev/null || true",
+            "statusMessage": "오래된 exec-plans 파일 정리 중...",
+            "async": true
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {
