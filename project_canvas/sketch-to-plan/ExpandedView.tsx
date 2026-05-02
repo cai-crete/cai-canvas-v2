@@ -257,10 +257,11 @@ export default function SketchToPlanExpandedView({
     onCollapse();
 
     const result = await generate(strokesBase64, {
-      userPrompt:           settings.prompt,
-      floorType:            settings.floorType,
-      gridModule:           settings.gridModule,
-      cadastralImageBase64: cadastralBase64,
+      userPrompt:            settings.prompt,
+      floorType:             settings.floorType,
+      gridModule:            settings.gridModule,
+      cadastralImageBase64:  cadastralBase64,
+      compositeImageBase64:  cadastralBase64 ? sketchBase64 : undefined,
     });
 
     if (result.image) {

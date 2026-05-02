@@ -1,0 +1,31 @@
+## 작업 요약: 스케치 위치 기반 평면도 생성 (Site-Relative Sketch Footprint)
+
+### 완료된 작업
+지적도 위에 스케치가 그려진 경우, AI가 스케치의 대지 내 위치를 파악하여 평면도를 생성하는 기능 구현.
+
+**문제**: AI에게 IMAGE_2(순수 스트로크)를 전달하면 AI는 스케치가 대지 내 어느 위치인지 알 수 없어 대지 전체를 채우는 평면도 생성
+**해결**: exportAsBase64()(지적도+스트로크 합성본)을 composite_image로 추가 전달
+
+### 변경된 파일
+1. `project_canvas/hooks/usePlanGeneration.ts`
+   - `PlanGenerationParams`에 `compositeImageBase64?: string` 추가
+   - body에 `composite_image`, `composite_mime_type` 포함
+
+2. `project_canvas/sketch-to-plan/ExpandedView.tsx`
+   - `generate()` 호출 시 `compositeImageBase64: cadastralBase64 ? sketchBase64 : undefined` 추가
+
+3. `render-server/src/routes/sketchToPlan.ts`
+   - `composite_image`, `composite_mime_type` 수신 + 10MB 유효성 검사
+   - imageParts 3-way 분기:
+     * composite 있음: [compositePart, sketchPart] ← 새 동작
+     * cadastral만 있음: [cadastralPart, sketchPart] ← 기존 동작 유지
+     * 없음: [sketchPart] ← v3.8 동작 유지
+   - cadastralContext 프롬프트: composite 모드에서 스케치의 대지 내 위치 비율 반영 절대 규칙 명시
+
+### 미완료 사항
+없음. 렌더 서버 배포 필요 (별도 작업).
+
+### 다음 단계
+렌더 서버(render-server) 재배포 후 테스트:
+- 지적도 위에 작은 영역에 스케치 → 해당 위치에 평면도 생성 확인
+- 지적도 없이 스케치만 → 기존 동작 유지 확인

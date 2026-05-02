@@ -9,6 +9,7 @@ export interface PlanGenerationParams {
   floorType?: string;
   gridModule?: number;
   cadastralImageBase64?: string;
+  compositeImageBase64?: string;
 }
 
 export interface PlanGenerationResult {
@@ -58,6 +59,12 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
           const compCadastral = await compressImageBase64(params.cadastralImageBase64, 'image/png');
           body.cadastral_image      = compCadastral.base64;
           body.cadastral_mime_type  = compCadastral.mimeType;
+        }
+
+        if (params.compositeImageBase64) {
+          const compComposite = await compressImageBase64(params.compositeImageBase64, 'image/png');
+          body.composite_image      = compComposite.base64;
+          body.composite_mime_type  = compComposite.mimeType;
         }
 
         const token = (await supabase.auth.getSession()).data.session?.access_token;

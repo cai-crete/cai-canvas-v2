@@ -34,6 +34,8 @@ router.post('/', async (req, res) => {
     mime_type = 'image/png',
     cadastral_image,
     cadastral_mime_type = 'image/png',
+    composite_image,
+    composite_mime_type = 'image/png',
     user_prompt = '',
     floor_type = 'RESIDENTIAL',
     grid_module = 4000,
@@ -51,6 +53,9 @@ router.post('/', async (req, res) => {
   }
   if (cadastral_image && Buffer.from(cadastral_image, 'base64').length > MAX_IMAGE_BYTES) {
     res.status(400).json({ error: 'Cadastral image size exceeds 10MB limit' }); return;
+  }
+  if (composite_image && Buffer.from(composite_image, 'base64').length > MAX_IMAGE_BYTES) {
+    res.status(400).json({ error: 'Composite image size exceeds 10MB limit' }); return;
   }
   if (user_prompt.length > MAX_PROMPT_LENGTH) {
     res.status(400).json({ error: `Prompt exceeds ${MAX_PROMPT_LENGTH} character limit` }); return;
@@ -72,26 +77,47 @@ router.post('/', async (req, res) => {
   if (!apiKey) { res.status(500).json({ error: 'GEMINI_API_KEY_PLAN is missing' }); return; }
 
   const ai = new GoogleGenAI({ apiKey });
-  const sketchPart   = { inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image } };
+  const sketchPart    = { inlineData: { mimeType: mimeTypeLower as AllowedMimeType, data: sketch_image } };
   const cadastralPart = cadastral_image
     ? { inlineData: { mimeType: (cadastral_mime_type.toLowerCase()) as AllowedMimeType, data: cadastral_image } }
     : null;
+  const compositePart = composite_image
+    ? { inlineData: { mimeType: (composite_mime_type.toLowerCase()) as AllowedMimeType, data: composite_image } }
+    : null;
 
-  // 지적도/위성사진 유무에 따라 파트 배열 구성 (cadastral이 있으면 앞에 배치하여 최우선 앵커 역할 명시)
-  const imageParts = cadastralPart
-    ? [cadastralPart, sketchPart]
-    : [sketchPart];
+  // composite(지적도+스트로크 합성)가 있으면: [composite, sketch] — AI가 스케치의 대지 내 위치를 정확히 파악
+  // composite 없고 cadastral만 있으면: [cadastral, sketch] — 기존 동작
+  // 둘 다 없으면: [sketch] — 단일 이미지 모드 (v3.8)
+  const imageParts = compositePart
+    ? [compositePart, sketchPart]
+    : cadastralPart
+      ? [cadastralPart, sketchPart]
+      : [sketchPart];
 
-  const cadastralContext = cadastralPart
+  const cadastralContext = compositePart
     ? [
         '---',
-        '【입력 이미지 역할 정의】',
-        '- 첫 번째 이미지 (IMAGE_1): 지적도 또는 위성사진 — 대지 경계·스케일·방향의 절대 기준 (Immutable Site Anchor)',
-        '- 두 번째 이미지 (IMAGE_2): 스케치 스트로크 — 대지 내 건물의 위상학적 평면 (Room Topology)',
-        '절대 규칙: IMAGE_1에서 파악된 대지 경계와 방향은 어떤 경우에도 변경 불가. 평면도는 반드시 이 대지 경계 안에 위치해야 합니다.',
+        '【입력 이미지 역할 정의 — 듀얼 이미지 모드】',
+        '- 첫 번째 이미지 (IMAGE_1): 지적도/위성사진 위에 스케치 스트로크를 오버레이한 합성 이미지',
+        '  → 이 이미지에서 두 가지 정보를 동시에 읽으세요:',
+        '  ① 대지 경계·도로 접면·방향 (지적도/위성사진 배경에서 추출)',
+        '  ② 건물 풋프린트의 대지 내 정확한 위치·크기·이격거리 (스트로크 오버레이에서 추출)',
+        '- 두 번째 이미지 (IMAGE_2): 순수 스케치 스트로크 — 방의 위상학적 관계(Room Topology) 분석 전용',
+        '절대 규칙 1: IMAGE_1의 대지 경계 밖으로 건물이 나가면 즉시 재생성.',
+        '절대 규칙 2: IMAGE_1의 스트로크 오버레이가 점유하는 위치·크기 비율을 그대로 반영하여 평면도를 생성하세요.',
+        '  (예: 스케치가 대지 좌상단의 약 30% 영역을 점유하면, 생성된 평면도도 대지 좌상단 30% 영역에 위치해야 합니다.)',
         '---',
       ].join('\n')
-    : '';
+    : cadastralPart
+      ? [
+          '---',
+          '【입력 이미지 역할 정의】',
+          '- 첫 번째 이미지 (IMAGE_1): 지적도 또는 위성사진 — 대지 경계·스케일·방향의 절대 기준 (Immutable Site Anchor)',
+          '- 두 번째 이미지 (IMAGE_2): 스케치 스트로크 — 대지 내 건물의 위상학적 평면 (Room Topology)',
+          '절대 규칙: IMAGE_1에서 파악된 대지 경계와 방향은 어떤 경우에도 변경 불가. 평면도는 반드시 이 대지 경계 안에 위치해야 합니다.',
+          '---',
+        ].join('\n')
+      : '';
 
   // Phase 1: Spatial Analysis
   let analysisSpec: Record<string, unknown> = {};
