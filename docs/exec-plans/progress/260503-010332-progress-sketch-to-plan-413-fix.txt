@@ -1,0 +1,14 @@
+## 완료 작업
+usePlanGeneration.ts: 이미지 수에 따른 동적 압축 예산 분배 적용
+
+## 변경 내용
+- 전송할 이미지 수(imageCount) 미리 계산 (1~3장)
+- 총 3MB 예산을 이미지 수로 균등 분배 (perImageBudget = 3MB / imageCount)
+- 각 compressImageBase64 호출에 perImageBudget 전달
+- 3장 전송 시: 각 1MB → 합계 3MB → Vercel 4.5MB 제한 이내
+
+## 수정 파일
+- project_canvas/hooks/usePlanGeneration.ts (imageCount / perImageBudget 로직 추가)
+
+## 다음 할 일
+- Vercel 배포 후 지적도 ExpandedView에서 위성사진 노드 스케치 → generate 재테스트

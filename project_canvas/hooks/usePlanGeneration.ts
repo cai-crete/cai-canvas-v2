@@ -44,8 +44,14 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
       setError(null);
 
       try {
-        /* Vercel 4.5MB body 제한 대응: 이미지 압축 */
-        const compressed = await compressImageBase64(sketchBase64, 'image/png');
+        // Vercel 4.5MB body 제한: 총 3MB를 이미지 수로 균등 분배
+        const imageCount =
+          1 +
+          (params.cadastralImageBase64 ? 1 : 0) +
+          (params.compositeImageBase64 ? 1 : 0);
+        const perImageBudget = Math.floor((3 * 1024 * 1024) / imageCount);
+
+        const compressed = await compressImageBase64(sketchBase64, 'image/png', perImageBudget);
 
         const body: Record<string, unknown> = {
           sketch_image: compressed.base64,
@@ -56,13 +62,13 @@ export function usePlanGeneration(): UsePlanGenerationReturn {
         };
 
         if (params.cadastralImageBase64) {
-          const compCadastral = await compressImageBase64(params.cadastralImageBase64, 'image/png');
+          const compCadastral = await compressImageBase64(params.cadastralImageBase64, 'image/png', perImageBudget);
           body.cadastral_image      = compCadastral.base64;
           body.cadastral_mime_type  = compCadastral.mimeType;
         }
 
         if (params.compositeImageBase64) {
-          const compComposite = await compressImageBase64(params.compositeImageBase64, 'image/png');
+          const compComposite = await compressImageBase64(params.compositeImageBase64, 'image/png', perImageBudget);
           body.composite_image      = compComposite.base64;
           body.composite_mime_type  = compComposite.mimeType;
         }
