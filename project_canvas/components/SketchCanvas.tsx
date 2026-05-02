@@ -42,6 +42,7 @@ type HistoryEntry = {
 export interface SketchCanvasHandle {
   exportAsBase64: () => string;
   exportStrokesOnly: () => string;
+  exportComposite: () => string;
   exportThumbnail: (transparent?: boolean) => string;
   uploadTrigger: () => void;
   clearAll: () => void;
@@ -910,6 +911,61 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     reader.readAsDataURL(file);
   }, [pushSnapshot, removeWhiteOnUpload, fitOnUpload]);
 
+  /* ── exportComposite: 지적도 전체가 보이도록 fit-to-cadastral 뷰로 export ── */
+  const exportComposite = useCallback((): string => {
+    const canvas = canvasRef.current;
+    if (!canvas) return '';
+
+    const imgEl = uploadedImgElRef.current;
+    const ct    = imageTransformRef.current;
+    if (!imgEl || !ct) return exportAsBase64();
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = canvas.width;
+    offscreen.height = canvas.height;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return '';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+
+    // 지적도 전체가 90% 영역에 맞도록 zoom 계산
+    const expZs = Math.min(
+      (canvas.width  * 0.9) / ct.width,
+      (canvas.height * 0.9) / ct.height,
+    );
+    const imgCenterX = ct.x + ct.width  / 2;
+    const imgCenterY = ct.y + ct.height / 2;
+    const expOx = canvas.width  / 2 - imgCenterX * expZs;
+    const expOy = canvas.height / 2 - imgCenterY * expZs;
+
+    const cx = expOx + imgCenterX * expZs;
+    const cy = expOy + imgCenterY * expZs;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ct.rotation * Math.PI / 180);
+    ctx.drawImage(imgEl, -ct.width * expZs / 2, -ct.height * expZs / 2, ct.width * expZs, ct.height * expZs);
+    ctx.restore();
+
+    ctx.drawImage(
+      renderDrawingLayer(pathsRef.current, canvas.width, canvas.height, expOx, expOy, expZs),
+      0, 0,
+    );
+
+    ctx.save();
+    ctx.translate(expOx, expOy);
+    ctx.scale(expZs, expZs);
+    ctx.font         = '14px sans-serif';
+    ctx.fillStyle    = '#000000';
+    ctx.textBaseline = 'top';
+    for (const item of textItems) {
+      if (item.text.trim()) ctx.fillText(item.text, item.x + 8, item.y + 8);
+    }
+    ctx.restore();
+
+    return offscreen.toDataURL('image/png').split(',')[1];
+  }, [exportAsBase64, textItems]);
+
   /* ── Imperative handle ──────────────────────────────────────────── */
   /* ── exportStrokesOnly: 배경 이미지 제외, 스트로크+텍스트만 export ── */
   const exportStrokesOnly = useCallback((): string => {
@@ -957,6 +1013,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
   useImperativeHandle(ref, () => ({
     exportAsBase64,
     exportStrokesOnly,
+    exportComposite,
     exportThumbnail,
     uploadTrigger: () => fileInputRef.current?.click(),
     clearAll: () => {

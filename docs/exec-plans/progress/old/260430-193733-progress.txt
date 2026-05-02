@@ -1,0 +1,30 @@
+## 작업 진행 상황
+
+### 방금 완료한 작업
+260430-auth-library-supabase.md Phase 1 (Auth + 헤더) 완료
+
+#### 생성/수정된 파일
+- [신규] project_canvas/lib/supabaseClient.ts — 클라이언트용 Supabase 인스턴스
+- [신규] project_canvas/contexts/AuthContext.tsx — 세션 상태 전역 관리 (useAuth hook)
+- [신규] project_canvas/components/AuthModal.tsx — 이메일 + Google 소셜 로그인/회원가입 모달
+- [수정] project_canvas/app/layout.tsx — AuthProvider 래핑
+- [수정] project_canvas/app/page.tsx — Header 우측에 LIBRARY + LOGIN/유저명 버튼, AuthModal 마운트
+- [패키지 설치] @supabase/supabase-js, @supabase/ssr
+
+### 현재 상태
+- Phase 1 완료, 타입 에러 없음
+- `libraryOpen` state는 선언됐지만 LibraryModal 컴포넌트 미구현 (Phase 2에서 처리)
+
+### 다음에 해야 할 작업
+Phase 2: Library Modal UI Shell
+- components/LibraryModal.tsx 신규 생성
+  - 4개 탭: SKETCH / IMAGE / DOCUMENT / VIDEO
+  - DOCUMENT 하위 탭: REPORT / PANEL L / PANEL P / DRAWING
+  - 썸네일 그리드 (160×120px, auto-fill)
+  - 빈 상태(empty state) 메시지
+- app/page.tsx — libraryOpen 연결, <LibraryModal> 마운트
+
+### 검증 필요 항목 (배포 후)
+- Supabase Authentication → Email Confirm OFF 설정 확인
+- Google OAuth redirect URI 등록 확인
+- 로그인 후 헤더 버튼 유저명으로 변경되는지 확인

@@ -1,0 +1,31 @@
+DATE: 2026-04-30 16:00
+SESSION: Print 버그 재발 분석 및 계획서 작성
+
+=== 완료된 작업 ===
+
+이전 수정(260429)이 왜 효과 없는지 근본 원인 재분석.
+
+[Bug 1 — REPORT 빈 더미 페이지]
+- 이전 수정(regex \bpage\b → (?:[^"]*\s+)?page(?:\s+[^"]*)?)은 class="page-desc-area" 는 막음
+- 그러나 Gemini가 내부 div에 class="page desc-area" (space 구분) 사용 시 여전히 오탐
+- 더 근본적 문제: 현재 splitHtmlPages는 중첩된 div도 regex에 걸리면 별도 페이지로 추출하는 구조
+- 해결책: 순차 추출 (이미 추출된 범위 내 매치 건너뜀) 으로 중첩 방어
+
+[Bug 2 — PANEL 방향 전환 레이아웃 여백]
+- orientation이 AGENT-1 입력에만 있고 AGENT-2 Phase 1/2에 전달되지 않음 (route.ts:422, :498)
+- Schema A에 orientation 필드 없어 AGENT-2까지 전파 안됨
+- AGENT-2는 항상 landscape HTML 생성
+- Panel_template.html이 JavaScript 기반이라 Gemini가 정적 grid 치수 파악 어려움
+- 해결책: orientation을 AGENT-2에 전달 + Panel 템플릿을 가로/세로 별도 정적 HTML로 분리
+
+=== 산출물 ===
+
+새 계획서 생성:
+- docs/exec-plans/active/260430-print-bug1-blank-bug2-layout.md
+  - Bug 1: 대안 A (regex), 대안 B (순차 추출), 대안 C (복합) 제시
+  - Bug 2: 대안 A (orientation 전달), 대안 B (템플릿 분리), 대안 C (복합) 제시
+  - 권장: Bug 1 대안 C + Bug 2 대안 C
+
+=== 다음 해야 할 일 ===
+- 사용자 승인 후 구현
+- Bug 1 (htmlUtils.ts 2곳) → Bug 2-A (route.ts) → Bug 2-B (템플릿 분리) 순서

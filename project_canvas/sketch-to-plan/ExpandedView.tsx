@@ -250,6 +250,8 @@ export default function SketchToPlanExpandedView({
 
     // 썸네일·sketchData는 합성본(합성 PNG) 유지, sketchPaths 반드시 보존
     const sketchBase64 = canvas.exportAsBase64();
+    // composite: 지적도 전체가 보이도록 fit-to-cadastral 뷰로 export
+    const compositeBase64 = cadastralBase64 ? canvas.exportComposite() : undefined;
     const settings     = collectPlanSettings();
 
     onGeneratingChange?.(true);
@@ -261,7 +263,7 @@ export default function SketchToPlanExpandedView({
       floorType:             settings.floorType,
       gridModule:            settings.gridModule,
       cadastralImageBase64:  cadastralBase64,
-      compositeImageBase64:  cadastralBase64 ? sketchBase64 : undefined,
+      compositeImageBase64:  compositeBase64,
     });
 
     if (result.image) {

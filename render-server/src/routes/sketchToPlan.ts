@@ -85,27 +85,26 @@ router.post('/', async (req, res) => {
     ? { inlineData: { mimeType: (composite_mime_type.toLowerCase()) as AllowedMimeType, data: composite_image } }
     : null;
 
-  // composite(지적도+스트로크 합성)가 있으면: [composite, sketch] — AI가 스케치의 대지 내 위치를 정확히 파악
-  // composite 없고 cadastral만 있으면: [cadastral, sketch] — 기존 동작
-  // 둘 다 없으면: [sketch] — 단일 이미지 모드 (v3.8)
-  const imageParts = compositePart
-    ? [compositePart, sketchPart]
+  // cadastral+composite 모두 있으면: [cadastral, composite, sketch] — 3-이미지 모드
+  // cadastral만 있으면: [cadastral, sketch] — 2-이미지 모드 (v3.9 기존 동작)
+  // 둘 다 없으면: [sketch] — 단일 이미지 모드
+  const imageParts = (cadastralPart && compositePart)
+    ? [cadastralPart, compositePart, sketchPart]
     : cadastralPart
       ? [cadastralPart, sketchPart]
       : [sketchPart];
 
-  const cadastralContext = compositePart
+  const cadastralContext = (cadastralPart && compositePart)
     ? [
         '---',
-        '【입력 이미지 역할 정의 — 듀얼 이미지 모드】',
-        '- 첫 번째 이미지 (IMAGE_1): 지적도/위성사진 위에 스케치 스트로크를 오버레이한 합성 이미지',
-        '  → 이 이미지에서 두 가지 정보를 동시에 읽으세요:',
-        '  ① 대지 경계·도로 접면·방향 (지적도/위성사진 배경에서 추출)',
-        '  ② 건물 풋프린트의 대지 내 정확한 위치·크기·이격거리 (스트로크 오버레이에서 추출)',
-        '- 두 번째 이미지 (IMAGE_2): 순수 스케치 스트로크 — 방의 위상학적 관계(Room Topology) 분석 전용',
-        '절대 규칙 1: IMAGE_1의 대지 경계 밖으로 건물이 나가면 즉시 재생성.',
-        '절대 규칙 2: IMAGE_1의 스트로크 오버레이가 점유하는 위치·크기 비율을 그대로 반영하여 평면도를 생성하세요.',
-        '  (예: 스케치가 대지 좌상단의 약 30% 영역을 점유하면, 생성된 평면도도 대지 좌상단 30% 영역에 위치해야 합니다.)',
+        '【입력 이미지 역할 정의 — 3-이미지 모드】',
+        '- IMAGE_1: 지적도/위성사진 원본 — 대지 경계·스케일·방향의 절대 기준 (Immutable Site Anchor)',
+        '- IMAGE_2: 합성 이미지 (지적도+스케치 오버레이) — 건물 풋프린트의 대지 내 위치·크기·이격거리 파악용',
+        '  → IMAGE_2의 스트로크가 IMAGE_1의 어느 위치·비율을 점유하는지 정확히 읽으세요.',
+        '  (예: 스케치가 대지 좌상단 30% 영역을 점유하면 → 생성된 평면도도 대지 좌상단 30% 영역에 위치)',
+        '- IMAGE_3: 순수 스케치 스트로크 — 방의 위상학적 관계(Room Topology) 분석 전용',
+        '절대 규칙 1: IMAGE_1에서 파악된 대지 경계와 방향은 어떤 경우에도 변경 불가.',
+        '절대 규칙 2: 생성된 평면도는 IMAGE_1 대지 경계 안에 위치해야 하며, IMAGE_2에서 파악한 위치·크기 비율을 반영해야 합니다.',
         '---',
       ].join('\n')
     : cadastralPart
