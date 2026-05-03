@@ -1,0 +1,44 @@
+## 완료 작업 요약 (260503-102405)
+
+### Task 2 — 슬롯 배정 단순화 [완료]
+파일: project_canvas/app/page.tsx (L914-916)
+- isSketchArtboard 휴리스틱 완전 제거
+- slot0 = sketchInputNodes[0] (평면도), slot1 = sketchInputNodes[1] (입면도)
+- 노드 타입 무관, 선택 순서 기준
+
+### Task 3 — Protocol v2.3-multi 강화 [완료]
+파일: project_canvas/sketch-to-image/_context/protocol-sketch-to-image-v2.3-multi.txt
+- ROOM 2: SPATIAL LOCK 선언 추가 (horizontal_constants → 공간 헌법, 수치 포함)
+- ROOM 3: HORIZONTAL EXCLUSION ZONE 추가 (X-Z 평면 침범 절대 금지)
+- ROOM 4: 충돌 해소 규칙 절대화 + [SLV] Spatial Lock Violation 조항
+- ROOM 5: Layer 1 Spatial Lock 적용, 픽셀 수준 보존 명시
+- ROOM 6: [MFM-06] Elevation Spatial Bleed 실패 모드 추가
+
+파일: render-server/src/routes/sketchToImage.ts
+- Phase 3 프롬프트: SPATIAL LOCK 확인 + X-Z 평면 완전 우선 + 재생성 조건 추가
+
+### Task 1 — UX 변경: 다중 소스 → 사이드바 전용 [완료]
+파일: project_canvas/app/page.tsx
+- 상태 추가: imageMultiSourceInputImages, imageMultiSourceSourceIds,
+             imageMultiSourceSettings, imageMultiSourceError
+- 다중 소스 IMAGE 노드 생성 로직 제거 (pending 노드 방식 폐기)
+- 대신: setImageMultiSourceInputImages + setActiveSidebarNodeType('image')
+- handleNodeTabSelect에 image 닫힐 때 상태 정리 추가
+- handleGenerateSketchToImage 핸들러 추가 (viewpoint 패턴 동일)
+  → 생성 완료 시 새 Image 노드 생성 + 소스 노드들과 엣지 연결
+- RightSidebar에 image 다중 소스 props 전달
+
+파일: project_canvas/components/RightSidebar.tsx
+- Props 확장: imageMultiSourceMode, imageInputImages 등 8개 추가
+- isImageMultiSource 분기: SketchToImagePanel 렌더링
+- navigate 버튼: isImageMultiSource일 때 생략
+
+### 현재 상태
+- 모든 Task 완료
+- 타입 오류: 기존 pre-existing 오류만 존재, 신규 없음
+- exec plan → completed 이동 완료
+
+### 다음 할 일 (있다면)
+- 실제 브라우저 테스트: 2개 노드 선택 → [IMAGE] → 사이드바 열림 확인
+- 생성 후 Image 노드가 캔버스에 정상 표시되는지 확인
+- Swap 버튼 작동 확인 (사이드바 내 SketchToImagePanel)

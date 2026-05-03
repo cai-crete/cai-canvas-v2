@@ -217,6 +217,14 @@ export default function CanvasPage() {
   const [activeSidebarNodeType, setActiveSidebarNodeType] = useState<NodeType | null>(null);
   const [printDraftState,       setPrintDraftState]       = useState<PrintDraftState | null>(null);
 
+  /* ── image 다중 소스 사이드바 상태 ──────────────────────────────── */
+  const [imageMultiSourceInputImages,  setImageMultiSourceInputImages]  = useState<(SelectedImage | null)[]>([]);
+  const [imageMultiSourceSourceIds,    setImageMultiSourceSourceIds]    = useState<string[]>([]);
+  const [imageMultiSourceSettings,     setImageMultiSourceSettings]     = useState<SketchPanelSettings>({
+    prompt: '', mode: 'CONCEPT', style: 'NONE', aspectRatio: '4:3', resolution: 'NORMAL QUALITY',
+  });
+  const [imageMultiSourceError,        setImageMultiSourceError]        = useState<string | null>(null);
+
   /* ── 브라우저 이탈 방어 (생성 중) ─────────────────────────────────── */
   useEffect(() => {
     if (!isGenerating) return;
@@ -904,16 +912,8 @@ export default function CanvasPage() {
         .filter((n): n is CanvasNode => !!n && (n.artboardType === 'image' || n.artboardType === 'sketch' || n.type === 'sketch'));
 
       if (sketchInputNodes.length >= 2) {
-        const isSketchArtboard = (n: CanvasNode) =>
-          n.artboardType === 'sketch' || !!n.sketchPaths || !!n.sketchData;
-
-        const elevNode = sketchInputNodes.find(isSketchArtboard);
-        const planNode = sketchInputNodes.find(n => !isSketchArtboard(n));
-
-        const slot0 = planNode ?? sketchInputNodes[0];  // 평면도
-        const slot1 = (elevNode && elevNode.id !== slot0.id)  // 입면도 (slot0과 다른 노드 보장)
-          ? elevNode
-          : sketchInputNodes.find(n => n.id !== slot0.id) ?? sketchInputNodes[1];
+        const slot0 = sketchInputNodes[0];  // 평면도 (선택 순서 첫 번째)
+        const slot1 = sketchInputNodes[1];  // 입면도 (선택 순서 두 번째)
 
         const getNodeBase64 = (n: CanvasNode) =>
           n.generatedImageData ?? n.sketchData ?? n.thumbnailData;
@@ -923,43 +923,17 @@ export default function CanvasPage() {
           return raw ? nodeImageToSelectedImage(raw, n.id) : null;
         };
 
-        const sketchInputImages: (SelectedImage | null)[] = [
+        const inputImages: (SelectedImage | null)[] = [
           toSelectedImage(slot0),
           toSelectedImage(slot1),
         ];
 
-        const currentNodes = nodes;
-        const currentEdges = edgesRef.current;
-        const num = currentNodes.filter(n => n.type === 'image').length + 1;
-        const newId = generateId();
-        const { position, pushdowns } = placeNewChild(slot0.id, currentNodes, currentEdges);
-
-        const imageNode: CanvasNode = {
-          id: newId, type: 'image',
-          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
-          position, instanceNumber: num, hasThumbnail: false,
-          artboardType: 'sketch',
-          parentId: slot0.id, autoPlaced: true,
-          sketchInputImages,
-          isPendingGeneration: true,
-          ...nodeOrchestratorInit('image'),
-        };
-
-        let nextNodes = [...currentNodes, imageNode];
-        if (pushdowns.size > 0) {
-          nextNodes = nextNodes.map(n => {
-            const np = pushdowns.get(n.id);
-            return np ? { ...n, position: np } : n;
-          });
-        }
-
-        const newEdges: CanvasEdge[] = sketchInputNodes.map(srcNode => ({
-          id: generateId(), sourceId: srcNode.id, targetId: newId,
-        }));
-
-        pushHistory(nextNodes, [...currentEdges, ...newEdges]);
-        setExpandedNodeId(newId);
-        setActiveSidebarNodeType(null);
+        /* 다중 소스: ExpandedView 대신 사이드바 전용 모드 진입 */
+        setImageMultiSourceInputImages(inputImages);
+        setImageMultiSourceSourceIds(sketchInputNodes.map(n => n.id));
+        setImageMultiSourceSettings({ prompt: '', mode: 'CONCEPT', style: 'NONE', aspectRatio: '4:3', resolution: 'NORMAL QUALITY' });
+        setImageMultiSourceError(null);
+        setActiveSidebarNodeType('image');
         return;
       }
     }
@@ -1076,8 +1050,14 @@ export default function CanvasPage() {
       createAndExpandNode(type);
       return;
     }
+    /* image 다중 소스 사이드바 닫힐 때 상태 정리 */
+    if (type === 'image' && activeSidebarNodeType === 'image' && imageMultiSourceSourceIds.length > 0) {
+      setImageMultiSourceInputImages([]);
+      setImageMultiSourceSourceIds([]);
+      setImageMultiSourceError(null);
+    }
     setActiveSidebarNodeType(prev => prev === type ? null : type);
-  }, [selectedNodeId, selectedNodeIds, nodes, pushHistory, createAndExpandNode, createChildNode, showToast]);
+  }, [selectedNodeId, selectedNodeIds, nodes, pushHistory, createAndExpandNode, createChildNode, showToast, activeSidebarNodeType, imageMultiSourceSourceIds]);
 
   /* ── "→" 버튼: 사이드바 패널에서 expand 진입 ──────────────────────── */
   const handleNavigateToExpand = useCallback((type: NodeType) => {
@@ -1393,6 +1373,106 @@ export default function CanvasPage() {
     }
   }, [selectedNodeId, nodes, pushHistory, showToast]);
 
+  /* ── image 다중 소스 GENERATE ───────────────────────────────────── */
+  const handleGenerateSketchToImage = useCallback(async () => {
+    const validSources = imageMultiSourceInputImages.filter((img): img is SelectedImage => img !== null);
+    if (validSources.length < 2) return;
+
+    const abortCtrl = new AbortController();
+    abortControllerRef.current = abortCtrl;
+    setGeneratingLabel('IMAGE GENERATING');
+    setIsGenerating(true);
+    setImageMultiSourceError(null);
+
+    try {
+      const INPUT_MAX_BYTES = 1 * 1024 * 1024;
+      const compressed = await Promise.all(
+        validSources.map(img => compressImageBase64(img.base64, img.mimeType, INPUT_MAX_BYTES))
+      );
+
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch('/api/sketch-to-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          user_prompt:  imageMultiSourceSettings.prompt  ?? '',
+          viz_mode:     imageMultiSourceSettings.mode    ?? 'CONCEPT',
+          style_mode:   imageMultiSourceSettings.style   ?? 'NONE',
+          aspect_ratio: imageMultiSourceSettings.aspectRatio ?? '4:3',
+          resolution:   imageMultiSourceSettings.resolution  ?? 'NORMAL QUALITY',
+          input_sources: validSources.map((img, idx) => ({
+            id:        img.id,
+            data:      compressed[idx].base64,
+            mime_type: compressed[idx].mimeType,
+            role:      ['평면도', '입면도'][idx] ?? `소스 ${idx + 1}`,
+          })),
+        }),
+        signal: abortCtrl.signal,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? `API 오류: ${res.status}`);
+      }
+
+      const data = await res.json() as {
+        generated_image: string;
+        analysis_report?: import('@/types/canvas').MultiSourceAnalysisReport;
+      };
+
+      setNodes(prev => {
+        const num        = prev.filter(n => n.type === 'image').length + 1;
+        const parentId   = imageMultiSourceSourceIds[0];
+        const { position, pushdowns } = placeNewChild(parentId, prev, edgesRef.current);
+
+        const newNode: CanvasNode = {
+          id: generateId(),
+          type: 'image',
+          artboardType: 'image',
+          title: `${NODE_DEFINITIONS['image'].caption} #${num}`,
+          position,
+          instanceNumber: num,
+          hasThumbnail: true,
+          thumbnailData: data.generated_image,
+          generatedImageData: data.generated_image,
+          sketchInputImages: imageMultiSourceInputImages,
+          parentId,
+          autoPlaced: true,
+          ...(data.analysis_report ? { multiSourceAnalysisReport: data.analysis_report } : {}),
+          ...nodeOrchestratorInit('image'),
+        };
+
+        let nextNodes = [...prev, newNode];
+        if (pushdowns.size > 0) {
+          nextNodes = nextNodes.map(n => {
+            const np = pushdowns.get(n.id);
+            return np ? { ...n, position: np } : n;
+          });
+        }
+
+        const newEdges: CanvasEdge[] = imageMultiSourceSourceIds.map(srcId => ({
+          id: generateId(), sourceId: srcId, targetId: newNode.id,
+        }));
+        pushHistory(nextNodes, [...edgesRef.current, ...newEdges]);
+        return nextNodes;
+      });
+
+      setImageMultiSourceInputImages([]);
+      setImageMultiSourceSourceIds([]);
+      setActiveSidebarNodeType(null);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const msg = err instanceof Error ? err.message : '생성 실패';
+      setImageMultiSourceError(msg);
+    } finally {
+      setIsGenerating(false);
+      abortControllerRef.current = null;
+    }
+  }, [imageMultiSourceInputImages, imageMultiSourceSourceIds, imageMultiSourceSettings, pushHistory]);
+
   /* ── 확장 뷰 ─────────────────────────────────────────────────────── */
   const expandedNode = expandedNodeId ? nodes.find(n => n.id === expandedNodeId) ?? null : null;
 
@@ -1607,6 +1687,15 @@ export default function CanvasPage() {
             plannerMessages={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.plannerMessages : undefined}
             printSavedState={selectedNodeId ? nodes.find(n => n.id === selectedNodeId)?.printSavedState : undefined}
             onPrintAction={handlePrintSidebarAction}
+            imageMultiSourceMode={imageMultiSourceSourceIds.length >= 2}
+            imageInputImages={imageMultiSourceInputImages}
+            onImageInputImagesChange={setImageMultiSourceInputImages}
+            imagePanelSettings={imageMultiSourceSettings}
+            onImagePanelSettingsChange={setImageMultiSourceSettings}
+            onImageGenerate={handleGenerateSketchToImage}
+            isImageGenerating={isGenerating}
+            imageAnalysisReport={undefined}
+            imageGenerationError={imageMultiSourceError}
           />
         </div>
       )}

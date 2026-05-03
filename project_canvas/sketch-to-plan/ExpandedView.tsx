@@ -322,6 +322,7 @@ export default function SketchToPlanExpandedView({
           removeWhiteOnUpload
           fitOnUpload
           referenceImageUrl={refImage ?? undefined}
+          gridModule={GRID_MODULES[gridModIdx]}
         />
       </div>
 

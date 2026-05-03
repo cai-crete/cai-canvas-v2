@@ -66,6 +66,7 @@ interface Props {
   removeWhiteOnUpload?: boolean;
   fitOnUpload?: boolean;
   referenceImageUrl?: string;
+  gridModule?: number; // mm 단위, 예: 8000 → 그리드 스케일 표시용
 }
 
 /* ── Stroke widths ──────────────────────────────────────────────── */
@@ -163,6 +164,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     removeWhiteOnUpload = false,
     fitOnUpload = false,
     referenceImageUrl,
+    gridModule,
   },
   ref
 ) {
@@ -1255,7 +1257,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
 
       {/* z=2 Grid */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
-        <InfiniteGrid zoom={internalZoom} offset={internalOffset} />
+        <InfiniteGrid zoom={internalZoom} offset={internalOffset} gridModule={gridModule} />
       </div>
 
       {/* z=3 드로잉 캔버스 */}

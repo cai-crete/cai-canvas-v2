@@ -5,11 +5,12 @@ import {
   NodeType, NODE_DEFINITIONS, NODE_ORDER, ArtboardType,
   ARTBOARD_COMPATIBLE_NODES, NODES_NAVIGATE_DISABLED,
   PANEL_CTA_MESSAGE, DISABLED_TAB_MESSAGE, ViewpointPanelSettings, PlannerMessage,
-  ViewpointAnalysisReport,
+  ViewpointAnalysisReport, SketchPanelSettings, MultiSourceAnalysisReport,
 } from '@/types/canvas';
 import ChangeViewpointPanel from '@/components/panels/ChangeViewpointPanel';
+import SketchToImagePanel from '@/components/panels/SketchToImagePanel';
 import { PrintCanvasSidebarPanel } from '@cai-crete/print-components';
-import type { PrintSavedState, PrintDraftState } from '@cai-crete/print-components';
+import type { PrintSavedState, PrintDraftState, SelectedImage } from '@cai-crete/print-components';
 
 interface Props {
   activeSidebarNodeType: NodeType | null;
@@ -30,6 +31,16 @@ interface Props {
   // print 전용
   printSavedState?: PrintSavedState;
   onPrintAction?: (action: 'generate' | 'export' | 'saves', draft: PrintDraftState) => void;
+  // image 다중 소스 전용
+  imageMultiSourceMode?: boolean;
+  imageInputImages?: (SelectedImage | null)[];
+  onImageInputImagesChange?: (imgs: (SelectedImage | null)[]) => void;
+  imagePanelSettings?: SketchPanelSettings;
+  onImagePanelSettingsChange?: (s: SketchPanelSettings) => void;
+  onImageGenerate?: () => void;
+  isImageGenerating?: boolean;
+  imageAnalysisReport?: MultiSourceAnalysisReport;
+  imageGenerationError?: string | null;
 }
 
 const IC = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -163,6 +174,11 @@ export default function RightSidebar({
   viewpointReport,
   plannerMessages,
   printSavedState, onPrintAction,
+  imageMultiSourceMode,
+  imageInputImages, onImageInputImagesChange,
+  imagePanelSettings, onImagePanelSettingsChange,
+  onImageGenerate, isImageGenerating,
+  imageAnalysisReport, imageGenerationError,
 }: Props) {
   const [accordionOpen, setAccordionOpen] = useState(true);
 
@@ -232,16 +248,17 @@ export default function RightSidebar({
      PANEL 모드 — 탭 클릭으로 패널 열린 상태
   ══════════════════════════════════════════════════════════════ */
   if (isPanelMode) {
-    const isViewpoint = activeSidebarNodeType === 'viewpoint';
-    const isPlanners  = activeSidebarNodeType === 'planners';
-    const isPrint     = activeSidebarNodeType === 'print';
+    const isViewpoint        = activeSidebarNodeType === 'viewpoint';
+    const isPlanners         = activeSidebarNodeType === 'planners';
+    const isPrint            = activeSidebarNodeType === 'print';
+    const isImageMultiSource = activeSidebarNodeType === 'image' && !!imageMultiSourceMode;
 
     return (
       <div style={{ ...area, overflowY: 'hidden' }}>
         {/* 헤더 행 */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch', flexShrink: 0 }}>
-          {/* viewpoint는 ExpandedView 없으므로 navigate 버튼 생략 */}
-          {!isViewpoint && (
+          {/* viewpoint·imageMultiSource는 ExpandedView 없으므로 navigate 버튼 생략 */}
+          {!isViewpoint && !isImageMultiSource && (
             <div style={{ ...pill(), width: 'var(--h-cta-lg)', height: 'var(--h-cta-lg)' }}>
               <button
                 onClick={() => onNavigateToExpand(activeSidebarNodeType!)}
@@ -311,6 +328,25 @@ export default function RightSidebar({
                 }
                 onViewpointGenerate?.();
               }}
+            />
+          ) : isImageMultiSource ? (
+            <SketchToImagePanel
+              isGenerating={isImageGenerating ?? false}
+              error={imageGenerationError ?? null}
+              sketchPrompt={imagePanelSettings?.prompt ?? ''}
+              setSketchPrompt={v => onImagePanelSettingsChange?.({ ...imagePanelSettings, prompt: v, mode: imagePanelSettings?.mode ?? 'CONCEPT', style: imagePanelSettings?.style ?? 'NONE', aspectRatio: imagePanelSettings?.aspectRatio ?? '4:3', resolution: imagePanelSettings?.resolution ?? 'NORMAL QUALITY' })}
+              sketchMode={imagePanelSettings?.mode ?? 'CONCEPT'}
+              setSketchMode={v => onImagePanelSettingsChange?.({ ...imagePanelSettings, prompt: imagePanelSettings?.prompt ?? '', mode: typeof v === 'function' ? v(imagePanelSettings?.mode ?? 'CONCEPT') : v, style: imagePanelSettings?.style ?? 'NONE', aspectRatio: imagePanelSettings?.aspectRatio ?? '4:3', resolution: imagePanelSettings?.resolution ?? 'NORMAL QUALITY' })}
+              sketchStyle={imagePanelSettings?.style ?? 'NONE'}
+              setSketchStyle={v => onImagePanelSettingsChange?.({ ...imagePanelSettings, prompt: imagePanelSettings?.prompt ?? '', mode: imagePanelSettings?.mode ?? 'CONCEPT', style: typeof v === 'function' ? v(imagePanelSettings?.style ?? 'NONE') : v, aspectRatio: imagePanelSettings?.aspectRatio ?? '4:3', resolution: imagePanelSettings?.resolution ?? 'NORMAL QUALITY' })}
+              aspectRatio={imagePanelSettings?.aspectRatio ?? '4:3'}
+              setAspectRatio={v => onImagePanelSettingsChange?.({ ...imagePanelSettings, prompt: imagePanelSettings?.prompt ?? '', mode: imagePanelSettings?.mode ?? 'CONCEPT', style: imagePanelSettings?.style ?? 'NONE', aspectRatio: typeof v === 'function' ? v(imagePanelSettings?.aspectRatio ?? '4:3') : v, resolution: imagePanelSettings?.resolution ?? 'NORMAL QUALITY' })}
+              resolution={imagePanelSettings?.resolution ?? 'NORMAL QUALITY'}
+              setResolution={v => onImagePanelSettingsChange?.({ ...imagePanelSettings, prompt: imagePanelSettings?.prompt ?? '', mode: imagePanelSettings?.mode ?? 'CONCEPT', style: imagePanelSettings?.style ?? 'NONE', aspectRatio: imagePanelSettings?.aspectRatio ?? '4:3', resolution: typeof v === 'function' ? v(imagePanelSettings?.resolution ?? 'NORMAL QUALITY') : v })}
+              onGenerate={onImageGenerate ?? (() => {})}
+              inputImages={imageInputImages}
+              onInputImagesChange={onImageInputImagesChange}
+              analysisReport={imageAnalysisReport}
             />
           ) : isPlanners ? (
             <PlannerReportPanel messages={plannerMessages ?? []} />
