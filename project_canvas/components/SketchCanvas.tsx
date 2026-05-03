@@ -139,6 +139,27 @@ function renderDrawingLayer(
   return off;
 }
 
+/* ── Major grid overlay for exports (matches InfiniteGrid's major cell) ── */
+function drawMajorGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number, height: number,
+  ox: number, oy: number, zs: number,
+) {
+  const majorPx = 60 * zs; // InfiniteGrid: minor=12*zs, major=minor*5=60*zs
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  const startX = ((ox % majorPx) + majorPx) % majorPx;
+  for (let x = startX; x <= width; x += majorPx) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+  }
+  const startY = ((oy % majorPx) + majorPx) % majorPx;
+  for (let y = startY; y <= height; y += majorPx) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /* ── Hit test: point in rotated rect (world coords) ─────────────── */
 function isPointInRotatedRect(
   px: number, py: number,
@@ -949,6 +970,8 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     ctx.drawImage(imgEl, -ct.width * expZs / 2, -ct.height * expZs / 2, ct.width * expZs, ct.height * expZs);
     ctx.restore();
 
+    if (gridModule) drawMajorGrid(ctx, offscreen.width, offscreen.height, expOx, expOy, expZs);
+
     ctx.drawImage(
       renderDrawingLayer(pathsRef.current, canvas.width, canvas.height, expOx, expOy, expZs),
       0, 0,
@@ -966,7 +989,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     ctx.restore();
 
     return offscreen.toDataURL('image/png').split(',')[1];
-  }, [exportAsBase64, textItems]);
+  }, [exportAsBase64, textItems, gridModule]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
   /* ── exportStrokesOnly: 배경 이미지 제외, 스트로크+텍스트만 export ── */
@@ -992,6 +1015,8 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const expOx = internalOffset.x + canvas.width  / 2;
     const expOy = internalOffset.y + canvas.height / 2;
 
+    if (gridModule) drawMajorGrid(ctx, offscreen.width, offscreen.height, expOx, expOy, expZs);
+
     ctx.drawImage(
       renderDrawingLayer(pathsRef.current, canvas.width, canvas.height, expOx, expOy, expZs),
       0, 0,
@@ -1009,7 +1034,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     ctx.restore();
 
     return offscreen.toDataURL('image/png').split(',')[1];
-  }, [editingTextId, textItems, internalZoom, internalOffset]);
+  }, [editingTextId, textItems, internalZoom, internalOffset, gridModule]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
   useImperativeHandle(ref, () => ({

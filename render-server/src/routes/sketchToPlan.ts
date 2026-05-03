@@ -133,8 +133,14 @@ router.post('/', async (req, res) => {
       '스케치 이미지를 분석하여 위상적 평면 데이터로 변환하세요.',
       '',
       `건물 용도: ${floor_type}`,
-      `구조 그리드 모듈: ${grid_module}mm (스케치 캔버스의 메이저 그리드 1셀 = ${grid_module}mm)`,
+      `구조 그리드 모듈: ${grid_module}mm (스케치 이미지의 메이저 그리드 1셀 = ${grid_module}mm)`,
       `사용자 요청: ${user_prompt || '(없음)'}`,
+      '',
+      '⚠️ building_footprint 추출 규칙 (최우선):',
+      '- building_footprint는 반드시 스케치 스트로크의 최외곽에서만 추출합니다.',
+      '- 지적도(IMAGE_1)의 대지 경계 폴리곤을 building_footprint로 사용하는 것을 절대 금합니다.',
+      '- 스케치에 닫힌 폴리곤이 있으면 그것이 외벽, 없으면 버블 합집합 외곽이 외벽입니다.',
+      '- 메이저 그리드 선을 측정 기준으로 사용하여 스케치 스트로크의 실제 치수를 추출하세요.',
       '',
       '4단계 보정 위계 프로토콜(Hierarchy 0→3)을 순서대로 실행하고,',
       '최종 SPATIAL_SPEC JSON 블록을 출력하세요.',
@@ -168,10 +174,15 @@ router.post('/', async (req, res) => {
   let roomAnalysisText = '';
   try {
     const generationPrompt = [
-      cadastralContext,
       'TEMPLATE-A 스타일의 미니멀리스트 CAD 평면도를 생성하세요.',
       '',
-      'spatial-spec (위상 분석 결과):',
+      '⚠️ 출력 필수 규칙:',
+      '- 순수 흰색(#ffffff) 배경의 건축 평면도만 생성하세요.',
+      '- 지적도·대지 경계선·배경 핑크/컬러 등을 출력에 절대 포함하지 마세요.',
+      '- 건물 외벽 형태는 아래 spatial-spec의 building_footprint를 정확히 따르세요.',
+      '  (스케치 이미지의 최외곽 폴리곤 = 건물 외벽. 대지 경계와 혼동하지 마세요.)',
+      '',
+      'spatial-spec (위상 분석 결과 — 이 스펙이 생성의 단일 권위 기준):',
       JSON.stringify(analysisSpec, null, 2),
       '',
       '렌더링 규칙:',
@@ -179,7 +190,7 @@ router.post('/', async (req, res) => {
       '- 내력벽: 두껍고 검은 솔리드 해치 / 비내력벽: 얇게',
       '- 개구부 천공(문·창), 문 열림 궤적(Arc)',
       '- 실명 텍스트 + 하단 그래픽 스케일 바 표기',
-      `- 그리드 모듈: ${grid_module}mm 기준`,
+      `- 그리드 모듈: ${grid_module}mm 기준 (스케치 이미지의 메이저 그리드 1셀 = ${grid_module}mm)`,
       '',
       '생성 완료 후 각 실의 면적과 비율 등 공간 분석 요약(ROOM ANALYSIS)을 텍스트로 출력하세요.',
     ].join('\n');
@@ -188,7 +199,7 @@ router.post('/', async (req, res) => {
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt, responseModalities: ['IMAGE', 'TEXT'] },
-        contents: [{ role: 'user', parts: [...imageParts, { text: generationPrompt }] }],
+        contents: [{ role: 'user', parts: [sketchPart, { text: generationPrompt }] }],
       }).then(r => {
         const parts = r.candidates?.[0]?.content?.parts ?? [];
         const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>

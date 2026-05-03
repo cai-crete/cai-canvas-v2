@@ -1,0 +1,39 @@
+## 작업 완료: Sketch-to-Plan 지적도 왜곡 / 그리드 모듈 미작동 수정
+
+### 완료된 작업
+
+#### Fix A: SketchCanvas.tsx — export에 major 그리드 라인 추가
+- `drawMajorGrid()` 헬퍼 함수 추가 (renderDrawingLayer 바로 아래)
+  - major 셀 = `60 * expZs` px (InfiniteGrid와 동일 계산식)
+  - rgba(0,0,0,0.18) 연한 선 → 스트로크 인식 방해 없음
+- `exportStrokesOnly`: 흰 배경 후, 스트로크 전에 그리드 삽입
+  - dependency에 `gridModule` 추가
+- `exportComposite`: 지적도 draw 후, 스트로크 전에 그리드 삽입
+  - dependency에 `gridModule` 추가
+- 효과: AI가 export 이미지에서 메이저 그리드 선을 시각적으로 볼 수 있어 "1셀 = Xmm" 기반 치수 측정 가능
+
+#### Fix B+C: sketchToPlan.ts — Phase 2 수정
+- Phase 2 이미지 파트: `[...imageParts, ...]` → `[sketchPart, ...]`
+  - Phase 2에서 cadastral/composite 이미지 완전 제거
+  - Phase 1 SPATIAL_SPEC에 이미 모든 공간 정보 추출됨 → Phase 2는 sketch만 필요
+- Phase 2 generationPrompt:
+  - `cadastralContext` 제거
+  - "순수 흰색 배경, 지적도 재현 금지, 건물 외벽은 building_footprint 준수" 명시
+  - spatial-spec을 "단일 권위 기준"으로 명시
+
+#### Fix D: sketchToPlan.ts — Phase 1 analysisPrompt 강화
+- building_footprint 추출 최우선 규칙 4줄 추가:
+  1. 스케치 스트로크 최외곽에서만 추출
+  2. 지적도(IMAGE_1) 대지 경계 사용 절대 금지
+  3. 닫힌 폴리곤 = 외벽, 없으면 버블 합집합
+  4. 메이저 그리드 선을 측정 기준으로 사용
+
+### 수정 파일
+- `project_canvas/components/SketchCanvas.tsx`
+- `render-server/src/routes/sketchToPlan.ts`
+
+### 다음 작업
+- 배포 후 실제 생성 결과 확인 필요:
+  1. 생성된 평면도가 순수 흰색 배경인지 (지적도 핑크 배경 없어야 함)
+  2. 건물 외벽이 스케치 폴리곤을 따라가는지 (지적도 대지 경계가 아닌)
+  3. 그리드 기반 치수가 더 정확해졌는지
