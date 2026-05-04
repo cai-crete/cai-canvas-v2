@@ -1,0 +1,15 @@
+## 작업 요약
+@supabase/ssr 패키지 미설치로 인한 빌드 에러 수정
+
+## 완료 내용
+- 원인 파악: node_modules/@supabase/ 디렉토리가 비어 있어 빌드 에러 발생
+- 문제: @cai-crete/print-components가 GitHub Packages 인증(NPM_TOKEN)을 요구해 일반 npm install 차단
+- 해결: package.json에서 @cai-crete/print-components를 임시 제외 후 npm install 실행, 설치 완료 후 복원
+- 결과: @supabase/ssr, @supabase/supabase-js 등 모든 supabase 패키지 정상 설치 확인
+
+## 참고 사항
+- NPM_TOKEN 환경변수 미설정 시 @cai-crete/print-components 재설치 불가
+- project_canvas/.npmrc에 `@cai-crete:registry=https://npm.pkg.github.com` 설정되어 있음
+
+## 다음 작업
+- 브라우저에서 localhost:3900 빌드 에러 해소 확인

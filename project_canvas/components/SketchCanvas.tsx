@@ -1015,8 +1015,6 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     const expOx = internalOffset.x + canvas.width  / 2;
     const expOy = internalOffset.y + canvas.height / 2;
 
-    if (gridModule) drawMajorGrid(ctx, offscreen.width, offscreen.height, expOx, expOy, expZs);
-
     ctx.drawImage(
       renderDrawingLayer(pathsRef.current, canvas.width, canvas.height, expOx, expOy, expZs),
       0, 0,
@@ -1034,7 +1032,7 @@ const SketchCanvas = forwardRef<SketchCanvasHandle, Props>(function SketchCanvas
     ctx.restore();
 
     return offscreen.toDataURL('image/png').split(',')[1];
-  }, [editingTextId, textItems, internalZoom, internalOffset, gridModule]);
+  }, [editingTextId, textItems, internalZoom, internalOffset]);
 
   /* ── Imperative handle ──────────────────────────────────────────── */
   useImperativeHandle(ref, () => ({

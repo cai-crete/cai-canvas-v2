@@ -174,32 +174,37 @@ router.post('/', async (req, res) => {
   let roomAnalysisText = '';
   try {
     const generationPrompt = [
+      cadastralContext,
       'TEMPLATE-A 스타일의 미니멀리스트 CAD 평면도를 생성하세요.',
       '',
       '⚠️ 출력 필수 규칙:',
-      '- 순수 흰색(#ffffff) 배경의 건축 평면도만 생성하세요.',
-      '- 지적도·대지 경계선·배경 핑크/컬러 등을 출력에 절대 포함하지 마세요.',
+      cadastralPart
+        ? '- 지적도(IMAGE_1)를 배경으로 렌더링하고, 그 위에 건물 평면도를 배치하세요.'
+        : '- 순수 흰색(#ffffff) 배경의 건축 평면도를 생성하세요.',
       '- 건물 외벽 형태는 아래 spatial-spec의 building_footprint를 정확히 따르세요.',
-      '  (스케치 이미지의 최외곽 폴리곤 = 건물 외벽. 대지 경계와 혼동하지 마세요.)',
+      '  (대지 경계 형태와 혼동하지 마세요. 건물 외벽 ≠ 대지 경계선)',
+      cadastralPart
+        ? '- 건물의 지적도 내 위치는 IMAGE_2(합성본)의 스케치 위치를 기준으로 하세요.'
+        : '',
       '',
-      'spatial-spec (위상 분석 결과 — 이 스펙이 생성의 단일 권위 기준):',
+      'spatial-spec (위상 분석 결과 — building_footprint 좌표가 건물 외벽의 단일 권위 기준):',
       JSON.stringify(analysisSpec, null, 2),
       '',
       '렌더링 규칙:',
-      '- Monochrome(흑백), Solid Poche, Pure White 배경',
+      '- Monochrome(흑백), Solid Poche',
       '- 내력벽: 두껍고 검은 솔리드 해치 / 비내력벽: 얇게',
       '- 개구부 천공(문·창), 문 열림 궤적(Arc)',
       '- 실명 텍스트 + 하단 그래픽 스케일 바 표기',
-      `- 그리드 모듈: ${grid_module}mm 기준 (스케치 이미지의 메이저 그리드 1셀 = ${grid_module}mm)`,
+      `- 그리드 모듈: ${grid_module}mm 기준`,
       '',
       '생성 완료 후 각 실의 면적과 비율 등 공간 분석 요약(ROOM ANALYSIS)을 텍스트로 출력하세요.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const makeGenerationCall = (model: string) => () => Promise.race([
       ai.models.generateContent({
         model,
         config: { systemInstruction: systemPrompt, responseModalities: ['IMAGE', 'TEXT'] },
-        contents: [{ role: 'user', parts: [sketchPart, { text: generationPrompt }] }],
+        contents: [{ role: 'user', parts: [...imageParts, { text: generationPrompt }] }],
       }).then(r => {
         const parts = r.candidates?.[0]?.content?.parts ?? [];
         const imgPart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) =>
